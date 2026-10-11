@@ -1111,6 +1111,12 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "n3ds_touch_speed", dsda_config_n3ds_touch_speed,
     dsda_config_int, 1, 10, { 4 }
   },
+  // Run: while the button is held (0), press it once to run until stopping
+  // (1), or also with the Circle Pad fully pushed (2).
+  [dsda_config_n3ds_run_mode] = {
+    "n3ds_run_mode", dsda_config_n3ds_run_mode,
+    dsda_config_int, 0, 2, { 0 }
+  },
   // Turned on in the menu: puts the default buttons back, and goes off.
   [dsda_config_n3ds_reset_buttons] = {
     "n3ds_reset_buttons", dsda_config_n3ds_reset_buttons,

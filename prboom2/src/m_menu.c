@@ -3449,6 +3449,14 @@ static void M_Automap(int choice)
 
 #define N3DS_X 200
 
+static const char *n3ds_run_modes[] =
+{
+  "Hold the Button",
+  "Press Once",
+  "Circle Pad Pushed",
+  NULL
+};
+
 setup_menu_t n3ds_main_settings[] =
 {
   { "Bottom Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
@@ -3461,6 +3469,7 @@ setup_menu_t n3ds_main_settings[] =
   { "Touch Turning Speed", S_THERMO, m_conf, N3DS_X, dsda_config_n3ds_touch_speed },
   EMPTY_LINE,
   { "Buttons", S_SKIP | S_TITLE, m_null, N3DS_X },
+  { "Run", S_CHOICE, m_conf, N3DS_X, dsda_config_n3ds_run_mode, 0, n3ds_run_modes },
   { "Always Run", S_YESNO, m_conf, N3DS_X, dsda_config_autorun },
   { "Restore the Default Buttons", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_reset_buttons },
   { "Change them: Key Bindings > 3DS", S_SKIP | S_TITLE, m_null, N3DS_X },

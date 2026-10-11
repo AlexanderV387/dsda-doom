@@ -20,6 +20,10 @@ void N3DS_InitGame(void);
 // buttons, touch turning).
 void N3DS_StartTic(void);
 
+// Once per tic, with the run button's state: whether the player runs, by
+// the run mode (n3ds_run_mode).
+dboolean N3DS_UpdateRunning(dboolean run_button);
+
 // Opens or closes the keyboard on the bottom screen.
 void N3DS_ShowKeyboard(dboolean show);
 

@@ -315,6 +315,7 @@ typedef enum {
   dsda_config_n3ds_touch_turn,
   dsda_config_n3ds_touch_speed,
   dsda_config_n3ds_reset_buttons,
+  dsda_config_n3ds_run_mode,
 #endif
   dsda_config_count,
 } dsda_config_identifier_t;

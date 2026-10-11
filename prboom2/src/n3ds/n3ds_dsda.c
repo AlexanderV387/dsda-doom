@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include <SDL.h>
+#include <3ds.h>
 
 #include "doomstat.h"
 #include "d_event.h"
@@ -437,6 +438,52 @@ static void UpdateTouchTurn(int x, int y, dboolean touching, dboolean pressed)
 
   last_x = x;
   last_y = y;
+}
+
+// ==========================================================================
+// Running: while the button is held, press it once (until the player stops
+// moving), or also with the Circle Pad fully pushed.
+
+dboolean N3DS_UpdateRunning(dboolean run_button)
+{
+  static dboolean was_held, toggled, has_moved;
+  const dboolean pressed = run_button && !was_held;
+  circlePosition pad;
+  int length2;
+
+  was_held = run_button;
+  hidCircleRead(&pad);
+  length2 = pad.dx * pad.dx + pad.dy * pad.dy;
+
+  switch (dsda_IntConfig(dsda_config_n3ds_run_mode))
+  {
+    case 1:
+    {
+      // Moving: the Circle Pad, or the D-pad up or down.
+      const dboolean moving = length2 >= 30 * 30
+                           || (hidKeysHeld() & (KEY_DUP | KEY_DDOWN)) != 0;
+
+      if (pressed)
+      {
+        toggled = !toggled;
+        has_moved = false;
+      }
+
+      // Stopping after moving stops running.
+      if (toggled && moving)
+        has_moved = true;
+      else if (toggled && has_moved && !moving)
+        toggled = false;
+
+      return toggled;
+    }
+
+    case 2:
+      return run_button || length2 >= 140 * 140;
+
+    default:
+      return run_button;
+  }
 }
 
 static dboolean InGame(void)

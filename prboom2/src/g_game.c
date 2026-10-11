@@ -49,6 +49,10 @@
 #include "config.h"
 #endif
 
+#ifdef __3DS__
+#include "n3ds/n3ds_dsda.h"
+#endif
+
 #include "doomstat.h"
 #include "d_net.h"
 #include "f_finale.h"
@@ -536,7 +540,12 @@ void G_BuildTiccmd(ticcmd_t* cmd)
 
   strafe = dsda_InputActive(dsda_input_strafe);
   //e6y: the "RUN" key inverts the autorun state
+#ifdef __3DS__
+  // [3DS] The run mode (hold, press once, Circle Pad fully pushed).
+  speed = (N3DS_UpdateRunning(dsda_InputActive(dsda_input_speed)) ? !dsda_AutoRun() : dsda_AutoRun());
+#else
   speed = (dsda_InputActive(dsda_input_speed) ? !dsda_AutoRun() : dsda_AutoRun()); // phares
+#endif
 
   forward = side = 0;
 
