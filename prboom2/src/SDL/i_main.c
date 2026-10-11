@@ -35,10 +35,11 @@
  */
 
 #ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef __3DS__
 #include "n3ds/n3ds.h"
-#endif
-#include "config.h"
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -271,6 +272,11 @@ int main(int argc, char **argv)
 {
 #ifdef __3DS__
   N3DS_Init();
+
+  if (!N3DS_PickGame(&argc, &argv))
+    return 0;
+
+  N3DS_SaveOnSuspend = M_SaveDefaults;
 #endif
 
   dsda_ParseCommandLineArgs(argc, argv);

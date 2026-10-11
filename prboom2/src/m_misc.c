@@ -37,6 +37,10 @@
 #include "config.h"
 #endif
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 #include <stdio.h>
 
 #include "doomstat.h"
@@ -606,7 +610,16 @@ void M_SaveDefaults (void)
   if (forget_config_file)
     return;
 
+#ifdef __3DS__
+  // [3DS] Saved when the HOME Menu opened, and closing from there.
+  if (N3DS_ConfigAlreadySaved())
+    return;
+
+  // Over the old file: creating one on the SD card takes seconds.
+  f = N3DS_OpenRewrite(defaultfile);
+#else
   f = M_OpenFile(defaultfile, "w");
+#endif
   if (!f)
     return; // can't write the file, but don't complain
 
@@ -668,7 +681,11 @@ void M_SaveDefaults (void)
     fprintf(f, "\n");
   }
 
+#ifdef __3DS__
+  N3DS_CloseRewrite(f);
+#else
   fclose (f);
+#endif
 }
 
 //

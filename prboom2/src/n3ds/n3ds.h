@@ -48,6 +48,11 @@ void N3DS_CloseRewrite(FILE *file);
 // The small frame counter on the bottom screen.
 extern int n3ds_show_fps;
 
+// Chooses the game (IWAD) and the mod in the data folder, with a menu on
+// the top screen when there is a choice, and gives them as the command
+// line. Returns false to quit (START, or no game found).
+dboolean N3DS_PickGame(int *argc, char ***argv);
+
 // Shows a fatal error on the top screen until START.
 void N3DS_ShowError(const char *message);
 

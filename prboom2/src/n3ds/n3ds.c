@@ -3,9 +3,11 @@
 // (AlexanderV387/crispy-doom, src/n3ds.c).
 //
 
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -581,4 +583,328 @@ void N3DS_ShowError(const char *message)
 
     gspWaitForVBlank();
   }
+}
+
+// ==========================================================================
+// Game and mod picker, before the game starts, on the top screen's text
+// console: the IWADs in the data folder and the mods (PWADs, DeHackEd
+// patches and zips) in its "mods" folder. Nothing to choose: straight into
+// the game.
+
+static const struct { const char *file, *name, *extra; } iwad_names[] =
+{
+  { "doom.wad",      "The Ultimate Doom" },
+  { "doom1.wad",     "Doom (shareware)" },
+  { "doom2.wad",     "Doom II" },
+  { "doom2f.wad",    "Doom II (French)" },
+  { "plutonia.wad",  "Final Doom: The Plutonia Experiment" },
+  { "tnt.wad",       "Final Doom: TNT: Evilution" },
+  { "freedoom1.wad", "Freedoom: Phase 1" },
+  { "freedoom2.wad", "Freedoom: Phase 2" },
+  { "freedm.wad",    "FreeDM" },
+  { "chex.wad",      "Chex Quest" },
+  { "hacx.wad",      "HACX" },
+  { "rekkrsa.wad",   "REKKR" },
+  { "heretic.wad",   "Heretic" },
+  { "heretic1.wad",  "Heretic (shareware)" },
+  { "hexen.wad",     "Hexen" },
+  // The expansion is a PWAD on top of Hexen.
+  { "hexen.wad",     "Hexen: Deathkings of the Dark Citadel", "hexdd.wad" },
+};
+
+#define MODS_FOLDER "mods"
+#define MAX_MODS 128
+#define LAST_GAME_FILE N3DS_DATA_DIR "/last-game.txt"
+#define VISIBLE_ITEMS 9
+#define TITLE "DSDA-DOOM 3DS"
+
+#define ConsolePrintf(...) (fprintf(console, __VA_ARGS__), fflush(console))
+#define ConsoleClear() ConsolePrintf("\x1b[2J")
+
+static dboolean FileExists(const char *path)
+{
+  struct stat st;
+
+  return stat(path, &st) == 0;
+}
+
+static dboolean IsModFile(const char *name)
+{
+  const char *dot = strrchr(name, '.');
+
+  return dot != NULL && (!strcasecmp(dot, ".wad") || !strcasecmp(dot, ".deh")
+                      || !strcasecmp(dot, ".bex") || !strcasecmp(dot, ".zip"));
+}
+
+static int CompareNames(const void *a, const void *b)
+{
+  return strcasecmp(*(const char *const *) a, *(const char *const *) b);
+}
+
+static int FindMods(char **mods)
+{
+  DIR *dir = opendir(N3DS_DATA_DIR "/" MODS_FOLDER);
+  struct dirent *entry;
+  int count = 0;
+
+  if (dir == NULL)
+    return 0;
+
+  while (count < MAX_MODS && (entry = readdir(dir)) != NULL)
+    if (entry->d_name[0] != '.' && IsModFile(entry->d_name))
+      mods[count++] = strdup(entry->d_name);
+
+  closedir(dir);
+  qsort(mods, count, sizeof(*mods), CompareNames);
+  return count;
+}
+
+// After the menu was left with a button that may still be held: wait for
+// every button to be released before reading the next one.
+static u32 KeysDown(dboolean *released)
+{
+  hidScanInput();
+
+  if (!*released)
+  {
+    *released = hidKeysHeld() == 0;
+    return 0;
+  }
+
+  return hidKeysDown();
+}
+
+// A list on the top screen. Returns the chosen item, -1 for B (back) and
+// -2 for START (quit).
+static int ChooseItem(const char *title, const char *const *items, int count,
+                      int selected, const char *help)
+{
+  dboolean released = false;
+  int drawn = -1, first = 0, i;
+
+  while (aptMainLoop())
+  {
+    const u32 down = KeysDown(&released);
+
+    if (down & (KEY_DOWN | KEY_CPAD_DOWN))
+      selected = (selected + 1) % count;
+    if (down & (KEY_UP | KEY_CPAD_UP))
+      selected = (selected + count - 1) % count;
+    if (down & KEY_A)
+      return selected;
+    if (down & KEY_B)
+      return -1;
+    if (down & KEY_START)
+      return -2;
+
+    if (selected != drawn)
+    {
+      if (selected < first)
+        first = selected;
+      else if (selected >= first + VISIBLE_ITEMS)
+        first = selected - VISIBLE_ITEMS + 1;
+
+      ConsoleClear();
+      ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n  %s\n\n", title);
+      ConsolePrintf("  %s\n", first > 0 ? "  ..." : "");
+
+      for (i = first; i < count && i < first + VISIBLE_ITEMS; ++i)
+        ConsolePrintf(i == selected ? "  \x1b[33m> %.44s\x1b[0m\n\n"
+                                    : "    %.44s\n\n", items[i]);
+
+      ConsolePrintf("  %s\n", i < count ? "  ..." : "");
+      ConsolePrintf("\n  %s\n", help);
+      drawn = selected;
+    }
+
+    gspWaitForVBlank();
+  }
+
+  return -2;
+}
+
+static void ShowNoGame(void)
+{
+  dboolean released = false;
+
+  ConsoleClear();
+  ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n"
+                "  No game data found. Copy an IWAD to\n"
+                "  " N3DS_DATA_DIR "/\n\n"
+                "  doom.wad, doom1.wad (shareware), doom2.wad,\n"
+                "  plutonia.wad, tnt.wad, freedoom1.wad,\n"
+                "  heretic.wad, hexen.wad...\n\n"
+                "  Also dsda-doom.wad (it comes with the game).\n\n"
+                "  Mods (.wad, .deh, .zip) go in\n"
+                "  " N3DS_DATA_DIR "/" MODS_FOLDER "/\n\n"
+                "  START: exit\n");
+
+  while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
+    gspWaitForVBlank();
+}
+
+// Quit in the game: this title opens again, with the picker. Not when the
+// HOME Menu closes it.
+static void BackToPicker(void)
+{
+  if (!N3DS_IsClosing())
+    aptSetChainloaderToSelf();
+}
+
+dboolean N3DS_PickGame(int *argc, char ***argv)
+{
+  enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
+  static char *args[12];
+  const char *games[num_iwads];
+  int game_index[num_iwads];
+  char *mods[MAX_MODS + 1];
+  char last_game[96] = "", last_mod[256] = "";
+  int num_games = 0, num_mods, game = 0, mod = 0, i;
+  dboolean shown = false;
+  FILE *file;
+
+  for (i = 0; i < num_iwads; ++i)
+  {
+    char path[128];
+
+    snprintf(path, sizeof(path), "%s/%s", N3DS_DATA_DIR,
+             iwad_names[i].extra != NULL ? iwad_names[i].extra : iwad_names[i].file);
+
+    if (FileExists(path)
+        && (iwad_names[i].extra == NULL
+            || FileExists(N3DS_DATA_DIR "/hexen.wad")))
+    {
+      games[num_games] = iwad_names[i].name;
+      game_index[num_games++] = i;
+    }
+  }
+
+  // The first item is no mod.
+  mods[0] = "No mod";
+  num_mods = 1 + FindMods(mods + 1);
+
+  // The last choice comes first.
+  file = fopen(LAST_GAME_FILE, "r");
+
+  if (file != NULL)
+  {
+    if (fgets(last_game, sizeof(last_game), file) != NULL)
+      last_game[strcspn(last_game, "\r\n")] = '\0';
+    if (fgets(last_mod, sizeof(last_mod), file) != NULL)
+      last_mod[strcspn(last_mod, "\r\n")] = '\0';
+    fclose(file);
+  }
+
+  for (i = 0; i < num_games; ++i)
+    if (!strcmp(games[i], last_game))
+      game = i;
+  for (i = 1; i < num_mods; ++i)
+    if (!strcasecmp(mods[i], last_mod))
+      mod = i;
+
+  if (num_games == 0 || num_games > 1 || num_mods > 1)
+  {
+    gfxInitDefault();
+    consoleInit(GFX_TOP, NULL);
+    shown = true;
+
+    if (num_games == 0)
+    {
+      ShowNoGame();
+      gfxExit();
+      return false;
+    }
+
+    for (;;)
+    {
+      if (num_games > 1)
+      {
+        game = ChooseItem("Choose a game:", games, num_games, game,
+                          "A: choose  START: exit");
+
+        if (game < 0)
+        {
+          gfxExit();
+          return false;
+        }
+      }
+
+      if (num_mods == 1)
+      {
+        mod = 0;
+        break;
+      }
+
+      mod = ChooseItem(games[game], (const char *const *) mods, num_mods, mod,
+                       num_games > 1 ? "A: start  B: back  START: exit"
+                                     : "A: start  START: exit");
+
+      // B goes back to the games (or stays here, with only one).
+      if (mod == -2)
+      {
+        gfxExit();
+        return false;
+      }
+      if (mod >= 0)
+        break;
+
+      mod = 0;
+    }
+
+    gfxExit(); // SDL sets the screens up again
+  }
+
+  file = N3DS_OpenRewrite(LAST_GAME_FILE);
+
+  if (file != NULL)
+  {
+    fprintf(file, "%s\n%s\n", games[game], mod > 0 ? mods[mod] : "");
+    N3DS_CloseRewrite(file);
+  }
+
+  printf("N3DS_PickGame: %s%s%s\n", games[game], mod > 0 ? " + " : "",
+         mod > 0 ? mods[mod] : "");
+
+  // The program's name, the game, its expansion and the mod.
+  {
+    const int entry = game_index[game];
+
+    i = 0;
+    args[i++] = (*argv)[0];
+    args[i++] = "-iwad";
+    args[i++] = (char *) iwad_names[entry].file;
+
+    if (iwad_names[entry].extra != NULL || mod > 0)
+    {
+      args[i++] = "-file";
+
+      if (iwad_names[entry].extra != NULL)
+        args[i++] = (char *) iwad_names[entry].extra;
+    }
+
+    if (mod > 0)
+    {
+      const char *dot = strrchr(mods[mod], '.');
+      static char mod_path[300];
+
+      snprintf(mod_path, sizeof(mod_path), "%s/%s", MODS_FOLDER, mods[mod]);
+
+      if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
+        args[i++] = "-deh";
+
+      args[i++] = mod_path;
+    }
+  }
+
+  args[i] = NULL;
+  *argc = i;
+  *argv = args;
+
+  // Quit goes back to the picker when there was something to pick and this
+  // is the installed .cia (relaunching a .3dsx would restart the Homebrew
+  // Launcher instead).
+  if (shown && !envIsHomebrew())
+    atexit(BackToPicker);
+
+  return true;
 }

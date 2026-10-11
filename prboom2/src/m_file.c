@@ -42,6 +42,10 @@
 #include "config.h"
 #endif
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -395,11 +399,20 @@ dboolean M_WriteFile(char const *name, const void *source, size_t length)
 
   errno = 0;
 
+#ifdef __3DS__
+  // [3DS] Over the old file: creating one on the SD card takes seconds.
+  if (!(fp = N3DS_OpenRewrite(name)))
+    return 0;
+
+  length = fwrite(source, 1, length, fp) == (size_t)length;
+  N3DS_CloseRewrite(fp);
+#else
   if (!(fp = M_OpenFile(name, "wb")))  // Try opening file
     return 0;                          // Could not open file for writing
 
   length = fwrite(source, 1, length, fp) == (size_t)length;   // Write data
   fclose(fp);
+#endif
 
   if (!length)                         // Remove partially written file
     M_remove(name);

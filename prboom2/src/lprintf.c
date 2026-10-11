@@ -34,10 +34,11 @@
  *-----------------------------------------------------------------------------*/
 
 #ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef __3DS__
 #include "n3ds/n3ds.h"
-#endif
-#include "config.h"
 #endif
 #ifdef _MSC_VER
 #include <io.h>
