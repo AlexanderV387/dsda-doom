@@ -1079,6 +1079,35 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "n3ds_config_version", dsda_config_n3ds_config_version,
     dsda_config_int, 0, 1000, { 0 }
   },
+  // The map on the bottom screen, with the status bar.
+  [dsda_config_n3ds_bottom_map] = {
+    "n3ds_bottom_map", dsda_config_n3ds_bottom_map,
+    CONF_BOOL(1)
+  },
+  // The status bar below the map instead of above it.
+  [dsda_config_n3ds_status_below] = {
+    "n3ds_status_below", dsda_config_n3ds_status_below,
+    CONF_BOOL(0)
+  },
+  // The small frame counter on the bottom screen.
+  [dsda_config_n3ds_show_fps] = {
+    "n3ds_show_fps", dsda_config_n3ds_show_fps,
+    CONF_BOOL(0)
+  },
+  // The bottom screen map's zoom, in percent of the whole level.
+  [dsda_config_n3ds_map_zoom] = {
+    "n3ds_map_zoom", dsda_config_n3ds_map_zoom,
+    dsda_config_int, 25, 800, { 150 }
+  },
+  // Sliding on the bottom screen turns (and looks, with free look).
+  [dsda_config_n3ds_touch_turn] = {
+    "n3ds_touch_turn", dsda_config_n3ds_touch_turn,
+    CONF_BOOL(0)
+  },
+  [dsda_config_n3ds_touch_speed] = {
+    "n3ds_touch_speed", dsda_config_n3ds_touch_speed,
+    dsda_config_int, 1, 10, { 4 }
+  },
 #endif
   [dsda_config_map_blinking_locks] = {
     "map_blinking_locks", dsda_config_map_blinking_locks,

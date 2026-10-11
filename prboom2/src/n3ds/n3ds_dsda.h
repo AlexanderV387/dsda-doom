@@ -16,6 +16,13 @@ extern dboolean n3ds_force_statusbar;
 // Sets up the bottom screen.
 void N3DS_InitGame(void);
 
+// Every tic, with the events: the touch screen (keyboard, the map's
+// buttons, touch turning).
+void N3DS_StartTic(void);
+
+// Opens or closes the keyboard on the bottom screen.
+void N3DS_ShowKeyboard(dboolean show);
+
 #endif
 
 #endif

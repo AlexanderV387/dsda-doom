@@ -174,6 +174,9 @@ static dboolean set_demos_active = false; // in demos setup screen
 static dboolean set_compatibility_active = false;
 static dboolean set_weapon_active = false; // in weapons setup screen
 static dboolean set_auto_active   = false; // in automap setup screen
+#ifdef __3DS__
+static dboolean set_n3ds_active   = false; // [3DS] in the Nintendo 3DS screen
+#endif
 static dboolean level_table_active = false;
 static dboolean setup_select      = false; // changing an item
 static dboolean setup_gather      = false; // gathering keys for value
@@ -306,6 +309,10 @@ static void M_Demos(int);
 static void M_Compatibility(int);
 static void M_Weapons(int);
 static void M_Automap(int);
+#ifdef __3DS__
+static void M_N3DS(int);
+static void M_DrawN3DS(void);
+#endif
 static void M_LevelTable(int);
 static void M_DrawGeneral(void); // killough 10/98
 static void M_DrawKeybnd(void);
@@ -1281,6 +1288,9 @@ enum options_e
   opt_compatibility,
   opt_weapons,
   opt_automap,
+#ifdef __3DS__
+  opt_n3ds,
+#endif
   // opt_soundvol,
   opt_level_table,
   opt_end
@@ -1297,6 +1307,10 @@ static menuitem_t OptionsMenu[]=
   { M_ITEM_ACTION, "M_COMP", M_Compatibility, 'c', "COMPATIBILITY" },
   { M_ITEM_ACTION, "M_WEAP", M_Weapons, 'w', "WEAPONS" },
   { M_ITEM_ACTION, "M_AUTO", M_Automap, 'a', "AUTOMAP" },
+#ifdef __3DS__
+  // [3DS] No graphic for it: its name in text.
+  { M_ITEM_ACTION, "M_N3DS", M_N3DS, 'n', "NINTENDO 3DS", .flags = MENUF_OPTLUMP },
+#endif
   // { M_ITEM_ACTION, "M_SVOL", M_Sound, 's', "SOUND VOLUME" }, only available using the keybind
   { M_ITEM_ACTION, "M_LVLTBL", M_LevelTable, 'l', "LEVEL TABLE" },
 };
@@ -2665,6 +2679,9 @@ static void M_ClearSetupMenuState(void)
   set_compatibility_active = false;
   set_weapon_active = false;
   set_auto_active = false;
+#ifdef __3DS__
+  set_n3ds_active = false;
+#endif
   level_table_active = false;
   M_ClearSetupPageContext();
 }
@@ -3376,6 +3393,69 @@ static void M_Automap(int choice)
   M_EnterSetup(&AutoMapDef, &set_auto_active, auto_settings[0],
                auto_pages, arrlen(auto_pages), auto_settings);
 }
+
+#ifdef __3DS__
+//
+// [3DS] The Nintendo 3DS screen: the bottom screen and the touch screen.
+//
+
+#define N3DS_X 200
+
+setup_menu_t n3ds_main_settings[] =
+{
+  { "Bottom Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
+  { "Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_bottom_map },
+  { "Status Bar Below the Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_status_below },
+  { "Frame Counter", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_show_fps },
+  EMPTY_LINE,
+  { "Touch Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
+  { "Turn with the Touch Screen", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_touch_turn },
+  { "Touch Turning Speed", S_NUM, m_conf, N3DS_X, dsda_config_n3ds_touch_speed },
+  EMPTY_LINE,
+  { "Buttons: Options > Key Bindings", S_SKIP | S_TITLE, m_null, N3DS_X },
+  FINAL_ENTRY
+};
+
+static const char *n3ds_pages[] =
+{
+  "Nintendo 3DS",
+  NULL
+};
+
+setup_menu_t* n3ds_settings[] =
+{
+  n3ds_main_settings,
+  NULL
+};
+
+static menu_t N3DSDef =
+{
+  generic_setup_end,
+  &OptionsDef,
+  Generic_Setup,
+  M_DrawN3DS,
+  34,5,      // skull drawn here
+  0
+};
+
+static void M_N3DS(int choice)
+{
+  M_EnterSetup(&N3DSDef, &set_n3ds_active, n3ds_settings[0],
+               n3ds_pages, arrlen(n3ds_pages), n3ds_settings);
+}
+
+static void M_DrawN3DS(void)
+{
+  M_ChangeMenu(NULL, mnact_full);
+
+  M_DrawBackground(g_menu_flat, 0);
+
+  M_DrawTitle(2, "NINTENDO 3DS", cr_title);
+  M_DrawInstructions();
+  M_DrawSetupTabs(TABS_Y);
+  M_DrawScreenItems(current_setup_menu, DEFAULT_LIST_Y);
+}
+#endif
 
 // Data used by the color palette that is displayed for the player to
 // select colors.
@@ -5575,7 +5655,11 @@ static dboolean M_SetupResponder(int ch, int action, event_t* ev)
       return true;
 
   // killough 10/98: consolidate handling into one place:
-  if (set_general_active || set_demos_active || set_display_active)
+  if (set_general_active || set_demos_active || set_display_active
+#ifdef __3DS__
+      || set_n3ds_active
+#endif
+     )
     if (M_StringResponder(ch, action, ev))
       return true;
 

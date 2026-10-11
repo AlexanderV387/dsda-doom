@@ -223,6 +223,41 @@ static void RestoreBottomBacklight(void)
     SetBottomBacklight(true);
 }
 
+// A tap turns the bottom screen off or on, except while it shows something
+// or the touch screen turns the view; when something appears it turns on
+// by itself.
+void N3DS_UpdateBottomBacklight(dboolean showing, dboolean touch_used)
+{
+  static dboolean was_touching = false;
+  const dboolean touching = (hidKeysHeld() & KEY_TOUCH) != 0;
+
+  if (touching && !was_touching && !touch_used && (!bottom_on || !showing))
+  {
+    bottom_on = !bottom_on;
+    SetBottomBacklight(bottom_on);
+  }
+  else if (showing && !bottom_on)
+  {
+    bottom_on = true;
+    SetBottomBacklight(true);
+  }
+
+  was_touching = touching;
+}
+
+dboolean N3DS_GetTouch(int *x, int *y)
+{
+  touchPosition touch;
+
+  if ((hidKeysHeld() & KEY_TOUCH) == 0)
+    return false;
+
+  hidTouchRead(&touch);
+  *x = touch.px;
+  *y = touch.py;
+  return true;
+}
+
 // ==========================================================================
 // Bottom screen (320x240, rotated like the top one): what the game draws
 // (the status bar), 30 times per second, and the frame counter.
@@ -231,7 +266,7 @@ static void RestoreBottomBacklight(void)
 
 dboolean (*N3DS_DrawBottom)(byte *screen);
 
-int n3ds_show_fps = 1;
+int n3ds_show_fps = 0;
 
 static void FillBottom(u32 *framebuffer, int x, int y, int w, int h, u32 color)
 {

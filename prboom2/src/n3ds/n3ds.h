@@ -53,6 +53,13 @@ dboolean N3DS_ConfigAlreadySaved(void);
 FILE *N3DS_OpenRewrite(const char *path);
 void N3DS_CloseRewrite(FILE *file);
 
+// The touch screen: whether it is touched, and where (bottom screen pixels).
+dboolean N3DS_GetTouch(int *x, int *y);
+
+// Once per frame: a tap turns the bottom screen off or on, unless it shows
+// something (showing) or the touch was used by the game (touch_used).
+void N3DS_UpdateBottomBacklight(dboolean showing, dboolean touch_used);
+
 // The small frame counter on the bottom screen.
 extern int n3ds_show_fps;
 

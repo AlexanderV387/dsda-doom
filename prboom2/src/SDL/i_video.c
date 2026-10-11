@@ -34,6 +34,7 @@
 
 #ifdef __3DS__
 #include "n3ds/n3ds.h"
+#include "n3ds/n3ds_dsda.h"
 #endif
 #include <SDL_render.h>
 #include <SDL_video.h>
@@ -464,6 +465,10 @@ static void I_GetEvent(void)
 void I_StartTic (void)
 {
   I_GetEvent();
+
+#ifdef __3DS__
+  N3DS_StartTic();
+#endif
 
   // Moved here so that playback bar can shrink when mouse is outside window
   UpdatePlaybackMouseTimer();

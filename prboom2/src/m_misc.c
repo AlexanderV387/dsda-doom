@@ -344,6 +344,12 @@ cfg_def_t cfg_defs[] =
   MIGRATED_SETTING(dsda_config_demo_end_quit),
 #ifdef __3DS__
   MIGRATED_SETTING(dsda_config_n3ds_config_version),
+  MIGRATED_SETTING(dsda_config_n3ds_bottom_map),
+  MIGRATED_SETTING(dsda_config_n3ds_status_below),
+  MIGRATED_SETTING(dsda_config_n3ds_show_fps),
+  MIGRATED_SETTING(dsda_config_n3ds_map_zoom),
+  MIGRATED_SETTING(dsda_config_n3ds_touch_turn),
+  MIGRATED_SETTING(dsda_config_n3ds_touch_speed),
 #endif
   MIGRATED_SETTING(dsda_config_playback_mouse_controls),
 

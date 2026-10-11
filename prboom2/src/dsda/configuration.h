@@ -308,6 +308,12 @@ typedef enum {
   dsda_config_demo_end_quit,
 #ifdef __3DS__
   dsda_config_n3ds_config_version,
+  dsda_config_n3ds_bottom_map,
+  dsda_config_n3ds_status_below,
+  dsda_config_n3ds_show_fps,
+  dsda_config_n3ds_map_zoom,
+  dsda_config_n3ds_touch_turn,
+  dsda_config_n3ds_touch_speed,
 #endif
   dsda_config_count,
 } dsda_config_identifier_t;

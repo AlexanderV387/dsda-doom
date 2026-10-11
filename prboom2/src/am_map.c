@@ -2918,6 +2918,107 @@ static void AM_setFrameVariables(void)
   am_frame.precise = (V_IsOpenGLMode());
 }
 
+#ifdef __3DS__
+//
+// [3DS] AM_DrawBottom()
+//
+// The map on the bottom screen: what the automap shows, centered on the
+// player, in the rectangle given of the frame buffer (FB), at the zoom
+// given (percent of a scale that fits the level). The automap's own state
+// is put back at the end, so both can be on at once.
+//
+void AM_DrawBottom(int x, int y, int width, int height, int zoom)
+{
+  static fixed_t bottom_scale;
+  static int bottom_map = -1, bottom_episode = -1;
+
+  const int saved_f_x = f_x, saved_f_y = f_y, saved_f_w = f_w, saved_f_h = f_h;
+  const fixed_t saved_m_x = m_x, saved_m_y = m_y, saved_m_x2 = m_x2, saved_m_y2 = m_y2;
+  const fixed_t saved_m_w = m_w, saved_m_h = m_h;
+  const fixed_t saved_scale_mtof = scale_mtof, saved_scale_ftom = scale_ftom;
+  player_t *const saved_plr = plr;
+  const am_frame_t saved_frame = am_frame;
+
+  if (!players[displayplayer].mo)
+    return;
+
+  // Zoom of a new level: the whole level fits (as in AM_LevelInit).
+  if (bottom_map != gamemap || bottom_episode != gameepisode)
+  {
+    fixed_t min_vx = INT_MAX, min_vy = INT_MAX;
+    fixed_t max_vx = -INT_MAX, max_vy = -INT_MAX;
+    fixed_t w, h, a, b;
+    int i;
+
+    for (i = 0; i < numvertexes; i++)
+    {
+      min_vx = MIN(min_vx, vertexes[i].x);
+      max_vx = MAX(max_vx, vertexes[i].x);
+      min_vy = MIN(min_vy, vertexes[i].y);
+      max_vy = MAX(max_vy, vertexes[i].y);
+    }
+
+    w = (max_vx >> FRACTOMAPBITS) - (min_vx >> FRACTOMAPBITS);
+    h = (max_vy >> FRACTOMAPBITS) - (min_vy >> FRACTOMAPBITS);
+    a = FixedDiv(width << FRACBITS, MAX(w, 1));
+    b = FixedDiv(height << FRACBITS, MAX(h, 1));
+    bottom_scale = FixedDiv(a < b ? a : b, (int) (0.7 * FRACUNIT));
+
+    bottom_map = gamemap;
+    bottom_episode = gameepisode;
+  }
+
+  // What AM_initVariables sets up, if the automap was never opened.
+  AM_SetColors();
+
+  if (hexen)
+  {
+    numplyrlines = HEXEN_NUMPLYRLINES;
+    player_arrow = hexen_player_arrow;
+  }
+  else
+  {
+    numplyrlines = NUMPLYRLINES;
+    player_arrow = doom_player_arrow;
+  }
+
+  plr = &players[displayplayer];
+  f_x = x;
+  f_y = y;
+  f_w = width;
+  f_h = height;
+  scale_mtof = (fixed_t) ((int64_t) bottom_scale * zoom / 100);
+  scale_ftom = FixedDiv(FRACUNIT, scale_mtof);
+  m_w = FTOM(f_w);
+  m_h = FTOM(f_h);
+  AM_SetMapCenter(viewx, viewy);
+  AM_setFrameVariables();
+
+  V_BeginAutomapDraw();
+  V_FillRect(FB, f_x, f_y, f_w, f_h, (byte)mapcolor_p->back);
+  AM_drawWalls();
+  AM_drawPlayers();
+  AM_drawThings();
+  AM_drawMarks();
+  V_EndAutomapDraw();
+
+  f_x = saved_f_x;
+  f_y = saved_f_y;
+  f_w = saved_f_w;
+  f_h = saved_f_h;
+  m_x = saved_m_x;
+  m_y = saved_m_y;
+  m_x2 = saved_m_x2;
+  m_y2 = saved_m_y2;
+  m_w = saved_m_w;
+  m_h = saved_m_h;
+  scale_mtof = saved_scale_mtof;
+  scale_ftom = saved_scale_ftom;
+  plr = saved_plr;
+  am_frame = saved_frame;
+}
+#endif
+
 //
 // AM_Drawer()
 //
