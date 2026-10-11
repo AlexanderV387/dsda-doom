@@ -1168,7 +1168,11 @@ dsda_config_t dsda_config[dsda_config_count] = {
   },
   [dsda_config_screen_resolution] = {
     "screen_resolution", dsda_config_screen_resolution,
+#ifdef __3DS__
+    CONF_STRING("400x240"), NULL, NOT_STRICT, M_ChangeVideoMode // [3DS] the top screen
+#else
     CONF_STRING("640x480"), NULL, NOT_STRICT, M_ChangeVideoMode
+#endif
   },
   [dsda_config_custom_resolution] = {
     "custom_resolution", dsda_config_custom_resolution,
@@ -1184,7 +1188,11 @@ dsda_config_t dsda_config[dsda_config_count] = {
   },
   [dsda_config_render_vsync] = {
     "render_vsync", dsda_config_render_vsync,
+#ifdef __3DS__
+    CONF_BOOL(1), NULL, NOT_STRICT, M_ChangeVideoMode
+#else
     CONF_BOOL(0), NULL, NOT_STRICT, M_ChangeVideoMode
+#endif
   },
   [dsda_config_uncapped_framerate] = {
     "uncapped_framerate", dsda_config_uncapped_framerate,

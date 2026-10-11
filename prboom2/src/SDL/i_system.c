@@ -308,6 +308,25 @@ const char* I_GetTempDir(void)
   return "PROGDIR:";
 }
 
+#elif defined(__3DS__)
+
+// [3DS] Everything in one folder on the SD card: the IWADs, dsda-doom.wad,
+// the configuration and the saves.
+const char *I_ConfigDir(void)
+{
+  return N3DS_DATA_DIR;
+}
+
+const char *I_ExeDir(void)
+{
+  return N3DS_DATA_DIR;
+}
+
+const char* I_GetTempDir(void)
+{
+  return N3DS_DATA_DIR;
+}
+
 #else /* not Windows, not Amiga */
 
 static const char *I_GetHomeDir(void)
@@ -478,7 +497,7 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
     const char *(*func)(void); // for functions that return the directory
   } search0[] = {
     {NULL, NULL, NULL, I_ExeDir}, // executable directory
-#if !defined(_WIN32) && !defined(AMIGA)
+#if !defined(_WIN32) && !defined(AMIGA) && !defined(__3DS__)
     {NULL, NULL, NULL, I_ConfigDir}, // config and autoload directory. on windows/amiga, this is the same as I_ExeDir
 #endif
     {NULL}, // current working directory
@@ -489,7 +508,7 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
     {NULL, "../share/games/doom", NULL, I_GetBasePath}, // AppImage
     {NULL, "doom", "HOME"}, // ~/doom
     {NULL, NULL, "HOME"}, // ~
-#if !defined(_WIN32) && !defined(AMIGA)
+#if !defined(_WIN32) && !defined(AMIGA) && !defined(__3DS__)
     {NULL, "games/doom", NULL, I_GetXDGDataHome}, // $HOME/.local/share/games/doom
 #endif
   }, *search;
@@ -508,13 +527,13 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
   if (!num_search)
   {
     int extra = 0;
-#if !defined(_WIN32) && !defined(AMIGA)
+#if !defined(_WIN32) && !defined(AMIGA) && !defined(__3DS__)
     int datadirs = 0;
 #endif
     const char *dwp;
 
     // calculate how many extra entries we need to add to the table
-#if !defined(_WIN32) && !defined(AMIGA)
+#if !defined(_WIN32) && !defined(AMIGA) && !defined(__3DS__)
     dwp = I_GetXDGDataDirs();
     datadirs++;
     while ((dwp = strchr(dwp, *PATH_SEPARATOR)))
@@ -534,7 +553,7 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
     memcpy(search, search0, num_search * sizeof(*search));
     memset(&search[num_search], 0, extra * sizeof(*search));
 
-#if !defined(_WIN32) && !defined(AMIGA)
+#if !defined(_WIN32) && !defined(AMIGA) && !defined(__3DS__)
     // add $XDG_DATA_DIRS/games/doom and $XDG_DATA_DIRS/doom
     // by default this includes:
     // - /usr/local/share/games/doom

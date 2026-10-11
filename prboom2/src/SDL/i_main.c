@@ -35,6 +35,9 @@
  */
 
 #ifdef HAVE_CONFIG_H
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
 #include "config.h"
 #endif
 
@@ -266,6 +269,10 @@ void I_SetProcessPriority(void)
 //int main(int argc, const char * const * argv)
 int main(int argc, char **argv)
 {
+#ifdef __3DS__
+  N3DS_Init();
+#endif
+
   dsda_ParseCommandLineArgs(argc, argv);
 
   if (dsda_Flag(dsda_arg_verbose))

@@ -504,7 +504,7 @@ function(AddGameExecutable TARGET SOURCES)
     if(NINTENDO_3DS)
         # [3DS] Software rendering only: the OpenGL renderer is left out.
         list(REMOVE_ITEM SOURCES dsda/gl/render_scale.c)
-        set(SOURCES ${SOURCES} n3ds/gl_stubs.c)
+        set(SOURCES ${SOURCES} n3ds/gl_stubs.c n3ds/n3ds.c n3ds/n3ds.h)
     else()
     set(SOURCES
         ${SOURCES}
@@ -564,6 +564,18 @@ function(AddGameExecutable TARGET SOURCES)
         PRIVATE
         dsda::dependencies
     )
+
+    if(NINTENDO_3DS)
+        target_compile_definitions(${TARGET} PRIVATE N3DS_DATA_DIR="sdmc:/3ds/dsda-doom")
+        # The .3dsx, with its icon and title for the Homebrew Launcher.
+        ctr_generate_smdh("${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.smdh"
+            NAME "DSDA-Doom"
+            DESCRIPTION "Doom, Heretic, Hexen and their mods"
+            AUTHOR "AlexanderV387, kraflab"
+            ICON "${PROJECT_SOURCE_DIR}/../tools/3ds/icon.png"
+        )
+        ctr_create_3dsx(${TARGET} SMDH "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.smdh")
+    endif()
 
     set_target_properties(${TARGET} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${DSDA_OUTPUT_PATH}
