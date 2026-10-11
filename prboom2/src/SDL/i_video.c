@@ -32,6 +32,9 @@
  *-----------------------------------------------------------------------------
  */
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
 #include <SDL_render.h>
 #include <SDL_video.h>
 #ifdef HAVE_CONFIG_H
@@ -577,6 +580,9 @@ static void I_UploadNewPalette(int pal, int force)
 
 void I_ShutdownGraphics(void)
 {
+#ifdef __3DS__
+  N3DS_StopPresenting();
+#endif
   SDL_FreeCursor(cursors[1]);
   DeactivateMouse();
 }
@@ -622,6 +628,22 @@ void I_FinishUpdate (void)
     gld_Finish();
     return;
   }
+
+#ifdef __3DS__
+  // [3DS] Straight to the screens, composed on another core.
+  {
+    dboolean palette_changed = newpal != NO_PALETTE_CHANGE;
+
+    if (palette_changed) {
+      I_UploadNewPalette(newpal, false);
+      newpal = NO_PALETTE_CHANGE;
+    }
+
+    N3DS_Present(screens[0].data, SCREENWIDTH, SCREENHEIGHT, screens[0].pitch,
+                 screen->format->palette->colors, palette_changed);
+    return;
+  }
+#endif
 
   if (SDL_MUSTLOCK(screen)) {
       int h;
@@ -687,6 +709,9 @@ void I_SetPalette (int pal)
 
 static void I_ShutdownSDL(void)
 {
+#ifdef __3DS__
+  N3DS_StopPresenting();
+#endif
   if (sdl_glcontext) SDL_GL_DeleteContext(sdl_glcontext);
   if (screen) SDL_FreeSurface(screen);
   if (buffer) SDL_FreeSurface(buffer);

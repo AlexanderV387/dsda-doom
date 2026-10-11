@@ -34,6 +34,9 @@
  *-----------------------------------------------------------------------------*/
 
 #ifdef HAVE_CONFIG_H
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
 #include "config.h"
 #endif
 #ifdef _MSC_VER
@@ -131,6 +134,10 @@ void I_Error(const char *error, ...)
   if (!disable_message_box && !dsda_Flag(dsda_arg_nodraw) && !capturing_video) {
     I_MessageBox(errmsg, PRB_MB_OK);
   }
+#endif
+#ifdef __3DS__
+  // [3DS] On the top screen until START: there are no message boxes.
+  N3DS_ShowError(errmsg);
 #endif
   I_SafeExit(-1);
 }
