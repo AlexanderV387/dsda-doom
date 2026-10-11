@@ -306,6 +306,9 @@ typedef enum {
   dsda_config_announce_map,
   dsda_config_extra_level_brightness,
   dsda_config_demo_end_quit,
+#ifdef __3DS__
+  dsda_config_n3ds_config_version,
+#endif
   dsda_config_count,
 } dsda_config_identifier_t;
 

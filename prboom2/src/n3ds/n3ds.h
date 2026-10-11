@@ -24,6 +24,14 @@ void N3DS_Init(void);
 void N3DS_Present(const byte *buffer, int width, int height, int pitch,
                   const SDL_Color *palette, dboolean palette_changed);
 
+// The bottom screen: 320x240, 8-bit with the game's palette.
+#define N3DS_BOTTOM_WIDTH 320
+#define N3DS_BOTTOM_HEIGHT 240
+
+// Draws the bottom screen (set by the game), every other frame; returns
+// whether it has anything (otherwise it stays black).
+extern dboolean (*N3DS_DrawBottom)(byte *screen);
+
 // Stops the thread that composes the screens (before SDL closes them).
 void N3DS_StopPresenting(void);
 

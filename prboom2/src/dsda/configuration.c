@@ -346,7 +346,11 @@ dsda_config_t dsda_config[dsda_config_count] = {
   },
   [dsda_config_autorun] = {
     "autorun", dsda_config_autorun,
+#ifdef __3DS__
+    CONF_BOOL(0) // [3DS] B runs while held
+#else
     CONF_BOOL(1)
+#endif
   },
   [dsda_config_show_messages] = {
     "show_messages", dsda_config_show_messages,
@@ -1069,6 +1073,13 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "dsda_demo_end_quit", dsda_config_demo_end_quit,
     CONF_BOOL(1)
   },
+#ifdef __3DS__
+  // [3DS] Which of the 3DS's own changes the configuration already has.
+  [dsda_config_n3ds_config_version] = {
+    "n3ds_config_version", dsda_config_n3ds_config_version,
+    dsda_config_int, 0, 1000, { 0 }
+  },
+#endif
   [dsda_config_map_blinking_locks] = {
     "map_blinking_locks", dsda_config_map_blinking_locks,
     CONF_BOOL(0), NULL, NOT_STRICT, AM_InitParams
@@ -1216,7 +1227,12 @@ dsda_config_t dsda_config[dsda_config_count] = {
   },
   [dsda_config_screenblocks] = {
     "screenblocks", dsda_config_screenblocks,
+#ifdef __3DS__
+    // [3DS] The full screen view: the status bar is on the bottom screen.
+    dsda_config_int, 10, 11, { 11 }, NULL, CONF_FEATURE | NOT_STRICT, R_SetViewSize
+#else
     dsda_config_int, 10, 11, { 10 }, NULL, CONF_FEATURE | NOT_STRICT, R_SetViewSize
+#endif
   },
   [dsda_config_sdl_video_window_pos] = {
     "sdl_video_window_pos", dsda_config_sdl_video_window_pos,

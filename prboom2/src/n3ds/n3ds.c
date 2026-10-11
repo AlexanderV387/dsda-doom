@@ -224,10 +224,12 @@ static void RestoreBottomBacklight(void)
 }
 
 // ==========================================================================
-// Bottom screen (320x240, rotated like the top one): the frame counter for
-// now.
+// Bottom screen (320x240, rotated like the top one): what the game draws
+// (the status bar), 30 times per second, and the frame counter.
 
-#define BOTTOM_WIDTH 320
+#define BOTTOM_WIDTH N3DS_BOTTOM_WIDTH
+
+dboolean (*N3DS_DrawBottom)(byte *screen);
 
 int n3ds_show_fps = 1;
 
@@ -316,6 +318,8 @@ typedef struct
   int width, height;
   u32 colors[256];        // palette in the framebuffer format (RGBA8)
   dboolean bottom;        // the bottom screen is updated (every other frame)
+  dboolean bottom_showing; // and bottom_screen has something
+  byte bottom_screen[N3DS_BOTTOM_WIDTH * N3DS_BOTTOM_HEIGHT];
 } frame_t;
 
 static frame_t frame;
@@ -368,7 +372,27 @@ static void ComposeBottom(const frame_t *f)
 
   framebuffer = (u32 *) gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL);
 
-  if (drawn[buffer])
+  if (f->bottom_showing)
+  {
+    int x, y, k;
+
+    // 8 columns at a time, as on the top screen.
+    for (x = 0; x < BOTTOM_WIDTH; x += 8)
+    {
+      u32 *column = framebuffer + x * TOP_HEIGHT + (TOP_HEIGHT - 1);
+
+      for (y = 0; y < N3DS_BOTTOM_HEIGHT; ++y)
+      {
+        const byte *source = f->bottom_screen + y * BOTTOM_WIDTH + x;
+
+        for (k = 0; k < 8; ++k)
+          column[k * TOP_HEIGHT - y] = f->colors[source[k]];
+      }
+    }
+
+    drawn[buffer] = true;
+  }
+  else if (drawn[buffer])
   {
     memset(framebuffer, 0, BOTTOM_WIDTH * TOP_HEIGHT * sizeof(u32));
     drawn[buffer] = false;
@@ -534,8 +558,11 @@ void N3DS_Present(const byte *buffer, int width, int height, int pitch,
                       | ((u32) palette[k].b << 8) | 0xFF;
   }
 
-  // The bottom screen, 30 times per second.
+  // The bottom screen, 30 times per second: drawn here, with the game.
   frame.bottom = (++bottom_frames & 1) == 0;
+
+  if (frame.bottom)
+    frame.bottom_showing = N3DS_DrawBottom != NULL && N3DS_DrawBottom(frame.bottom_screen);
 
   if (present_thread != NULL)
   {

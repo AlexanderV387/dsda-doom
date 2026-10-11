@@ -45,6 +45,9 @@ void M_DoScreenShot (const char*); // cph
 
 void M_LoadDefaults (void);
 void M_SaveDefaults (void);
+#ifdef __3DS__
+void M_N3DSUpdateDefaults(void);
+#endif
 
 dboolean M_StringCopy(char *dest, const char *src, size_t dest_size);
 dboolean M_StringConcat(char *dest, const char *src, size_t dest_size);

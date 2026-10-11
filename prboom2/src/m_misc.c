@@ -77,6 +77,15 @@ typedef struct
 
 #define SETTING_HEADING(str) { str, 0 }
 #define INPUT_SETTING(str, id, k, m, j) { str, id, { k, m, j } }
+
+// [3DS] The 3DS buttons follow the n3ds-ports standard (the other ports'):
+// R fires, A uses, B runs, L strafes, X / Y change weapons, SELECT is the
+// map, ZR uses the artifact and ZL jumps (Heretic, Hexen).
+#ifdef __3DS__
+#define PAD(desktop, n3ds) (n3ds)
+#else
+#define PAD(desktop, n3ds) (desktop)
+#endif
 #define MIGRATED_SETTING(id) { NULL, id }
 
 cfg_def_t cfg_defs[] =
@@ -333,6 +342,9 @@ cfg_def_t cfg_defs[] =
   MIGRATED_SETTING(dsda_config_quake_intensity),
   MIGRATED_SETTING(dsda_config_organize_failed_demos),
   MIGRATED_SETTING(dsda_config_demo_end_quit),
+#ifdef __3DS__
+  MIGRATED_SETTING(dsda_config_n3ds_config_version),
+#endif
   MIGRATED_SETTING(dsda_config_playback_mouse_controls),
 
   SETTING_HEADING("Scripts"),
@@ -397,7 +409,7 @@ cfg_input_def_t input_defs[] = {
   INPUT_SETTING("input_backward", dsda_input_backward, 's', -1, -1),
   INPUT_SETTING("input_turnleft", dsda_input_turnleft, 'e', -1, -1),
   INPUT_SETTING("input_turnright", dsda_input_turnright, 'q', -1, -1),
-  INPUT_SETTING("input_speed", dsda_input_speed, 0, -1, -1),
+  INPUT_SETTING("input_speed", dsda_input_speed, 0, -1, PAD(-1, DSDA_CONTROLLER_BUTTON_B)),
   INPUT_SETTING("input_strafeleft", dsda_input_strafeleft, 'a', -1, -1),
   INPUT_SETTING("input_straferight", dsda_input_straferight, 'd', -1, -1),
   INPUT_SETTING("input_strafe", dsda_input_strafe, 0, 1, DSDA_CONTROLLER_BUTTON_LEFTSHOULDER),
@@ -419,14 +431,14 @@ cfg_input_def_t input_defs[] = {
   INPUT_SETTING("input_weapon7", dsda_input_weapon7, '7', -1, -1),
   INPUT_SETTING("input_weapon8", dsda_input_weapon8, '8', -1, -1),
   INPUT_SETTING("input_weapon9", dsda_input_weapon9, '9', -1, -1),
-  INPUT_SETTING("input_nextweapon", dsda_input_nextweapon, 0, -1, DSDA_CONTROLLER_BUTTON_Y),
-  INPUT_SETTING("input_prevweapon", dsda_input_prevweapon, 0, -1, DSDA_CONTROLLER_BUTTON_X),
+  INPUT_SETTING("input_nextweapon", dsda_input_nextweapon, 0, -1, PAD(DSDA_CONTROLLER_BUTTON_Y, DSDA_CONTROLLER_BUTTON_X)),
+  INPUT_SETTING("input_prevweapon", dsda_input_prevweapon, 0, -1, PAD(DSDA_CONTROLLER_BUTTON_X, DSDA_CONTROLLER_BUTTON_Y)),
   INPUT_SETTING("input_toggleweapon", dsda_input_toggleweapon, '0', -1, -1),
-  INPUT_SETTING("input_fire", dsda_input_fire, KEYD_RCTRL, 0, DSDA_CONTROLLER_BUTTON_TRIGGERRIGHT),
+  INPUT_SETTING("input_fire", dsda_input_fire, KEYD_RCTRL, 0, PAD(DSDA_CONTROLLER_BUTTON_TRIGGERRIGHT, DSDA_CONTROLLER_BUTTON_RIGHTSHOULDER)),
 
   INPUT_SETTING("input_help", dsda_input_help, KEYD_F1, -1, -1),
   INPUT_SETTING("input_pause", dsda_input_pause, KEYD_PAUSE, -1, -1),
-  INPUT_SETTING("input_map", dsda_input_map, KEYD_TAB, -1, DSDA_CONTROLLER_BUTTON_TRIGGERLEFT),
+  INPUT_SETTING("input_map", dsda_input_map, KEYD_TAB, -1, PAD(DSDA_CONTROLLER_BUTTON_TRIGGERLEFT, DSDA_CONTROLLER_BUTTON_BACK)),
   INPUT_SETTING("input_soundvolume", dsda_input_soundvolume, KEYD_F4, -1, -1),
   INPUT_SETTING("input_hud", dsda_input_hud, KEYD_F5, -1, -1),
   INPUT_SETTING("input_messages", dsda_input_messages, KEYD_F8, -1, -1),
@@ -480,7 +492,7 @@ cfg_input_def_t input_defs[] = {
   INPUT_SETTING("input_menu_backspace", dsda_input_menu_backspace, KEYD_BACKSPACE, -1, DSDA_CONTROLLER_BUTTON_B),
   INPUT_SETTING("input_menu_enter", dsda_input_menu_enter, KEYD_ENTER, -1, DSDA_CONTROLLER_BUTTON_A),
   INPUT_SETTING("input_menu_escape", dsda_input_menu_escape, KEYD_ESCAPE, -1, DSDA_CONTROLLER_BUTTON_START),
-  INPUT_SETTING("input_menu_clear", dsda_input_menu_clear, KEYD_DEL, -1, DSDA_CONTROLLER_BUTTON_BACK),
+  INPUT_SETTING("input_menu_clear", dsda_input_menu_clear, KEYD_DEL, -1, PAD(DSDA_CONTROLLER_BUTTON_BACK, DSDA_CONTROLLER_BUTTON_X)),
 
   INPUT_SETTING("input_iddqd", dsda_input_iddqd, 0, -1, -1),
   INPUT_SETTING("input_idkfa", dsda_input_idkfa, 0, -1, -1),
@@ -504,7 +516,7 @@ cfg_input_def_t input_defs[] = {
   INPUT_SETTING("input_lookup", dsda_input_lookup, 0, -1, -1),
   INPUT_SETTING("input_lookdown", dsda_input_lookdown, 0, -1, -1),
   INPUT_SETTING("input_lookcenter", dsda_input_lookcenter, 0, -1, -1),
-  INPUT_SETTING("input_use_artifact", dsda_input_use_artifact, KEYD_RSHIFT, -1, DSDA_CONTROLLER_BUTTON_RIGHTSHOULDER),
+  INPUT_SETTING("input_use_artifact", dsda_input_use_artifact, KEYD_RSHIFT, -1, PAD(DSDA_CONTROLLER_BUTTON_RIGHTSHOULDER, DSDA_CONTROLLER_BUTTON_TRIGGERRIGHT)),
   INPUT_SETTING("input_arti_tome", dsda_input_arti_tome, 0, -1, -1),
   INPUT_SETTING("input_arti_quartz", dsda_input_arti_quartz, 0, -1, -1),
   INPUT_SETTING("input_arti_urn", dsda_input_arti_urn, 0, -1, -1),
@@ -562,7 +574,7 @@ cfg_input_def_t input_defs[] = {
   INPUT_SETTING("input_build_weapon8", dsda_input_build_weapon8, '8', -1, -1),
   INPUT_SETTING("input_build_weapon9", dsda_input_build_weapon9, '9', -1, -1),
 
-  INPUT_SETTING("input_jump", dsda_input_jump, KEYD_RALT, -1, DSDA_CONTROLLER_BUTTON_B),
+  INPUT_SETTING("input_jump", dsda_input_jump, KEYD_RALT, -1, PAD(DSDA_CONTROLLER_BUTTON_B, DSDA_CONTROLLER_BUTTON_TRIGGERLEFT)),
   INPUT_SETTING("input_hexen_arti_incant", dsda_input_hexen_arti_incant, 0, -1, -1),
   INPUT_SETTING("input_hexen_arti_summon", dsda_input_hexen_arti_summon, 0, -1, -1),
   INPUT_SETTING("input_hexen_arti_disk", dsda_input_hexen_arti_disk, 0, -1, -1),
@@ -600,6 +612,38 @@ void M_RememberCurrentConfig(void)
 {
   forget_config_file = false;
 }
+
+#ifdef __3DS__
+// [3DS] Brings an older configuration up to date, once for each change.
+void M_N3DSUpdateDefaults(void)
+{
+  if (dsda_IntConfig(dsda_config_n3ds_config_version) < 1)
+  {
+    int i;
+
+    for (i = 0; i < input_def_count; ++i)
+    {
+      int id = input_defs[i].identifier;
+      int a;
+
+      for (a = 0; a < DSDA_INPUT_PROFILE_COUNT; ++a)
+        dsda_InputSetSpecific(a, id, input_defs[i].input);
+    }
+
+    dsda_UpdateIntConfig(dsda_config_autorun, 0, true);
+    dsda_UpdateIntConfig(dsda_config_n3ds_config_version, 1, true);
+  }
+
+  // The full screen view: the status bar is on the bottom screen, and the
+  // HUD on the 3D view would repeat it (version 2).
+  if (dsda_IntConfig(dsda_config_n3ds_config_version) < 2)
+  {
+    dsda_UpdateIntConfig(dsda_config_screenblocks, 11, true);
+    dsda_UpdateIntConfig(dsda_config_hud_displayed, 0, true);
+    dsda_UpdateIntConfig(dsda_config_n3ds_config_version, 2, true);
+  }
+}
+#endif
 
 void M_SaveDefaults (void)
 {

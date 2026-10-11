@@ -40,6 +40,7 @@
 
 #ifdef __3DS__
 #include "n3ds/n3ds.h"
+#include "n3ds/n3ds_dsda.h"
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -277,6 +278,7 @@ int main(int argc, char **argv)
     return 0;
 
   N3DS_SaveOnSuspend = M_SaveDefaults;
+  N3DS_InitGame();
 #endif
 
   dsda_ParseCommandLineArgs(argc, argv);
@@ -305,6 +307,9 @@ int main(int argc, char **argv)
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "M_LoadDefaults: Load system defaults.\n");
   M_LoadDefaults();              // load before initing other systems
+#ifdef __3DS__
+  M_N3DSUpdateDefaults();
+#endif
   lprintf(LO_DEBUG, "\n");
 
   // Print date and time in the Load/Save Game menus in the current locale

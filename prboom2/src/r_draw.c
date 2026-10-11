@@ -33,6 +33,9 @@
  *
  *-----------------------------------------------------------------------------*/
 
+#ifdef __3DS__
+#include "n3ds/n3ds_dsda.h"
+#endif
 #include <stdint.h>
 
 #include "doomstat.h"
@@ -150,6 +153,12 @@ dboolean R_PartialView(void)
 
 dboolean R_StatusBarVisible(void)
 {
+#ifdef __3DS__
+  // [3DS] Being drawn for the bottom screen.
+  if (n3ds_force_statusbar)
+    return true;
+#endif
+
   return R_PartialView() || automap_solid;
 }
 

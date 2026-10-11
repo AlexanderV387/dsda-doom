@@ -504,7 +504,7 @@ function(AddGameExecutable TARGET SOURCES)
     if(NINTENDO_3DS)
         # [3DS] Software rendering only: the OpenGL renderer is left out.
         list(REMOVE_ITEM SOURCES dsda/gl/render_scale.c)
-        set(SOURCES ${SOURCES} n3ds/gl_stubs.c n3ds/n3ds.c n3ds/n3ds.h)
+        set(SOURCES ${SOURCES} n3ds/gl_stubs.c n3ds/n3ds.c n3ds/n3ds.h n3ds/n3ds_dsda.c n3ds/n3ds_dsda.h)
     else()
     set(SOURCES
         ${SOURCES}
