@@ -26,6 +26,76 @@
 
 #include "game_controller.h"
 
+#ifdef __3DS__
+#include <3ds.h>
+
+// [3DS] The 3DS is the game controller: its buttons and sticks are read
+// with libctru (SDL's joystick needs a mapping it has no entry for), and
+// given to the game as an SDL game controller's. SDL scans them every time
+// the events are read.
+#define SDL_GameControllerGetAxis N3DS_GetAxis
+#define SDL_GameControllerGetButton N3DS_GetButton
+
+static int N3DS_StickValue(int value)
+{
+  // The Circle Pad and the C-stick reach about 150 at the edge.
+  value = value * 32767 / 150;
+  return BETWEEN(-32767, 32767, value);
+}
+
+static Sint16 N3DS_GetAxis(SDL_GameController* controller, SDL_GameControllerAxis axis)
+{
+  circlePosition pad;
+  const u32 held = hidKeysHeld();
+
+  switch (axis)
+  {
+    case SDL_CONTROLLER_AXIS_LEFTX:
+      hidCircleRead(&pad);
+      return N3DS_StickValue(pad.dx);
+    case SDL_CONTROLLER_AXIS_LEFTY:
+      hidCircleRead(&pad);
+      return N3DS_StickValue(-pad.dy);
+    case SDL_CONTROLLER_AXIS_RIGHTX:
+      hidCstickRead(&pad);
+      return N3DS_StickValue(pad.dx);
+    case SDL_CONTROLLER_AXIS_RIGHTY:
+      hidCstickRead(&pad);
+      return N3DS_StickValue(-pad.dy);
+    case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+      return (held & KEY_ZL) ? 32767 : 0;
+    case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
+      return (held & KEY_ZR) ? 32767 : 0;
+    default:
+      return 0;
+  }
+}
+
+static Uint8 N3DS_GetButton(SDL_GameController* controller, SDL_GameControllerButton button)
+{
+  static const u32 keys[] =
+  {
+    [SDL_CONTROLLER_BUTTON_A] = KEY_A,
+    [SDL_CONTROLLER_BUTTON_B] = KEY_B,
+    [SDL_CONTROLLER_BUTTON_X] = KEY_X,
+    [SDL_CONTROLLER_BUTTON_Y] = KEY_Y,
+    [SDL_CONTROLLER_BUTTON_BACK] = KEY_SELECT,
+    [SDL_CONTROLLER_BUTTON_START] = KEY_START,
+    [SDL_CONTROLLER_BUTTON_LEFTSHOULDER] = KEY_L,
+    [SDL_CONTROLLER_BUTTON_RIGHTSHOULDER] = KEY_R,
+    [SDL_CONTROLLER_BUTTON_DPAD_UP] = KEY_DUP,
+    [SDL_CONTROLLER_BUTTON_DPAD_DOWN] = KEY_DDOWN,
+    [SDL_CONTROLLER_BUTTON_DPAD_LEFT] = KEY_DLEFT,
+    [SDL_CONTROLLER_BUTTON_DPAD_RIGHT] = KEY_DRIGHT,
+  };
+
+  if (button < 0 || button >= sizeof(keys) / sizeof(keys[0]))
+    return 0;
+
+  return (hidKeysHeld() & keys[button]) != 0;
+}
+#endif
+
 static int use_game_controller;
 static SDL_GameController* game_controller;
 
@@ -196,11 +266,22 @@ void dsda_InitGameController(void) {
   game_controller = NULL;
   use_game_controller =
     dsda_IntConfig(dsda_config_use_game_controller) && !dsda_Flag(dsda_arg_nojoy);
+#ifdef __3DS__
+  use_game_controller = 1; // [3DS] the only controls there are
+#endif
 
   if (!use_game_controller)
     return;
 
   dsda_InitGameControllerParameters();
+
+#ifdef __3DS__
+  // Any non-null value: the functions above do not use it.
+  game_controller = (SDL_GameController*) &game_controller;
+  lprintf(LO_DEBUG, "Opened game controller: the 3DS buttons\n");
+  return;
+#endif
+
   SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
 
   num_joysticks = SDL_NumJoysticks();
