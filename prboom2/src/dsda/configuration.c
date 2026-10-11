@@ -15,6 +15,9 @@
 //	DSDA Config
 //
 
+#ifdef __3DS__
+void M_N3DSResetButtonsChanged(void);
+#endif
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1107,6 +1110,11 @@ dsda_config_t dsda_config[dsda_config_count] = {
   [dsda_config_n3ds_touch_speed] = {
     "n3ds_touch_speed", dsda_config_n3ds_touch_speed,
     dsda_config_int, 1, 10, { 4 }
+  },
+  // Turned on in the menu: puts the default buttons back, and goes off.
+  [dsda_config_n3ds_reset_buttons] = {
+    "n3ds_reset_buttons", dsda_config_n3ds_reset_buttons,
+    CONF_BOOL(0), NULL, NOT_STRICT, M_N3DSResetButtonsChanged
   },
 #endif
   [dsda_config_map_blinking_locks] = {

@@ -140,7 +140,40 @@ static const char* button_names[] = {
   [DSDA_CONTROLLER_BUTTON_TRIGGERRIGHT] = "pad rt",
 };
 
+#ifdef __3DS__
+// [3DS] Its own buttons' names.
+static const char* n3ds_button_names[] = {
+  [DSDA_CONTROLLER_BUTTON_A] = "A",
+  [DSDA_CONTROLLER_BUTTON_B] = "B",
+  [DSDA_CONTROLLER_BUTTON_X] = "X",
+  [DSDA_CONTROLLER_BUTTON_Y] = "Y",
+  [DSDA_CONTROLLER_BUTTON_BACK] = "SELECT",
+  [DSDA_CONTROLLER_BUTTON_START] = "START",
+  [DSDA_CONTROLLER_BUTTON_LEFTSHOULDER] = "L",
+  [DSDA_CONTROLLER_BUTTON_RIGHTSHOULDER] = "R",
+  [DSDA_CONTROLLER_BUTTON_DPAD_UP] = "D-PAD UP",
+  [DSDA_CONTROLLER_BUTTON_DPAD_DOWN] = "D-PAD DOWN",
+  [DSDA_CONTROLLER_BUTTON_DPAD_LEFT] = "D-PAD LEFT",
+  [DSDA_CONTROLLER_BUTTON_DPAD_RIGHT] = "D-PAD RIGHT",
+  [DSDA_CONTROLLER_BUTTON_TRIGGERLEFT] = "ZL",
+  [DSDA_CONTROLLER_BUTTON_TRIGGERRIGHT] = "ZR",
+};
+
+// The buttons pressed in the last poll and not in the one before.
+static int buttons_pressed;
+
+int dsda_GameControllerPressed(void) {
+  return buttons_pressed;
+}
+#endif
+
 const char* dsda_GameControllerButtonName(int button) {
+#ifdef __3DS__
+  if (button >= 0 && button < sizeof(n3ds_button_names) / sizeof(n3ds_button_names[0])
+      && n3ds_button_names[button])
+    return n3ds_button_names[button];
+#endif
+
   if (button >= sizeof(button_names) || !button_names[button])
     return "misc";
 
@@ -228,6 +261,15 @@ void dsda_PollGameControllerButtons(void) {
   trigger = dsda_AxisValue(&right_trigger);
   if (trigger)
     ev.data1.i |= (1 << DSDA_CONTROLLER_BUTTON_TRIGGERRIGHT);
+
+#ifdef __3DS__
+  {
+    static int last_buttons;
+
+    buttons_pressed = ev.data1.i & ~last_buttons;
+    last_buttons = ev.data1.i;
+  }
+#endif
 
   D_PostEvent(&ev);
 }

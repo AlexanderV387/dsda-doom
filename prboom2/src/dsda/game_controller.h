@@ -47,6 +47,9 @@ typedef enum {
 } dsda_game_controller_button_t;
 
 const char* dsda_GameControllerButtonName(int button);
+#ifdef __3DS__
+int dsda_GameControllerPressed(void);
+#endif
 void dsda_PollGameController(void);
 void dsda_PollGameControllerButtons(void);
 void dsda_InitGameController(void);

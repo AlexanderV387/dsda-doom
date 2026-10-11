@@ -2106,6 +2106,13 @@ static void M_SetupInputText(const setup_menu_t *s,
 
   menu_buffer[0] = '\0';
 
+#ifdef __3DS__
+  // [3DS] Only its buttons: there is no keyboard or mouse.
+  M_CopyText(text, text_size, input->joyb != -1 ?
+             dsda_GameControllerButtonName(input->joyb) : "---");
+  return;
+#endif
+
   for (i = 0; i < input->num_keys; ++i)
   {
     if (any_input)
@@ -2714,6 +2721,9 @@ static void M_EnterSetup(menu_t *menu, dboolean *setup_flag,
 
 static const char *keys_pages[] =
 {
+#ifdef __3DS__
+  "3DS",
+#endif
   "Movement",
   "Weapons",
   "Automap",
@@ -2728,6 +2738,9 @@ static const char *keys_pages[] =
   NULL
 };
 
+#ifdef __3DS__
+setup_menu_t keys_n3ds_settings[];
+#endif
 setup_menu_t keys_movement_settings[];
 setup_menu_t keys_weapons_settings[];
 setup_menu_t keys_automap_settings[];
@@ -2744,6 +2757,9 @@ setup_menu_t keys_build_settings[];
 
 setup_menu_t* keys_settings[] =
 {
+#ifdef __3DS__
+  keys_n3ds_settings,
+#endif
   keys_movement_settings,
   keys_weapons_settings,
   keys_automap_settings,
@@ -2773,6 +2789,33 @@ setup_menu_t* keys_settings[] =
 // there's a "<-" item on a screen, it behaves similarly, moving you
 // to the previous screen. If you leave these off, you can't move from
 // screen to screen.
+
+#ifdef __3DS__
+// [3DS] The 3DS buttons of the main actions, on one page.
+setup_menu_t keys_n3ds_settings[] =
+{
+  { "FIRE", S_INPUT, m_scrn, KB_X, 0, dsda_input_fire },
+  { "USE / OPEN", S_INPUT, m_scrn, KB_X, 0, dsda_input_use },
+  { "RUN", S_INPUT, m_scrn, KB_X, 0, dsda_input_speed },
+  { "STRAFE", S_INPUT, m_scrn, KB_X, 0, dsda_input_strafe },
+  { "NEXT WEAPON", S_INPUT, m_scrn, KB_X, 0, dsda_input_nextweapon },
+  { "PREVIOUS WEAPON", S_INPUT, m_scrn, KB_X, 0, dsda_input_prevweapon },
+  { "MAP", S_INPUT, m_scrn, KB_X, 0, dsda_input_map },
+  EMPTY_LINE,
+  { "HERETIC AND HEXEN", S_SKIP | S_TITLE, m_null, KB_X },
+  { "USE ARTIFACT", S_INPUT, m_scrn, KB_X, 0, dsda_input_use_artifact },
+  { "INVENTORY LEFT", S_INPUT, m_scrn, KB_X, 0, dsda_input_invleft },
+  { "INVENTORY RIGHT", S_INPUT, m_scrn, KB_X, 0, dsda_input_invright },
+  { "JUMP", S_INPUT, m_scrn, KB_X, 0, dsda_input_jump },
+  { "FLY UP", S_INPUT, m_scrn, KB_X, 0, dsda_input_flyup },
+  { "FLY DOWN", S_INPUT, m_scrn, KB_X, 0, dsda_input_flydown },
+  EMPTY_LINE,
+  { "DEFAULTS: OPTIONS > NINTENDO 3DS", S_SKIP | S_TITLE, m_null, KB_X },
+
+  NEXT_PAGE(keys_movement_settings),
+  FINAL_ENTRY
+};
+#endif
 
 setup_menu_t keys_movement_settings[] =  // Key Binding screen strings
 {
@@ -3079,8 +3122,13 @@ setup_menu_t keys_build_settings[] = {
 
 static void M_KeyBindings(int choice)
 {
+#ifdef __3DS__
+  M_EnterSetup(&KeybndDef, &set_keybnd_active, keys_settings[0],
+               keys_pages, 6, keys_settings);
+#else
   M_EnterSetup(&KeybndDef, &set_keybnd_active, keys_settings[0],
                keys_pages, 5, keys_settings);
+#endif
 }
 
 // The drawing part of the Key Bindings Setup initialization. Draw the
@@ -3410,9 +3458,12 @@ setup_menu_t n3ds_main_settings[] =
   EMPTY_LINE,
   { "Touch Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
   { "Turn with the Touch Screen", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_touch_turn },
-  { "Touch Turning Speed", S_NUM, m_conf, N3DS_X, dsda_config_n3ds_touch_speed },
+  { "Touch Turning Speed", S_THERMO, m_conf, N3DS_X, dsda_config_n3ds_touch_speed },
   EMPTY_LINE,
-  { "Buttons: Options > Key Bindings", S_SKIP | S_TITLE, m_null, N3DS_X },
+  { "Buttons", S_SKIP | S_TITLE, m_null, N3DS_X },
+  { "Always Run", S_YESNO, m_conf, N3DS_X, dsda_config_autorun },
+  { "Restore the Default Buttons", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_reset_buttons },
+  { "Change them: Key Bindings > 3DS", S_SKIP | S_TITLE, m_null, N3DS_X },
   FINAL_ENTRY
 };
 
@@ -5001,8 +5052,15 @@ static dboolean M_KeyBndResponder(int ch, int action, event_t* ev)
       // that belong to the same group as the one you're changing.
 
       group  = ptr1->m_group;
+#ifdef __3DS__
+      // [3DS] A button pressed now: the one that started the change (A,
+      // still held) is not taken.
+      if ((ch = GetButtons(MAX_JOY_BUTTONS, dsda_GameControllerPressed())) == -1)
+        return true;
+#else
       if ((ch = GetButtons(MAX_JOY_BUTTONS, ev->data1.i)) == -1)
         return true;
+#endif
 
       for (i = 0; keys_settings[i] && search; i++)
         for (ptr2 = keys_settings[i]; !(ptr2->m_flags & S_END); ptr2++)

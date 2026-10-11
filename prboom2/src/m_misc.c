@@ -350,6 +350,7 @@ cfg_def_t cfg_defs[] =
   MIGRATED_SETTING(dsda_config_n3ds_map_zoom),
   MIGRATED_SETTING(dsda_config_n3ds_touch_turn),
   MIGRATED_SETTING(dsda_config_n3ds_touch_speed),
+  MIGRATED_SETTING(dsda_config_n3ds_reset_buttons),
 #endif
   MIGRATED_SETTING(dsda_config_playback_mouse_controls),
 
@@ -620,22 +621,37 @@ void M_RememberCurrentConfig(void)
 }
 
 #ifdef __3DS__
+// [3DS] Every binding back to its default: the 3DS buttons of the standard.
+static void M_N3DSResetButtons(void)
+{
+  int i;
+
+  for (i = 0; i < input_def_count; ++i)
+  {
+    int id = input_defs[i].identifier;
+    int a;
+
+    for (a = 0; a < DSDA_INPUT_PROFILE_COUNT; ++a)
+      dsda_InputSetSpecific(a, id, input_defs[i].input);
+  }
+}
+
+// "Restore the Default Buttons" turned on in the menu.
+void M_N3DSResetButtonsChanged(void)
+{
+  if (dsda_IntConfig(dsda_config_n3ds_reset_buttons))
+  {
+    M_N3DSResetButtons();
+    dsda_UpdateIntConfig(dsda_config_n3ds_reset_buttons, 0, true);
+  }
+}
+
 // [3DS] Brings an older configuration up to date, once for each change.
 void M_N3DSUpdateDefaults(void)
 {
   if (dsda_IntConfig(dsda_config_n3ds_config_version) < 1)
   {
-    int i;
-
-    for (i = 0; i < input_def_count; ++i)
-    {
-      int id = input_defs[i].identifier;
-      int a;
-
-      for (a = 0; a < DSDA_INPUT_PROFILE_COUNT; ++a)
-        dsda_InputSetSpecific(a, id, input_defs[i].input);
-    }
-
+    M_N3DSResetButtons();
     dsda_UpdateIntConfig(dsda_config_autorun, 0, true);
     dsda_UpdateIntConfig(dsda_config_n3ds_config_version, 1, true);
   }
@@ -647,6 +663,14 @@ void M_N3DSUpdateDefaults(void)
     dsda_UpdateIntConfig(dsda_config_screenblocks, 11, true);
     dsda_UpdateIntConfig(dsda_config_hud_displayed, 0, true);
     dsda_UpdateIntConfig(dsda_config_n3ds_config_version, 2, true);
+  }
+
+  // Changing a button in the menu took the A that started it (version 3):
+  // the default buttons again.
+  if (dsda_IntConfig(dsda_config_n3ds_config_version) < 3)
+  {
+    M_N3DSResetButtons();
+    dsda_UpdateIntConfig(dsda_config_n3ds_config_version, 3, true);
   }
 }
 #endif
