@@ -1082,7 +1082,7 @@ static dboolean CheckMobjBlocking(seg_t * seg, polyobj_t * po)
     mobj_t *mobj;
     int i, j;
     int left, right, top, bottom;
-    int tmbbox[4];
+    fixed_t tmbbox[4];
     line_t *ld;
     dboolean blocked;
 

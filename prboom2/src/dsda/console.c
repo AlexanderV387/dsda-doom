@@ -470,7 +470,7 @@ static dboolean console_PlayerRemovePower(const char* command, const char* args)
   return false;
 }
 
-static dboolean console_PlayerSetCoordinate(const char* args, int* dest) {
+static dboolean console_PlayerSetCoordinate(const char* args, fixed_t* dest) {
   int x, x_frac = 0;
 
   if (sscanf(args, "%i.%i", &x, &x_frac)) {
@@ -511,7 +511,7 @@ static dboolean console_PlayerSetVZ(const char* command, const char* args) {
   return console_PlayerSetCoordinate(args, &target_player.mo->momz);
 }
 
-static void console_PlayerRoundCoordinate(int* x) {
+static void console_PlayerRoundCoordinate(fixed_t* x) {
   int bits = *x & 0xffff;
 
   if (!bits)

@@ -13,8 +13,11 @@ if(APPLE)
   set(CMAKE_FIND_FRAMEWORK ONLY)
 endif()
 
-set(OpenGL_GL_PREFERENCE LEGACY)
-find_package(OpenGL 2.0 REQUIRED)
+# [3DS] No OpenGL: the 3DS draws in software (see src/n3ds/gl_stubs.c).
+if(NOT NINTENDO_3DS)
+  set(OpenGL_GL_PREFERENCE LEGACY)
+  find_package(OpenGL 2.0 REQUIRED)
+endif()
 
 if(APPLE)
   set(CMAKE_FIND_FRAMEWORK ${find_framework_backup})
@@ -121,8 +124,8 @@ endif()
 
 target_link_libraries(dsda_dependencies
   INTERFACE
-  OpenGL::GL
-  OpenGL::GLU
+  $<$<NOT:$<BOOL:${NINTENDO_3DS}>>:OpenGL::GL>
+  $<$<NOT:$<BOOL:${NINTENDO_3DS}>>:OpenGL::GLU>
   SndFile::sndfile
   libzip::zip
   ZLIB::ZLIB

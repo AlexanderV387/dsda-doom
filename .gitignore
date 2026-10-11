@@ -33,3 +33,5 @@ CMakePresets.json
 /.cache/
 /prboom2/.cache/
 compile_commands.json
+deps-3ds/
+build-3ds/

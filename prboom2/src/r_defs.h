@@ -129,7 +129,7 @@ typedef struct sector_s
   fixed_t ceilingheight;
   byte soundtraversed;   // 0 = untraversed, 1,2 = sndlines-1
   mobj_t *soundtarget;   // thing that made a sound (or null)
-  int blockbox[4];       // mapblock bounding box for height changes
+  fixed_t blockbox[4];       // mapblock bounding box for height changes
   int bbox[4];           // bounding box in map units
   degenmobj_t soundorg;  // origin for any sounds played by the sector
   int validcount;        // if == validcount, already checked

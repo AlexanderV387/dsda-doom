@@ -1,0 +1,31 @@
+diff --git a/src/thread/n3ds/SDL_systhread.c b/src/thread/n3ds/SDL_systhread.c
+index c15c281..224578e 100644
+--- a/src/thread/n3ds/SDL_systhread.c
++++ b/src/thread/n3ds/SDL_systhread.c
+@@ -54,9 +54,23 @@ int SDL_SYS_CreateThread(SDL_Thread *thread)
+ 
+     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+ 
+-    /* prefer putting audio thread on system core */
+-    if (thread->name && (SDL_strncmp(thread->name, "SDLAudioP", 9) == 0) && R_SUCCEEDED(APT_SetAppCpuTimeLimit(30))) {
+-        cpu = 1;
++    /* Crispy Doom (3DS port): the audio thread runs on the New 3DS's third
++       core, free for applications; otherwise on the system core with 80% of
++       its time (with 30%, OPL music emulation could not keep up and the
++       sound cut out). */
++    if (thread->name && (SDL_strncmp(thread->name, "SDLAudioP", 9) == 0)) {
++        thread->handle = threadCreate(ThreadEntry, thread, stack_size, priority, 2, false);
++
++        if (thread->handle) {
++            printf("SDL audio thread: core 2\n");
++            return 0;
++        }
++
++        if (R_SUCCEEDED(APT_SetAppCpuTimeLimit(80)) || R_SUCCEEDED(APT_SetAppCpuTimeLimit(30))) {
++            cpu = 1;
++        }
++
++        printf("SDL audio thread: core %d\n", cpu);
+     }
+ 
+     thread->handle = threadCreate(ThreadEntry,

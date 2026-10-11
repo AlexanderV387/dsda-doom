@@ -501,6 +501,11 @@ set(DSDA_SOURCES
 )
 
 function(AddGameExecutable TARGET SOURCES)
+    if(NINTENDO_3DS)
+        # [3DS] Software rendering only: the OpenGL renderer is left out.
+        list(REMOVE_ITEM SOURCES dsda/gl/render_scale.c)
+        set(SOURCES ${SOURCES} n3ds/gl_stubs.c)
+    else()
     set(SOURCES
         ${SOURCES}
         gl_clipper.c
@@ -522,6 +527,7 @@ function(AddGameExecutable TARGET SOURCES)
         gl_vertex.c
         gl_wipe.c
     )
+    endif()
 
     if(WIN32)
         set(SOURCES
