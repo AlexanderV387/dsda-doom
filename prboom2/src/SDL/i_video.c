@@ -441,6 +441,10 @@ static void I_GetEvent(void)
         break;
 
       case SDL_QUIT:
+#ifdef __3DS__
+        // [3DS] The HOME Menu closes the game: it has to exit now, not ask.
+        I_SafeExit(0);
+#endif
         S_StartOptionalSound(g_sfx_mnucls, g_sfx_swtchn, true);
         M_QuitDOOM(0);
 
