@@ -348,6 +348,7 @@ static void DrawFrameCounter(u32 *framebuffer)
 
 typedef struct
 {
+  dboolean has_top;       // false in OpenGL mode: citro3d draws the top screen
   byte *top;
   int top_size;
   int width, height;
@@ -452,13 +453,17 @@ static void ShowFrame(void)
 {
   const u64 start = svcGetSystemTick();
 
-  ComposeTop(&frame);
+  if (frame.has_top)
+    ComposeTop(&frame);
 
   if (frame.bottom)
     ComposeBottom(&frame);
 
   compose_ticks = svcGetSystemTick() - start;
-  gspWaitForVBlank();
+
+  // In OpenGL mode citro3d waits for it.
+  if (frame.has_top)
+    gspWaitForVBlank();
 }
 
 static void PresentThread(void *arg)
@@ -583,6 +588,7 @@ void N3DS_Present(const byte *buffer, int width, int height, int pitch,
   for (y = 0; y < height; ++y)
     memcpy(frame.top + y * width, buffer + y * pitch, width);
 
+  frame.has_top = true;
   frame.width = width;
   frame.height = height;
 
@@ -621,6 +627,53 @@ void N3DS_Present(const byte *buffer, int width, int height, int pitch,
       first = false;
     }
   }
+}
+
+void N3DS_PresentBottom(const SDL_Color *palette, dboolean palette_changed,
+                        int work_us, int gpu_us)
+{
+  static dboolean started = false;
+  static int bottom_frames = 0;
+  int k;
+
+  if (N3DS_IsClosing())
+    return;
+
+  if (!started)
+  {
+    StartPresenting();
+    started = true;
+    palette_changed = true;
+  }
+
+  if (present_thread != NULL)
+  {
+    LightEvent_Wait(&frame_done);
+    LightEvent_Clear(&frame_done);
+  }
+
+  // The frame counter: the game's work per frame (green) and the GPU's
+  // drawing (yellow).
+  CountFrame(work_us, gpu_us);
+
+  frame.has_top = false;
+
+  if (palette_changed)
+  {
+    for (k = 0; k < 256; ++k)
+      frame.colors[k] = ((u32) palette[k].r << 24) | ((u32) palette[k].g << 16)
+                      | ((u32) palette[k].b << 8) | 0xFF;
+  }
+
+  frame.bottom = (++bottom_frames & 1) == 0;
+
+  if (frame.bottom)
+    frame.bottom_showing = N3DS_DrawBottom != NULL && N3DS_DrawBottom(frame.bottom_screen);
+
+  if (present_thread != NULL)
+    LightEvent_Signal(&frame_ready);
+  else if (frame.bottom)
+    ShowFrame();
 }
 
 // ==========================================================================

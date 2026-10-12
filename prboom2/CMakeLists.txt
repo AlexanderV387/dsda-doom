@@ -7,6 +7,11 @@ include(DsdaDepsSetup)
 
 project("dsda-doom" VERSION 0.30.1)
 
+if(NINTENDO_3DS)
+    # [3DS] For the built-in vertex shader (src/n3ds/pgl.v.pica).
+    enable_language(ASM)
+endif()
+
 set(dsda_is_top_project FALSE)
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(dsda_is_top_project TRUE)

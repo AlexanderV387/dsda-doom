@@ -24,6 +24,11 @@ void N3DS_Init(void);
 void N3DS_Present(const byte *buffer, int width, int height, int pitch,
                   const SDL_Color *palette, dboolean palette_changed);
 
+// In OpenGL mode (citro3d draws the top screen): only the bottom screen,
+// and the frame counter with the game's and the GPU's time per frame.
+void N3DS_PresentBottom(const SDL_Color *palette, dboolean palette_changed,
+                        int work_us, int gpu_us);
+
 // The bottom screen: 320x240, 8-bit with the game's palette.
 #define N3DS_BOTTOM_WIDTH 320
 #define N3DS_BOTTOM_HEIGHT 240

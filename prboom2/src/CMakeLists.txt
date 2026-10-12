@@ -502,9 +502,46 @@ set(DSDA_SOURCES
 
 function(AddGameExecutable TARGET SOURCES)
     if(NINTENDO_3DS)
-        # [3DS] Software rendering only: the OpenGL renderer is left out.
-        list(REMOVE_ITEM SOURCES dsda/gl/render_scale.c)
-        set(SOURCES ${SOURCES} n3ds/gl_stubs.c n3ds/n3ds.c n3ds/n3ds.h n3ds/n3ds_dsda.c n3ds/n3ds_dsda.h)
+        # [3DS] The OpenGL renderer runs on pgl (OpenGL on citro3d), with
+        # GLU's tessellator on libtess2; gl_shader.c's GLSL is replaced by
+        # n3ds_gl.c.
+        set(SOURCES
+            ${SOURCES}
+            n3ds/n3ds.c
+            n3ds/n3ds.h
+            n3ds/n3ds_dsda.c
+            n3ds/n3ds_dsda.h
+            n3ds/n3ds_gl.c
+            n3ds/n3ds_gl.h
+            n3ds/n3ds_stubs.c
+            n3ds/pgl.c
+            n3ds/pgl.h
+            n3ds/pgl_glu.c
+            n3ds/libtess2/Source/bucketalloc.c
+            n3ds/libtess2/Source/dict.c
+            n3ds/libtess2/Source/geom.c
+            n3ds/libtess2/Source/mesh.c
+            n3ds/libtess2/Source/priorityq.c
+            n3ds/libtess2/Source/sweep.c
+            n3ds/libtess2/Source/tess.c
+            gl_clipper.c
+            gl_drawinfo.c
+            gl_fbo.c
+            gl_intern.h
+            gl_light.c
+            gl_main.c
+            gl_map.c
+            gl_missingtexture.c
+            gl_opengl.c
+            gl_opengl.h
+            gl_preprocess.c
+            gl_progress.c
+            gl_sky.c
+            gl_struct.h
+            gl_texture.c
+            gl_vertex.c
+            gl_wipe.c
+        )
     else()
     set(SOURCES
         ${SOURCES}
@@ -567,6 +604,11 @@ function(AddGameExecutable TARGET SOURCES)
 
     if(NINTENDO_3DS)
         target_compile_definitions(${TARGET} PRIVATE N3DS_DATA_DIR="sdmc:/3ds/dsda-doom")
+        # pgl's vertex shader, assembled by picasso and built in.
+        ctr_add_shader_library(pgl_shader n3ds/pgl.v.pica)
+        dkp_add_embedded_binary_library(pgl_shader_data pgl_shader)
+        target_link_libraries(${TARGET} PRIVATE pgl_shader_data citro3d)
+        target_include_directories(${TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/n3ds/libtess2/Include)
         # The .3dsx, with its icon and title for the Homebrew Launcher.
         ctr_generate_smdh("${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.smdh"
             NAME "DSDA-Doom"

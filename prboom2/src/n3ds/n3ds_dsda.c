@@ -497,7 +497,19 @@ static dboolean DrawBottomContents(byte *bottom);
 
 static dboolean DrawBottom(byte *bottom)
 {
-  bottom_showing = DrawBottomContents(bottom);
+  // In OpenGL mode the game's drawing functions go to the GPU (the top
+  // screen): the software ones for the bottom screen.
+  if (V_IsOpenGLMode())
+  {
+    V_InitMode(VID_MODESW);
+    bottom_showing = DrawBottomContents(bottom);
+    V_InitMode(VID_MODEGL);
+  }
+  else
+  {
+    bottom_showing = DrawBottomContents(bottom);
+  }
+
   return bottom_showing;
 }
 

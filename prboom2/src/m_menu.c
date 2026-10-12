@@ -3457,8 +3457,14 @@ static const char *n3ds_run_modes[] =
   NULL
 };
 
+// The values of "videomode": the GPU's renderer is OpenGL (on citro3d).
+static const char *n3ds_renderers[] = { "Software", "OpenGL", NULL };
+
 setup_menu_t n3ds_main_settings[] =
 {
+  { "Video", S_SKIP | S_TITLE, m_null, N3DS_X },
+  { "Renderer (OpenGL: the GPU)", S_CHOICE | S_STR, m_conf, N3DS_X, dsda_config_videomode, 0, n3ds_renderers },
+  EMPTY_LINE,
   { "Bottom Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
   { "Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_bottom_map },
   { "Status Bar Below the Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_status_below },

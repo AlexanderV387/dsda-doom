@@ -74,6 +74,11 @@
 
 #include "dsda/mapinfo.h"
 
+#ifdef __3DS__
+#include <stdlib.h>
+#include "n3ds/n3ds_gl.h"
+#endif
+
 int imageformats[5] = {0, GL_LUMINANCE, GL_LUMINANCE_ALPHA, GL_RGB, GL_RGBA};
 
 /* TEXTURES */
@@ -294,7 +299,14 @@ static GLTexture *gld_GetGLSkyTexture(GLTexture *basetexture)
 
 void gld_SetIndexedPalette(int palette_index)
 {
+#ifdef __3DS__
+  // [3DS] Textures and colors keep the normal palette; the others are a
+  // tint over the frame.
+  N3DS_GLSetPalette(palette_index);
+  gld_paletteIndex = 0;
+#else
   gld_paletteIndex = palette_index;
+#endif
 }
 
 static void gld_AddPatchToTexture_UnTranslated(GLTexture *gltexture, unsigned char *buffer, const rpatch_t *patch, int originx, int originy)
@@ -891,8 +903,25 @@ void gld_SetTexClamp(GLTexture *gltexture, unsigned int flags)
 int gld_BuildTexture(GLTexture *gltexture, void *data, dboolean readonly, int width, int height)
 {
   int tex_width, tex_height, tex_format;
+#ifdef __3DS__
+  // [3DS] No shader to look the palette up: the colors go in the texture.
+  unsigned char *indexed = NULL;
 
+  if (gltexture->flags & GLTEXTURE_INDEXED)
+  {
+    unsigned char *rgba = N3DS_GLIndexedToRGBA(data, width, height);
+
+    if (rgba)
+    {
+      indexed = data;
+      data = rgba;
+    }
+  }
+
+  tex_format = GL_RGBA;
+#else
   tex_format = gltexture->flags & GLTEXTURE_INDEXED ? GL_RG : GL_RGBA;
+#endif
   tex_width  = gld_GetTexDimension(width);
   tex_height = gld_GetTexDimension(height);
 
@@ -906,6 +935,14 @@ int gld_BuildTexture(GLTexture *gltexture, void *data, dboolean readonly, int wi
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+#ifdef __3DS__
+  if (indexed)
+  {
+    free(data);
+    data = indexed;
+  }
+#endif
 
   if (!readonly)
   {

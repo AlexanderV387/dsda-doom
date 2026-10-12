@@ -99,6 +99,10 @@
 #include "dsda/time.h"
 #include "dsda/gl/render_scale.h"
 
+#ifdef __3DS__
+#include "n3ds/n3ds_gl.h"
+#endif
+
 //e6y: new mouse code
 static SDL_Cursor* cursors[2] = {NULL, NULL};
 
@@ -1267,9 +1271,12 @@ void I_UpdateVideoMode(void)
   }
 
   // Initialize SDL with this graphics mode
+#ifndef __3DS__
+  // [3DS] OpenGL is pgl's (n3ds/n3ds_gl.h), not SDL's.
   if (V_IsOpenGLMode()) {
     init_flags |= SDL_WINDOW_OPENGL;
   }
+#endif
 
   // [FG] aspect ratio correction for the canonical video modes
   if ((SCREENHEIGHT == 200 || SCREENHEIGHT == 400) && dsda_IntConfig(dsda_config_aspect_ratio_correction))
@@ -1454,6 +1461,11 @@ void I_UpdateVideoMode(void)
     lprintf(LO_DEBUG, "    SDL_GL_MULTISAMPLEBUFFERS: %i\n",temp);
     SDL_GL_GetAttribute( SDL_GL_STENCIL_SIZE, &temp );
     lprintf(LO_DEBUG, "    SDL_GL_STENCIL_SIZE: %i\n",temp);
+
+#ifdef __3DS__
+    // [3DS] The bottom screen draws in software (n3ds_dsda.c), into these.
+    V_AllocScreens();
+#endif
 
     gld_Init(SCREENWIDTH, SCREENHEIGHT);
   }

@@ -56,6 +56,11 @@
 
 #include "doomtype.h"
 
+#ifdef __3DS__
+// [3DS] OpenGL on citro3d (pgl), with SDL's OpenGL calls.
+#include "n3ds/n3ds_gl.h"
+#endif
+
 #if !defined(GL_DEPTH_STENCIL_EXT)
 #define GL_DEPTH_STENCIL_EXT              0x84F9
 #endif

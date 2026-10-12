@@ -281,6 +281,10 @@ void gld_InitOpenGL(void)
   //
   // GL_ARB_shader_objects
   //
+#ifdef __3DS__
+  // [3DS] No GLSL: n3ds/n3ds_gl.c does what the shaders do.
+  gl_arb_shader_objects = true;
+#else
   gl_arb_shader_objects = isExtensionSupported ("GL_ARB_shader_objects") &&
                           isExtensionSupported ("GL_ARB_vertex_shader") &&
                           isExtensionSupported ("GL_ARB_fragment_shader") &&
@@ -330,6 +334,7 @@ void gld_InitOpenGL(void)
   {
     I_Error("gld_InitOpenGL: Insufficient support for shader objects");
   }
+#endif
 
   lprintf(LO_DEBUG, "using GL_ARB_shader_objects\n");
   lprintf(LO_DEBUG, "using GL_ARB_vertex_shader\n");

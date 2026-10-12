@@ -6,8 +6,9 @@
 #   the music is MIDI, played by DSDA-Doom's own OPL emulation.
 # - libzip (zip and pk3 mods), with devkitPro's zlib only.
 # - libsndfile (sounds in WAV and other formats), without external codecs.
-# - The OpenGL headers (Mesa, MIT; Khronos): only to compile. The 3DS draws
-#   in software and links no OpenGL code.
+# - The OpenGL headers (Mesa, MIT; Khronos), and GLU's tessellator part:
+#   the OpenGL renderer runs on pgl (prboom2/src/n3ds/pgl.c), OpenGL on
+#   citro3d.
 #
 # Run from the repository root inside the devkitpro/devkitarm image.
 set -eu
@@ -21,10 +22,10 @@ WORK="$PWD/deps-3ds/src"
 PATCHES="$PWD/tools/3ds/patches"
 TOOLCHAIN="$DEVKITPRO/cmake/3DS.cmake"
 
-[ -f "$PREFIX/lib/libsndfile.a" ] && { echo "deps-3ds: already built"; exit 0; }
-
 mkdir -p "$WORK" "$PREFIX/include"
 cp -r tools/3ds/include/GL tools/3ds/include/KHR "$PREFIX/include/"
+
+[ -f "$PREFIX/lib/libsndfile.a" ] && { echo "deps-3ds: already built"; exit 0; }
 
 clone() {
     [ -d "$WORK/$1" ] || git clone -q --depth 1 --branch "$2" "$3" "$WORK/$1"
