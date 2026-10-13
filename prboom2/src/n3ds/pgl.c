@@ -84,11 +84,11 @@ static bool initialized;
 static C3D_RenderTarget *target;
 static DVLB_s *shader_dvlb;
 static shaderProgram_s shader;
-static int u_mvp, u_modelview, u_texgen, u_texmtx;
+static int u_mvp, u_modelview, u_texgen, u_texmtx, u_texgen_on;
 
 // The self-test's smaller shaders (pgl_t*.v.pica): each a step toward
 // pgl's own.
-#define TEST_SHADERS 4
+#define TEST_SHADERS 6
 static shaderProgram_s test_shaders[TEST_SHADERS];
 static int test_shader_count;
 
@@ -290,30 +290,26 @@ static void UploadMatrices(void)
 
   if (texgen_dirty)
   {
-    bool on = texgen_on[0] && texgen_on[1];
+    const bool on = texgen_on[0] && texgen_on[1];
+    matrix_t planes;
+    int k;
 
-    C3D_BoolUnifSet(GPU_VERTEX_SHADER, 0, on);
-
-    if (on)
+    // One plane per row; Q is w (1) unless generated. Always uploaded:
+    // the shader computes both ways (with garbage, 0 * NaN is NaN).
+    for (k = 0; k < 4; ++k)
     {
-      matrix_t planes;
-      int k;
+      static const float w[4] = {0, 0, 0, 1};
+      const float *plane = texgen_on[k] ? texgen_plane[k] : (k == 3 ? w : texgen_plane[2]);
 
-      // One plane per row; Q is w (1) unless generated.
-      for (k = 0; k < 4; ++k)
-      {
-        static const float w[4] = {0, 0, 0, 1};
-        const float *plane = texgen_on[k] ? texgen_plane[k] : (k == 3 ? w : texgen_plane[2]);
-
-        planes[0 * 4 + k] = plane[0];
-        planes[1 * 4 + k] = plane[1];
-        planes[2 * 4 + k] = plane[2];
-        planes[3 * 4 + k] = plane[3];
-      }
-
-      UploadMatrix(u_texgen, planes);
-      UploadMatrix(u_modelview, matrices[0].stack[matrices[0].depth]);
+      planes[0 * 4 + k] = plane[0];
+      planes[1 * 4 + k] = plane[1];
+      planes[2 * 4 + k] = plane[2];
+      planes[3 * 4 + k] = plane[3];
     }
+
+    UploadMatrix(u_texgen, planes);
+    UploadMatrix(u_modelview, matrices[0].stack[matrices[0].depth]);
+    C3D_FVUnifSet(GPU_VERTEX_SHADER, u_texgen_on, on ? 1.0f : 0.0f, 0, 0, 0);
 
     texgen_dirty = false;
   }
@@ -1166,9 +1162,10 @@ bool pglCreateContext(void)
   u_modelview = shaderInstanceGetUniformLocation(shader.vertexShader, "modelview");
   u_texgen = shaderInstanceGetUniformLocation(shader.vertexShader, "texgen");
   u_texmtx = shaderInstanceGetUniformLocation(shader.vertexShader, "texmtx");
+  u_texgen_on = shaderInstanceGetUniformLocation(shader.vertexShader, "texgen_on");
 
-  printf("pgl: %d shaders; uniforms mvp %d, modelview %d, texgen %d, texmtx %d\n",
-         (int) shader_dvlb->numDVLE, u_mvp, u_modelview, u_texgen, u_texmtx);
+  printf("pgl: %d shaders; uniforms mvp %d, modelview %d, texgen %d, texmtx %d, texgen_on %d\n",
+         (int) shader_dvlb->numDVLE, u_mvp, u_modelview, u_texgen, u_texmtx, u_texgen_on);
 
   for (k = 0; k < TEST_SHADERS && k + 1 < (int) shader_dvlb->numDVLE; ++k)
   {
@@ -3062,10 +3059,12 @@ static void SelfTest(void)
   {
     static const char *names[TEST_SHADERS] = {
       "shader: position", "shader: + color", "shader: + texcoord", "shader: + texcoord w",
+      "shader: + texture matrix", "shader: + bool branch",
     };
 
     BeginFrame();
     C3D_BindProgram(&test_shaders[k]);
+    C3D_BoolUnifSet(GPU_VERTEX_SHADER, 0, false);
     mvp_dirty = true;
     TestQuad();
     C3D_BindProgram(&shader);

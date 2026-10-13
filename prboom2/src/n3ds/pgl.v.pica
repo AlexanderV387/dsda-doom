@@ -1,13 +1,15 @@
 ; [3DS] pgl's vertex shader: OpenGL's fixed function vertex stage, as far as
 ; DSDA-Doom uses it. The projection, the modelview and the screen rotation
 ; come in one matrix (mvp); texture coordinates go through the texture
-; matrix, or are made from the eye position (glTexGen, GL_EYE_LINEAR).
+; matrix, either as given or made from the eye position (glTexGen,
+; GL_EYE_LINEAR). No branches: both are computed and texgen_on (1 or 0)
+; picks one, with a multiplication.
 
 .fvec mvp[4]       ; rotation * projection * modelview
 .fvec modelview[4] ; for glTexGen
 .fvec texgen[4]    ; the S, T, R and Q eye planes
 .fvec texmtx[4]    ; the texture matrix
-.bool use_texgen
+.fvec texgen_on    ; x: 1 to make the coordinates, 0 to take them
 
 .constf consts(1.0, 0.0, 0.00392156862745098, 0.0)
 .alias ONE consts.xxxx
@@ -34,20 +36,25 @@
 
 	mul outclr, INV255, inclr
 
-	ifu use_texgen
-		dp4 r1.x, modelview[0], r0
-		dp4 r1.y, modelview[1], r0
-		dp4 r1.z, modelview[2], r0
-		dp4 r1.w, modelview[3], r0
-		dp4 r2.x, texgen[0], r1
-		dp4 r2.y, texgen[1], r1
-		dp4 r2.z, texgen[2], r1
-		dp4 r2.w, texgen[3], r1
-	.else
-		mov r2.xy, intc
-		mov r2.z, ZERO
-		mov r2.w, ONE
-	.end
+	; The coordinates as given: s, t, 0, 1.
+	mov r2.xy, intc
+	mov r2.z, ZERO
+	mov r2.w, ONE
+
+	; Made from the eye position.
+	dp4 r1.x, modelview[0], r0
+	dp4 r1.y, modelview[1], r0
+	dp4 r1.z, modelview[2], r0
+	dp4 r1.w, modelview[3], r0
+	dp4 r3.x, texgen[0], r1
+	dp4 r3.y, texgen[1], r1
+	dp4 r3.z, texgen[2], r1
+	dp4 r3.w, texgen[3], r1
+
+	; r2 + texgen_on * (r3 - r2)
+	add r3, r3, -r2
+	mul r3, texgen_on.xxxx, r3
+	add r2, r2, r3
 
 	dp4 outtc0.x, texmtx[0], r2
 	dp4 outtc0.y, texmtx[1], r2
