@@ -361,6 +361,49 @@ static void DirtyAll(void)
   viewport_dirty = program_dirty = true;
 }
 
+// The draws of the first frames, for the log if the GPU hangs on one.
+#define DRAW_LOG_SIZE 64
+static char draw_log[DRAW_LOG_SIZE][80];
+static int draw_log_count;
+
+static void LogDraw(const char *what, int count);
+
+static void ReportHang(void)
+{
+  int k;
+
+  printf("pgl: the GPU did not finish frame %lu; its draws:\n", (unsigned long) frame_number - 1);
+
+  for (k = 0; k < draw_log_count && k < DRAW_LOG_SIZE; ++k)
+    printf("pgl:   %s\n", draw_log[k]);
+
+  if (draw_log_count > DRAW_LOG_SIZE)
+    printf("pgl:   (%d more)\n", draw_log_count - DRAW_LOG_SIZE);
+}
+
+// Starts a citro3d frame once the GPU is done with the last one (and, with
+// sync, at the screen's pace). A GPU that never finishes (a command it
+// cannot do) is reported in the log instead of a silent wait.
+static void StartFrame(bool sync)
+{
+  const u64 start = osGetTime();
+  bool reported = false;
+
+  if (sync)
+    C3D_FrameSync();
+
+  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+  {
+    if (!reported && osGetTime() - start > 3000)
+    {
+      ReportHang();
+      reported = true;
+    }
+
+    svcSleepThread(1000 * 1000);
+  }
+}
+
 static void BeginFrame(void)
 {
   u64 start;
@@ -373,13 +416,14 @@ static void BeginFrame(void)
     printf("pgl: frame %lu: waiting for the GPU\n", (unsigned long) frame_number);
 
   start = svcGetSystemTick();
-  C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+  StartFrame(true);
   wait_ticks += svcGetSystemTick() - start;
   C3D_FrameDrawOn(target);
 
   if (frame_number <= 3)
     printf("pgl: frame %lu: drawing\n", (unsigned long) frame_number);
   in_frame = true;
+  draw_log_count = 0;
 
   // The GPU is done with everything before: its memory is free.
   FreePending();
@@ -401,12 +445,13 @@ static void FinishDrawing(void)
     C3D_FrameEnd(0);
   }
 
-  C3D_FrameBegin(0);
+  StartFrame(false);
   C3D_FrameDrawOn(target);
 
   if (!in_frame)
   {
     in_frame = true;
+    draw_log_count = 0;
     FreePending();
     vertex_count = 0;
     vertices_full = false;
@@ -870,6 +915,28 @@ static void DrawVertices(GPU_Primitive_t primitive, int first, int count)
   ApplyStates();
   C3D_DrawArrays(primitive, first, count);
   ++frame_draws;
+  LogDraw(primitive == GPU_TRIANGLES ? "triangles" : primitive == GPU_TRIANGLE_STRIP ? "strip" : "fan",
+          count);
+}
+
+static void LogDraw(const char *what, int count)
+{
+  texture_t *t;
+
+  if (frame_number > 5)
+    return;
+
+  if (draw_log_count < DRAW_LOG_SIZE)
+  {
+    t = DrawTexture();
+    snprintf(draw_log[draw_log_count], sizeof(draw_log[0]),
+             "%s %d: tex %dx%d prog %d fog %d sc %d bl %d at %d dt %d st %d vp %dx%d",
+             what, count, t ? t->tex.width : 0, t ? t->tex.height : 0, program,
+             program == PGL_PROGRAM_LIGHT && fog_table, scissor_on, blend_on,
+             alpha_test_on, depth_test_on, stencil_test_on, viewport[2], viewport[3]);
+  }
+
+  ++draw_log_count;
 }
 
 // Lines and points are quads on the PICA200: one pixel wide, made here
@@ -1057,6 +1124,8 @@ static void DrawMode(GLenum mode, int first, int count)
 // ==========================================================================
 // Context
 
+static void SelfTest(void);
+
 bool pglCreateContext(void)
 {
   int k;
@@ -1117,6 +1186,7 @@ bool pglCreateContext(void)
   initialized = true;
   DirtyAll();
   printf("pgl: OpenGL on citro3d ready\n");
+  SelfTest();
   return true;
 }
 
@@ -1657,6 +1727,7 @@ static void ScreenQuad(const float *color, float z, int write, bool blend, bool 
   C3D_DrawArrays(GPU_TRIANGLE_STRIP, vertex_count, 4);
   vertex_count += 4;
   ++frame_draws;
+  LogDraw(blend ? "screen tint" : "clear quad", 4);
 
   // The OpenGL states again at the next draw.
   DirtyAll();
@@ -1734,6 +1805,7 @@ void glClear(GLbitfield mask)
     // After the draws so far: they go to the GPU first.
     C3D_FrameSplit(0);
     C3D_RenderTargetClear(target, bits, color_value, depth_value);
+    LogDraw(bits == C3D_CLEAR_COLOR ? "fill color" : bits == C3D_CLEAR_DEPTH ? "fill depth" : "fill both", 0);
     return;
   }
 
@@ -2639,4 +2711,188 @@ void *pglGetProcAddress(const char *name)
       return functions[k].function;
 
   return NULL;
+}
+
+// ==========================================================================
+// Self-test: each kind of draw in a frame of its own, not shown, and how
+// the GPU takes it, in the log. The PICA200 hangs on what it cannot do,
+// rather than saying so: this tells which.
+
+static bool TestDone(const char *name)
+{
+  const u64 start = osGetTime();
+
+  target->used = false;
+  C3D_FrameEnd(0);
+  in_frame = false;
+
+  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+  {
+    if (osGetTime() - start > 2000)
+    {
+      printf("pgl test: %s: THE GPU HUNG\n", name);
+      ReportHang();
+      return false;
+    }
+
+    svcSleepThread(1000 * 1000);
+  }
+
+  target->used = false;
+  C3D_FrameEnd(0);
+  printf("pgl test: %s: ok\n", name);
+  return true;
+}
+
+static void TestQuad(void)
+{
+  glBegin(GL_TRIANGLE_STRIP);
+  glTexCoord2f(0, 0); glVertex2f(10, 10);
+  glTexCoord2f(0, 1); glVertex2f(10, 100);
+  glTexCoord2f(1, 0); glVertex2f(100, 10);
+  glTexCoord2f(1, 1); glVertex2f(100, 100);
+  glEnd();
+}
+
+static void SelfTest(void)
+{
+  static const GLfloat q_plane[4] = {0, 0, 1, 0};
+  pgl_fog_table_t *fog;
+  float brightness[129];
+  u8 pixels[8 * 8 * 4];
+  GLuint texture;
+  int k;
+
+  for (k = 0; k <= 128; ++k)
+    brightness[k] = 1 - k / 256.0f;
+
+  memset(pixels, 0xFF, sizeof(pixels));
+  fog = pglNewFogTable(brightness);
+
+  glViewport(0, 0, TOP_WIDTH, TOP_HEIGHT);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0, TOP_WIDTH, TOP_HEIGHT, 0, -1, 1);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glColor4f(1, 1, 1, 1);
+
+  TestQuad();
+  if (!TestDone("color"))
+    return;
+
+  glClearColor(0, 0, 0, 1);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  TestQuad();
+  if (!TestDone("fill, then color"))
+    return;
+
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glEnable(GL_TEXTURE_2D);
+  TestQuad();
+  if (!TestDone("texture"))
+    return;
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 5, 7, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  TestQuad();
+  if (!TestDone("texture 5x7"))
+    return;
+
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PRIMARY_COLOR);
+  TestQuad();
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+  if (!TestDone("combine"))
+    return;
+
+  pglProgram(PGL_PROGRAM_LIGHT);
+  pglFogTable(fog);
+  TestQuad();
+  pglProgram(PGL_PROGRAM_FIXED);
+  if (!TestDone("light (fog)"))
+    return;
+
+  pglProgram(PGL_PROGRAM_SHADOW);
+  TestQuad();
+  pglProgram(PGL_PROGRAM_FIXED);
+  if (!TestDone("shadow"))
+    return;
+
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(0, 0, 200, 120);
+  TestQuad();
+  glDisable(GL_SCISSOR_TEST);
+  if (!TestDone("scissor"))
+    return;
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0);
+  TestQuad();
+  if (!TestDone("blend, alpha test"))
+    return;
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glEnable(GL_STENCIL_TEST);
+  glStencilFunc(GL_ALWAYS, 1, ~0);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  TestQuad();
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_DEPTH_TEST);
+  if (!TestDone("depth, stencil"))
+    return;
+
+  glTexGenfv(GL_Q, GL_EYE_PLANE, q_plane);
+  glEnable(GL_TEXTURE_GEN_S);
+  glEnable(GL_TEXTURE_GEN_T);
+  glEnable(GL_TEXTURE_GEN_Q);
+  TestQuad();
+  glDisable(GL_TEXTURE_GEN_S);
+  glDisable(GL_TEXTURE_GEN_T);
+  glDisable(GL_TEXTURE_GEN_Q);
+  if (!TestDone("texgen"))
+    return;
+
+  glDisable(GL_TEXTURE_2D);
+  glBegin(GL_LINES);
+  glVertex2f(10, 10);
+  glVertex2f(300, 200);
+  glEnd();
+  if (!TestDone("lines"))
+    return;
+
+  glEnable(GL_SCISSOR_TEST);
+  glScissor(0, 0, 200, 120);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glDisable(GL_SCISSOR_TEST);
+  if (!TestDone("clear quad"))
+    return;
+
+  pglBlendScreen(1, 0, 0, 0.5f);
+  if (!TestDone("screen tint"))
+    return;
+
+  // OpenGL's defaults again.
+  glDeleteTextures(1, &texture);
+  glDisable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ZERO);
+  glDisable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_ALWAYS, 0);
+  glDepthFunc(GL_LESS);
+  glStencilFunc(GL_ALWAYS, 0, ~0);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  texgen_plane[3][2] = 0;
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glClearColor(0, 0, 0, 0);
+  printf("pgl test: all done\n");
 }
