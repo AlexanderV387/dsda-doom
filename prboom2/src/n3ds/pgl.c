@@ -54,6 +54,10 @@
 // VRAM kept free when placing textures (bytes).
 #define VRAM_RESERVE (256 * 1024)
 
+// Textures copied to VRAM during a frame, at most: two of the GPU list's
+// 32 jobs each (the frame's own and the clears' need some).
+#define MAX_FRAME_VRAM_UPLOADS 8
+
 // Strips and fans up to this many triangles are drawn as triangles.
 #define MAX_JOINED_TRIANGLES 64
 
@@ -110,6 +114,7 @@ static void (*before_swap)(void);
 static vertex_t *vertices;  // in linear memory
 static int vertex_count;    // used this frame
 static bool vertices_full;
+static int frame_vram_uploads; // this frame (see UploadToVRAM)
 
 // Freed when the GPU is done with the frames that may use them.
 static void **pending_free;
@@ -530,6 +535,7 @@ static void BeginFrame(void)
   // (between 30 and 60).
   start = svcGetSystemTick();
   StartFrame(work_us < SYNC_WORK_US);
+  frame_vram_uploads = 0; // the GPU list starts empty
   wait_ticks += svcGetSystemTick() - start;
   stat_wait_ticks += svcGetSystemTick() - start;
   C3D_FrameDrawOn(target);
@@ -567,6 +573,7 @@ static void FinishDrawing(void)
   }
 
   StartFrame(false);
+  frame_vram_uploads = 0;
   C3D_FrameDrawOn(target);
 
   if (!in_frame)
@@ -3009,16 +3016,19 @@ static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int h
 
 // A texture into VRAM, if there is room (some kept for the screens'
 // buffers). The CPU cannot write VRAM: the texels are made in main memory
-// and the GPU's copier (DMA) takes them there; that waits for the GPU to be
-// idle, so only between frames (a level's textures are made when it
-// loads). A copy stays in the heap for the CPU (glGetTexImage).
+// and the GPU's copier (DMA) takes them there. Between frames (a level's
+// textures, made when it loads) the copy is done at once; during a frame
+// it goes in the GPU's list, before the draws that follow, a few a frame
+// (the list of GPU jobs is short). A copy stays in the heap for the CPU
+// (glGetTexImage).
 static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GPU_TEXCOLOR fmt,
                          GLenum format, const void *pixels)
 {
   const u32 size = tex_width * tex_height * TexelBytes(fmt);
   u32 *staging, *shadow;
 
-  if (vramSpaceFree() < size + VRAM_RESERVE)
+  if (vramSpaceFree() < size + VRAM_RESERVE
+      || (in_frame && frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS))
     return false;
 
   staging = linearAlloc(size);
@@ -3035,8 +3045,19 @@ static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GPU_TEXCOL
   WriteTexelsTo(staging, t, 0, 0, t->width, t->height, format, pixels);
   memcpy(shadow, staging, size);
   GSPGPU_FlushDataCache(staging, size);
-  C3D_SyncTextureCopy(staging, 0, t->tex.data, 0, size, 8);
-  linearFree(staging);
+
+  if (in_frame)
+  {
+    FlushBatch();
+    C3D_SyncTextureCopy(staging, 0, t->tex.data, 0, size, 8);
+    FreeLater(staging); // copied when the frame goes to the GPU
+    ++frame_vram_uploads;
+  }
+  else
+  {
+    C3D_SyncTextureCopy(staging, 0, t->tex.data, 0, size, 8);
+    linearFree(staging);
+  }
 
   t->shadow = shadow;
   return true;
@@ -3096,7 +3117,7 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
 
   fmt = TexelFormat(format, width, height, pixels);
 
-  if (!(pixels && !in_frame && UploadToVRAM(t, tex_width, tex_height, fmt, format, pixels)))
+  if (!(pixels && UploadToVRAM(t, tex_width, tex_height, fmt, format, pixels)))
   {
     if (!C3D_TexInit(&t->tex, tex_width, tex_height, fmt))
     {
