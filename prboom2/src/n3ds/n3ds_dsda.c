@@ -515,7 +515,8 @@ static dboolean DrawBottom(byte *bottom)
 
 static dboolean DrawBottomContents(byte *bottom)
 {
-  const dboolean in_level = gamestate == GS_LEVEL && players[displayplayer].mo != NULL;
+  const dboolean in_level = gamestate == GS_LEVEL && players[displayplayer].mo != NULL
+                           && ST_Ready();
   const int status_height = StatusBarHeight();
   int status_y = 0;
 

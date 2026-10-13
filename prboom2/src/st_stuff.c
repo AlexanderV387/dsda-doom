@@ -259,6 +259,16 @@ int ST_SCALED_OFFSETX;
 // main player in game
 static player_t *plyr;
 
+#ifdef __3DS__
+// [3DS] The bottom screen draws the status bar on its own: only once
+// ST_Start has said whose it is (OpenGL mode shows frames while a level
+// loads, before that).
+dboolean ST_Ready(void)
+{
+  return raven || plyr != NULL;
+}
+#endif
+
 // ST_Start() has just been called
 static dboolean st_firsttime;
 

@@ -70,6 +70,10 @@ void ST_Ticker(void);
 // Called by main loop.
 void ST_Drawer(dboolean refresh);
 
+#ifdef __3DS__
+dboolean ST_Ready(void);
+#endif
+
 // Called when the console player is spawned on each level.
 void ST_Start(void);
 
