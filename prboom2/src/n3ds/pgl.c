@@ -2772,6 +2772,8 @@ static void TestQuad(void)
   glEnd();
 }
 
+static void TestQuad(void);
+
 static const char *example_steps[] = {
   "example triangle",
   "+ no texture",
@@ -2795,6 +2797,10 @@ static const char *example_steps[] = {
   "+ pgl's fragment states",
   "+ pgl's viewport",
   "+ pgl's draw",
+  "+ pgl's own matrix, y down",
+  "+ pgl's own matrix, y up",
+  "+ TestQuad's vertices",
+  "+ glBegin, glVertex, glEnd",
 };
 
 static bool ExampleTriangle(int level)
@@ -2836,15 +2842,16 @@ static bool ExampleTriangle(int level)
 
   if (level >= 12)
   {
+    static const float quad[4][3] = {{10, 10, 0}, {10, 100, 0}, {100, 10, 0}, {100, 100, 0}};
     vertex_t *v = vertices;
     int k;
 
     for (k = 0; k < 4; ++k)
     {
       memset(&v[k], 0, sizeof(v[k]));
-      v[k].x = triangle[k][0];
-      v[k].y = triangle[k][1];
-      v[k].z = triangle[k][2];
+      v[k].x = level >= 24 ? quad[k][0] : triangle[k][0];
+      v[k].y = level >= 24 ? quad[k][1] : triangle[k][1];
+      v[k].z = level >= 24 ? quad[k][2] : triangle[k][2];
     }
 
     BufInfo_Add(buffers, vertices, sizeof(vertex_t), 1, 0x0);
@@ -2888,13 +2895,32 @@ static bool ExampleTriangle(int level)
 
   // pgl's own functions, one by one, over the same settings.
   DirtyAll();
+  if (level == 23)
+  {
+    // y up for this one
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, TOP_WIDTH, 0, TOP_HEIGHT, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+  }
+  else if (level >= 22)
+  {
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, TOP_WIDTH, TOP_HEIGHT, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+  }
+
   if (level >= 15)
   {
     UploadMatrices();
 
-    // Its own matrix again (the test has no projection set).
-    Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
-    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
+    // The example's matrix again, until pgl's own is tried.
+    if (level < 22)
+    {
+      Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
+      C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
+    }
   }
   if (level >= 16) ApplyTexture();
   if (level >= 17) ApplyProgram();
@@ -2902,7 +2928,12 @@ static bool ExampleTriangle(int level)
   if (level >= 19) ApplyFragment();
   if (level >= 20) ApplyViewport();
 
-  if (level >= 21)
+  if (level >= 25)
+  {
+    vertex_count = 0;
+    TestQuad();
+  }
+  else if (level >= 21)
   {
     texture_dirty = texenv_dirty = fragment_dirty = viewport_dirty = program_dirty = false;
     DrawVertices(GPU_TRIANGLE_STRIP, 0, 4);
@@ -2989,7 +3020,7 @@ static void SelfTest(void)
   {
     int level;
 
-    for (level = 0; level <= 21; ++level)
+    for (level = 0; level <= 25; ++level)
       if (!ExampleTriangle(level))
         return;
   }
