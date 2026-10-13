@@ -3024,14 +3024,33 @@ static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int h
 // it goes in the GPU's list, before the draws that follow, a few a frame
 // (the list of GPU jobs is short). A copy stays in the heap for the CPU
 // (glGetTexImage).
+// Between frames: waits for the GPU to finish the last one, and frees the
+// memory that waited for it (FreeLater). A new level's textures are made
+// right after the old ones are deleted: without this, the old ones still
+// held VRAM and the new ones went to main memory.
+static void ReleasePendingNow(void)
+{
+  if (in_frame || pending_count == 0)
+    return;
+
+  StartFrame(false);
+  C3D_FrameEnd(0); // nothing in it
+  FreePending();
+}
+
 static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GPU_TEXCOLOR fmt,
                          GLenum format, const void *pixels)
 {
   const u32 size = tex_width * tex_height * TexelBytes(fmt);
   u32 *staging, *shadow;
 
-  if (vramSpaceFree() < size + VRAM_RESERVE
-      || (in_frame && frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS))
+  if (in_frame && frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS)
+    return false;
+
+  if (vramSpaceFree() < size + VRAM_RESERVE)
+    ReleasePendingNow();
+
+  if (vramSpaceFree() < size + VRAM_RESERVE)
     return false;
 
   staging = linearAlloc(size);
