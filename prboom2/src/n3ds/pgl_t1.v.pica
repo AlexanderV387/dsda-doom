@@ -1,0 +1,17 @@
+; [3DS] pgl self-test: position only (white).
+.fvec mvp[4]
+.constf consts(1.0, 0.0, 0.0, 0.0)
+.out outpos position
+.out outclr color
+.alias inpos v0
+.entry test1
+.proc test1
+	mov r0.xyz, inpos
+	mov r0.w, consts.xxxx
+	dp4 outpos.x, mvp[0], r0
+	dp4 outpos.y, mvp[1], r0
+	dp4 outpos.z, mvp[2], r0
+	dp4 outpos.w, mvp[3], r0
+	mov outclr, consts.xxxx
+	end
+.end

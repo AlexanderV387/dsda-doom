@@ -86,6 +86,12 @@ static DVLB_s *shader_dvlb;
 static shaderProgram_s shader;
 static int u_mvp, u_modelview, u_texgen, u_texmtx;
 
+// The self-test's smaller shaders (pgl_t*.v.pica): each a step toward
+// pgl's own.
+#define TEST_SHADERS 4
+static shaderProgram_s test_shaders[TEST_SHADERS];
+static int test_shader_count;
+
 static bool in_frame;
 static u32 frame_number = 1;
 static u64 wait_ticks;      // waiting for the GPU and the screen, this frame
@@ -1160,6 +1166,18 @@ bool pglCreateContext(void)
   u_modelview = shaderInstanceGetUniformLocation(shader.vertexShader, "modelview");
   u_texgen = shaderInstanceGetUniformLocation(shader.vertexShader, "texgen");
   u_texmtx = shaderInstanceGetUniformLocation(shader.vertexShader, "texmtx");
+
+  printf("pgl: %d shaders; uniforms mvp %d, modelview %d, texgen %d, texmtx %d\n",
+         (int) shader_dvlb->numDVLE, u_mvp, u_modelview, u_texgen, u_texmtx);
+
+  for (k = 0; k < TEST_SHADERS && k + 1 < (int) shader_dvlb->numDVLE; ++k)
+  {
+    shaderProgramInit(&test_shaders[k]);
+    shaderProgramSetVsh(&test_shaders[k], &shader_dvlb->DVLE[k + 1]);
+    printf("pgl: test shader %d: mvp %d\n", k + 1,
+           shaderInstanceGetUniformLocation(test_shaders[k].vertexShader, "mvp"));
+    test_shader_count = k + 1;
+  }
 
   vertices = linearAlloc(VERTEX_BUFFER_SIZE);
 
@@ -2777,8 +2795,56 @@ static void SelfTest(void)
   glLoadIdentity();
   glColor4f(1, 1, 1, 1);
 
+  // A command list with no draw in it.
+  BeginFrame();
+  GPUCMD_AddWrite(GPUREG_FRAMEBUFFER_FLUSH, 1);
+  if (!TestDone("commands, no draw"))
+    return;
+
+  // The smallest shader, with the position alone loaded from the buffer.
+  if (test_shader_count > 0)
+  {
+    C3D_AttrInfo *attributes;
+    C3D_BufInfo *buffers;
+
+    BeginFrame();
+    attributes = C3D_GetAttrInfo();
+    AttrInfo_Init(attributes);
+    AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
+    buffers = C3D_GetBufInfo();
+    BufInfo_Init(buffers);
+    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 1, 0x0);
+    C3D_BindProgram(&test_shaders[0]);
+    mvp_dirty = true;
+    TestQuad();
+    C3D_BindProgram(&shader);
+    SetAttributes();
+    mvp_dirty = true;
+
+    if (!TestDone("shader: position, 1 attribute"))
+      return;
+  }
+
+  // The smaller shaders, from the smallest.
+  for (k = 0; k < test_shader_count; ++k)
+  {
+    static const char *names[TEST_SHADERS] = {
+      "shader: position", "shader: + color", "shader: + texcoord", "shader: + texcoord w",
+    };
+
+    BeginFrame();
+    C3D_BindProgram(&test_shaders[k]);
+    mvp_dirty = true;
+    TestQuad();
+    C3D_BindProgram(&shader);
+    mvp_dirty = true;
+
+    if (!TestDone(names[k]))
+      return;
+  }
+
   TestQuad();
-  if (!TestDone("color"))
+  if (!TestDone("color (pgl's shader)"))
     return;
 
   glClearColor(0, 0, 0, 1);

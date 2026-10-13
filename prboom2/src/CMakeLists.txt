@@ -605,7 +605,8 @@ function(AddGameExecutable TARGET SOURCES)
     if(NINTENDO_3DS)
         target_compile_definitions(${TARGET} PRIVATE N3DS_DATA_DIR="sdmc:/3ds/dsda-doom")
         # pgl's vertex shader, assembled by picasso and built in.
-        ctr_add_shader_library(pgl_shader n3ds/pgl.v.pica)
+        ctr_add_shader_library(pgl_shader n3ds/pgl.v.pica
+            n3ds/pgl_t1.v.pica n3ds/pgl_t2.v.pica n3ds/pgl_t3.v.pica n3ds/pgl_t4.v.pica)
         dkp_add_embedded_binary_library(pgl_shader_data pgl_shader)
         target_link_libraries(${TARGET} PRIVATE pgl_shader_data citro3d)
         target_include_directories(${TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/n3ds/libtess2/Include)
