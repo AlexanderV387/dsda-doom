@@ -70,6 +70,7 @@ void pglFrameTimes(int *work_us, int *gpu_us);
 typedef struct
 {
   double draw_ms, wait_ms, upload_ms;
+  double end_ms; // sending the frame to the GPU (the cache flush with it)
   int draws, binds, fog_changes, texenv_changes, uploads;
 } pgl_stats_t;
 

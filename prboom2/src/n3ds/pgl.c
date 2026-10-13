@@ -99,7 +99,7 @@ static u32 frame_number = 1;
 static u64 wait_ticks;      // waiting for the GPU and the screen, this frame
 static u64 last_swap;
 static int work_us, gpu_us; // the last frame's
-static u64 stat_draw_ticks, stat_wait_ticks, stat_upload_ticks;
+static u64 stat_draw_ticks, stat_wait_ticks, stat_upload_ticks, stat_end_ticks;
 static int stat_draws, stat_binds, stat_fog, stat_texenv, stat_uploads;
 static void (*before_swap)(void);
 
@@ -177,6 +177,24 @@ static bool viewport_dirty = true;
 static float clear_color[4];
 static float clear_depth = 1;
 static int clear_stencil;
+
+// A clear before the frame has started waits for it (the first draw):
+// starting a frame waits for the GPU to finish the last one, and the work
+// before the first draw (walking the map) can be done meanwhile.
+typedef struct
+{
+  GLbitfield mask;
+  float color[4], depth;
+  int stencil;
+  bool scissor_on, color_mask[4], depth_mask;
+  int scissor_box[4];
+  u32 stencil_write_mask;
+} pending_clear_t;
+
+#define MAX_PENDING_CLEARS 4
+
+static pending_clear_t pending_clears[MAX_PENDING_CLEARS];
+static int pending_clear_count;
 
 // pgl's own
 static int program = PGL_PROGRAM_FIXED;
@@ -441,6 +459,7 @@ static int draw_log_count;
 
 static void LogDraw(const char *what, int count);
 static void FlushBatch(void);
+static void RunPendingClears(void);
 
 static void ReportHang(void)
 {
@@ -512,12 +531,17 @@ static void BeginFrame(void)
   C3D_BindProgram(&shader);
   SetAttributes();
   DirtyAll();
+
+  RunPendingClears();
 }
 
 // Waits for the GPU to draw what is in the list so far (to read the
 // image), and goes on with the same frame. Not shown on the screen.
 static void FinishDrawing(void)
 {
+  if (!in_frame)
+    BeginFrame(); // with its waiting clears
+
   FlushBatch();
 
   if (in_frame)
@@ -1489,6 +1513,7 @@ void pglDeleteContext(void)
     return;
 
   batch_count = 0;
+  pending_clear_count = 0;
 
   if (in_frame)
   {
@@ -1538,7 +1563,12 @@ void pglSwapBuffers(void)
 
   FlushBatch();
   usage = C3D_GetCmdBufUsage();
-  C3D_FrameEnd(0);
+  {
+    const u64 start = svcGetSystemTick();
+
+    C3D_FrameEnd(0);
+    stat_end_ticks += svcGetSystemTick() - start;
+  }
 
   if (frame_number <= 3)
     printf("pgl: frame %lu: sent (%d draws, %d vertices, viewport %d,%d %dx%d)\n",
@@ -2060,11 +2090,9 @@ void pglBlendScreen(float red, float green, float blue, float alpha)
   ScreenQuad(color, 0, GPU_WRITE_COLOR, true, false, false);
 }
 
-void glClear(GLbitfield mask)
+static void DoClear(GLbitfield mask)
 {
   bool whole, color, depth, stencil;
-
-  BeginFrame();
 
   color = (mask & GL_COLOR_BUFFER_BIT) != 0;
   depth = (mask & GL_DEPTH_BUFFER_BIT) != 0;
@@ -2107,6 +2135,66 @@ void glClear(GLbitfield mask)
   }
 
   ClearWithQuad(mask);
+}
+
+static void SaveClearStates(pending_clear_t *c)
+{
+  memcpy(c->color, clear_color, sizeof(c->color));
+  c->depth = clear_depth;
+  c->stencil = clear_stencil;
+  c->scissor_on = scissor_on;
+  memcpy(c->scissor_box, scissor_box, sizeof(c->scissor_box));
+  memcpy(c->color_mask, color_mask, sizeof(c->color_mask));
+  c->depth_mask = depth_mask;
+  c->stencil_write_mask = stencil_write_mask;
+}
+
+static void LoadClearStates(const pending_clear_t *c)
+{
+  memcpy(clear_color, c->color, sizeof(clear_color));
+  clear_depth = c->depth;
+  clear_stencil = c->stencil;
+  scissor_on = c->scissor_on;
+  memcpy(scissor_box, c->scissor_box, sizeof(scissor_box));
+  memcpy(color_mask, c->color_mask, sizeof(color_mask));
+  depth_mask = c->depth_mask;
+  stencil_write_mask = c->stencil_write_mask;
+}
+
+static void RunPendingClears(void)
+{
+  pending_clear_t current;
+  int k;
+
+  if (!pending_clear_count)
+    return;
+
+  SaveClearStates(&current);
+
+  for (k = 0; k < pending_clear_count; ++k)
+  {
+    LoadClearStates(&pending_clears[k]);
+    DoClear(pending_clears[k].mask);
+  }
+
+  LoadClearStates(&current);
+  pending_clear_count = 0;
+  viewport_dirty = fragment_dirty = true;
+}
+
+void glClear(GLbitfield mask)
+{
+  if (!in_frame && pending_clear_count < MAX_PENDING_CLEARS)
+  {
+    pending_clear_t *c = &pending_clears[pending_clear_count++];
+
+    c->mask = mask;
+    SaveClearStates(c);
+    return;
+  }
+
+  BeginFrame();
+  DoClear(mask);
 }
 
 // ==========================================================================
@@ -2868,8 +2956,10 @@ void glTexSubImage2D(GLenum target_, GLint level, GLint xoffset, GLint yoffset,
 
   TextureChanging(t);
 
-  // Drawn with in this frame: a copy to change, the GPU keeps the old one.
-  if (t->frame == frame_number)
+  // Drawn with in this frame, or in the last one while the GPU may still
+  // be drawing it (before this one starts): a copy to change, the GPU
+  // keeps the old one.
+  if (t->frame == frame_number || (!in_frame && t->frame + 1 == frame_number))
   {
     void *old = t->tex.data;
     void *copy = linearAlloc(t->tex.size);
@@ -3053,6 +3143,7 @@ void *pglGetProcAddress(const char *name)
 void pglTakeStats(pgl_stats_t *stats)
 {
   stats->draw_ms = stat_draw_ticks / CPU_TICKS_PER_MSEC;
+  stats->end_ms = stat_end_ticks / CPU_TICKS_PER_MSEC;
   stats->wait_ms = stat_wait_ticks / CPU_TICKS_PER_MSEC;
   stats->upload_ms = stat_upload_ticks / CPU_TICKS_PER_MSEC;
   stats->draws = stat_draws;
@@ -3060,6 +3151,6 @@ void pglTakeStats(pgl_stats_t *stats)
   stats->fog_changes = stat_fog;
   stats->texenv_changes = stat_texenv;
   stats->uploads = stat_uploads;
-  stat_draw_ticks = stat_wait_ticks = stat_upload_ticks = 0;
+  stat_draw_ticks = stat_wait_ticks = stat_upload_ticks = stat_end_ticks = 0;
   stat_draws = stat_binds = stat_fog = stat_texenv = stat_uploads = 0;
 }
