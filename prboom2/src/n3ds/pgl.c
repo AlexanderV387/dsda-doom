@@ -47,6 +47,9 @@
 // Command words a draw may take at most, state changes included.
 #define DRAW_COMMANDS 512
 
+// Strips and fans up to this many triangles are drawn as triangles.
+#define MAX_JOINED_TRIANGLES 64
+
 typedef struct
 {
   float x, y, z;
@@ -266,29 +269,90 @@ static const matrix_t screen_fix = {
   0, 0, -0.5f, 1,
 };
 
-static void UploadMatrices(void)
+// What the next draw needs, and what citro3d was last given: a draw sends
+// only what differs, and draws that change nothing go to the GPU as one
+// (see DrawVertices).
+typedef struct
+{
+  int depth_on, depth_func, write;
+  int blend_src, blend_dst;
+  int alpha_on, alpha_func, alpha_ref;
+  int stencil_on, stencil_func, stencil_ref, stencil_mask, stencil_write;
+  int stencil_fail, stencil_zfail, stencil_zpass;
+  float offset;
+} fragment_t;
+
+typedef struct
+{
+  matrix_t mvp, texmtx, texgen, modelview;
+  float texgen_on;
+  texture_t *texture;
+  bool projected;
+  bool fog;
+  pgl_fog_table_t *fog_table;
+  C3D_TexEnv env;
+  fragment_t fragment;
+  int viewport[4];
+  bool scissor_on;
+  int scissor[4];
+} states_t;
+
+enum
+{
+  CHANGE_MVP = 1,
+  CHANGE_TEXMTX = 2,
+  CHANGE_TEXGEN = 4,
+  CHANGE_TEXTURE = 8,
+  CHANGE_PROGRAM = 16,
+  CHANGE_TEXENV = 32,
+  CHANGE_FRAGMENT = 64,
+  CHANGE_VIEWPORT = 128,
+  CHANGE_ALL = 255,
+};
+
+static states_t desired, applied;
+static unsigned pending_changes = CHANGE_ALL; // desired, not yet applied
+static bool projected_draw; // vertices already on the screen: no matrices
+
+// Draws waiting to go to the GPU as one: triangles, one after the other in
+// the vertex buffer, with the same states.
+static int batch_first, batch_count;
+
+static void ComputeMatrices(void)
 {
   if (mvp_dirty)
   {
-    matrix_t projected, mvp;
+    if (projected_draw)
+    {
+      static const matrix_t identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
-    MatrixMultiply(projected, matrices[1].stack[matrices[1].depth],
-                   matrices[0].stack[matrices[0].depth]);
-    MatrixMultiply(mvp, screen_fix, projected);
-    UploadMatrix(u_mvp, mvp);
+      memcpy(desired.mvp, identity, sizeof(matrix_t));
+    }
+    else
+    {
+      matrix_t projected;
+
+      MatrixMultiply(projected, matrices[1].stack[matrices[1].depth],
+                     matrices[0].stack[matrices[0].depth]);
+      MatrixMultiply(desired.mvp, screen_fix, projected);
+    }
+
+    if (memcmp(desired.mvp, applied.mvp, sizeof(matrix_t)))
+      pending_changes |= CHANGE_MVP;
     mvp_dirty = false;
   }
 
   if (texmtx_dirty)
   {
-    UploadMatrix(u_texmtx, matrices[2].stack[matrices[2].depth]);
+    memcpy(desired.texmtx, matrices[2].stack[matrices[2].depth], sizeof(matrix_t));
+
+    if (memcmp(desired.texmtx, applied.texmtx, sizeof(matrix_t)))
+      pending_changes |= CHANGE_TEXMTX;
     texmtx_dirty = false;
   }
 
   if (texgen_dirty)
   {
-    const bool on = texgen_on[0] && texgen_on[1];
-    matrix_t planes;
     int k;
 
     // One plane per row; Q is w (1) unless generated. Always uploaded:
@@ -298,16 +362,19 @@ static void UploadMatrices(void)
       static const float w[4] = {0, 0, 0, 1};
       const float *plane = texgen_on[k] ? texgen_plane[k] : (k == 3 ? w : texgen_plane[2]);
 
-      planes[0 * 4 + k] = plane[0];
-      planes[1 * 4 + k] = plane[1];
-      planes[2 * 4 + k] = plane[2];
-      planes[3 * 4 + k] = plane[3];
+      desired.texgen[0 * 4 + k] = plane[0];
+      desired.texgen[1 * 4 + k] = plane[1];
+      desired.texgen[2 * 4 + k] = plane[2];
+      desired.texgen[3 * 4 + k] = plane[3];
     }
 
-    UploadMatrix(u_texgen, planes);
-    UploadMatrix(u_modelview, matrices[0].stack[matrices[0].depth]);
-    C3D_FVUnifSet(GPU_VERTEX_SHADER, u_texgen_on, on ? 1.0f : 0.0f, 0, 0, 0);
+    memcpy(desired.modelview, matrices[0].stack[matrices[0].depth], sizeof(matrix_t));
+    desired.texgen_on = texgen_on[0] && texgen_on[1] ? 1.0f : 0.0f;
 
+    if (memcmp(desired.texgen, applied.texgen, sizeof(matrix_t))
+        || memcmp(desired.modelview, applied.modelview, sizeof(matrix_t))
+        || desired.texgen_on != applied.texgen_on)
+      pending_changes |= CHANGE_TEXGEN;
     texgen_dirty = false;
   }
 }
@@ -353,11 +420,14 @@ static void SetAttributes(void)
   BufInfo_Add(buffers, vertices, sizeof(vertex_t), 3, 0x210);
 }
 
+// citro3d's states are not known (something else set them): all again at
+// the next draw.
 static void DirtyAll(void)
 {
   mvp_dirty = texmtx_dirty = texgen_dirty = true;
   texture_dirty = texenv_dirty = fragment_dirty = true;
   viewport_dirty = program_dirty = true;
+  pending_changes = CHANGE_ALL;
 }
 
 // The draws of the first frames, for the log if the GPU hangs on one.
@@ -366,6 +436,7 @@ static char draw_log[DRAW_LOG_SIZE][80];
 static int draw_log_count;
 
 static void LogDraw(const char *what, int count);
+static void FlushBatch(void);
 
 static void ReportHang(void)
 {
@@ -439,6 +510,8 @@ static void BeginFrame(void)
 // image), and goes on with the same frame. Not shown on the screen.
 static void FinishDrawing(void)
 {
+  FlushBatch();
+
   if (in_frame)
   {
     target->used = false; // no transfer to the screen
@@ -509,18 +582,34 @@ static bool DrawableArea(void)
   return true;
 }
 
+static void ComputeViewport(void)
+{
+  RotateRect(viewport, desired.viewport);
+  desired.scissor_on = scissor_on;
+  memset(desired.scissor, 0, sizeof(desired.scissor));
+
+  if (scissor_on)
+  {
+    RotateRect(scissor_box, desired.scissor);
+    ClipRect(desired.scissor, TOP_HEIGHT, TOP_WIDTH);
+  }
+
+  if (memcmp(desired.viewport, applied.viewport, sizeof(desired.viewport))
+      || desired.scissor_on != applied.scissor_on
+      || memcmp(desired.scissor, applied.scissor, sizeof(desired.scissor)))
+    pending_changes |= CHANGE_VIEWPORT;
+}
+
 static void ApplyViewport(void)
 {
-  int r[4];
+  const int *r = desired.viewport;
 
-  RotateRect(viewport, r);
   C3D_SetViewport(r[0], r[1], r[2], r[3]);
 
   // C3D_SetViewport turns the scissor test off.
-  if (scissor_on)
+  if (desired.scissor_on)
   {
-    RotateRect(scissor_box, r);
-    ClipRect(r, TOP_HEIGHT, TOP_WIDTH);
+    r = desired.scissor;
     C3D_SetScissor(GPU_SCISSOR_NORMAL, r[0], r[1], r[0] + r[2], r[1] + r[3]);
   }
 }
@@ -593,48 +682,78 @@ static GPU_STENCILOP StencilOp(GLenum op)
   }
 }
 
-static void ApplyFragment(void)
+static void ComputeFragment(void)
 {
-  int write = 0;
+  fragment_t *f = &desired.fragment;
 
-  if (color_mask[0]) write |= GPU_WRITE_RED;
-  if (color_mask[1]) write |= GPU_WRITE_GREEN;
-  if (color_mask[2]) write |= GPU_WRITE_BLUE;
-  if (color_mask[3]) write |= GPU_WRITE_ALPHA;
+  memset(f, 0, sizeof(*f));
+
+  if (color_mask[0]) f->write |= GPU_WRITE_RED;
+  if (color_mask[1]) f->write |= GPU_WRITE_GREEN;
+  if (color_mask[2]) f->write |= GPU_WRITE_BLUE;
+  if (color_mask[3]) f->write |= GPU_WRITE_ALPHA;
 
   // Without the test, OpenGL writes no depth either.
   if (depth_test_on)
-    C3D_DepthTest(true, DepthFunc(depth_func), write | (depth_mask ? GPU_WRITE_DEPTH : 0));
+  {
+    f->depth_on = true;
+    f->depth_func = DepthFunc(depth_func);
+    if (depth_mask)
+      f->write |= GPU_WRITE_DEPTH;
+  }
   else
-    C3D_DepthTest(false, GPU_ALWAYS, write);
+  {
+    f->depth_func = GPU_ALWAYS;
+  }
 
-  if (blend_on)
-    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, BlendFactor(blend_src), BlendFactor(blend_dst),
-                   BlendFactor(blend_src), BlendFactor(blend_dst));
-  else
-    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+  f->blend_src = blend_on ? BlendFactor(blend_src) : GPU_ONE;
+  f->blend_dst = blend_on ? BlendFactor(blend_dst) : GPU_ZERO;
+
+  f->alpha_func = GPU_ALWAYS;
 
   if (alpha_test_on)
   {
     int ref = (int) (alpha_ref * 255 + 0.5f);
 
-    C3D_AlphaTest(true, TestFunc(alpha_func), ref < 0 ? 0 : ref > 255 ? 255 : ref);
+    f->alpha_on = true;
+    f->alpha_func = TestFunc(alpha_func);
+    f->alpha_ref = ref < 0 ? 0 : ref > 255 ? 255 : ref;
   }
-  else
-  {
-    C3D_AlphaTest(false, GPU_ALWAYS, 0);
-  }
+
+  f->stencil_func = GPU_ALWAYS;
+  f->stencil_mask = 0xFF;
 
   if (stencil_test_on)
   {
-    C3D_StencilTest(true, TestFunc(stencil_func), stencil_ref,
-                    stencil_value_mask, stencil_write_mask);
-    C3D_StencilOp(StencilOp(stencil_fail), StencilOp(stencil_zfail), StencilOp(stencil_zpass));
+    f->stencil_on = true;
+    f->stencil_func = TestFunc(stencil_func);
+    f->stencil_ref = stencil_ref;
+    f->stencil_mask = stencil_value_mask;
+    f->stencil_write = stencil_write_mask;
+    f->stencil_fail = StencilOp(stencil_fail);
+    f->stencil_zfail = StencilOp(stencil_zfail);
+    f->stencil_zpass = StencilOp(stencil_zpass);
   }
-  else
-  {
-    C3D_StencilTest(false, GPU_ALWAYS, 0, 0xFF, 0);
-  }
+
+  // glPolygonOffset: units of the 24-bit depth, toward the far side.
+  f->offset = polygon_offset_on ? -polygon_offset_units / 16777215.0f : 0.0f;
+
+  if (memcmp(f, &applied.fragment, sizeof(*f)))
+    pending_changes |= CHANGE_FRAGMENT;
+}
+
+static void ApplyFragment(void)
+{
+  const fragment_t *f = &desired.fragment;
+
+  C3D_DepthTest(f->depth_on, f->depth_func, f->write);
+  C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, f->blend_src, f->blend_dst,
+                 f->blend_src, f->blend_dst);
+  C3D_AlphaTest(f->alpha_on, f->alpha_func, f->alpha_ref);
+  C3D_StencilTest(f->stencil_on, f->stencil_func, f->stencil_ref, f->stencil_mask,
+                  f->stencil_write);
+  if (f->stencil_on)
+    C3D_StencilOp(f->stencil_fail, f->stencil_zfail, f->stencil_zpass);
 
   // Face culling is left off: with it, faces that should show did not (the
   // PICA200 may take the winding the other way round). The depth test
@@ -644,9 +763,7 @@ static void ApplyFragment(void)
   (void) front_face;
   C3D_CullFace(GPU_CULL_NONE);
 
-  // glPolygonOffset: units of the 24-bit depth, toward the far side.
-  C3D_DepthMap(true, -1.0f,
-               polygon_offset_on ? -polygon_offset_units / 16777215.0f : 0.0f);
+  C3D_DepthMap(true, -1.0f, f->offset);
 }
 
 // A texture unit's binding, or NULL.
@@ -665,22 +782,32 @@ static texture_t *DrawTexture(void)
   return texture_2d[0] ? BoundTexture(0) : NULL;
 }
 
-static void ApplyTexture(void)
+static void ComputeTexture(void)
 {
   texture_t *t = DrawTexture();
+
+  desired.texture = t;
+  // glTexGen with Q: the coordinates are divided by q (texcoord0w).
+  desired.projected = t && texgen_on[3] && texgen_on[0];
+
+  if (t)
+    t->frame = frame_number;
+
+  if (desired.texture != applied.texture || desired.projected != applied.projected)
+    pending_changes |= CHANGE_TEXTURE;
+}
+
+static void ApplyTexture(void)
+{
+  texture_t *t = desired.texture;
 
   ++stat_binds;
 
   if (!t)
   {
     C3D_TexBind(0, NULL);
-    return;
   }
-
-  t->frame = frame_number;
-
-  // glTexGen with Q: the coordinates are divided by q (texcoord0w).
-  if (texgen_on[3] && texgen_on[0])
+  else if (desired.projected)
   {
     static C3D_Tex projected;
 
@@ -742,13 +869,12 @@ static GPU_COMBINEFUNC EnvFunc(GLenum func)
 
 // The first color combiner stage does what glTexEnv (or the program)
 // says; the others pass it on.
-static void ApplyTexEnv(void)
+static void ComputeTexEnv(void)
 {
   C3D_TexEnv env;
+  bool textured = desired.texture != NULL;
 
-  ++stat_texenv;
-  bool textured = DrawTexture() != NULL;
-
+  memset(&env, 0, sizeof(env));
   C3D_TexEnvInit(&env);
   C3D_TexEnvColor(&env, env_color);
 
@@ -820,17 +946,34 @@ static void ApplyTexEnv(void)
     C3D_TexEnvFunc(&env, C3D_Alpha, EnvFunc(combine_alpha));
   }
 
-  C3D_SetTexEnv(0, &env);
+  desired.env = env;
+
+  if (memcmp(&desired.env, &applied.env, sizeof(env)))
+    pending_changes |= CHANGE_TEXENV;
+}
+
+static void ComputeProgram(void)
+{
+  desired.fog = program == PGL_PROGRAM_LIGHT && fog_table;
+  desired.fog_table = desired.fog ? fog_table : NULL;
+
+  if (desired.fog != applied.fog || desired.fog_table != applied.fog_table)
+    pending_changes |= CHANGE_PROGRAM;
 }
 
 static void ApplyProgram(void)
 {
-  if (program == PGL_PROGRAM_LIGHT && fog_table)
+  if (desired.fog)
   {
+    // The table changes often (the light of each wall); the mode once.
+    if (!applied.fog || (pending_changes & CHANGE_ALL) == CHANGE_ALL)
+    {
+      C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+      C3D_FogColor(0);
+    }
+
     ++stat_fog;
-    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
-    C3D_FogColor(0);
-    C3D_FogLutBind(&fog_table->lut);
+    C3D_FogLutBind(&desired.fog_table->lut);
   }
   else
   {
@@ -839,41 +982,85 @@ static void ApplyProgram(void)
   }
 }
 
-static void ApplyStates(void)
+// What the next draw needs, from the OpenGL states that changed; returns
+// what citro3d does not have yet (CHANGE_*).
+static unsigned PrepareStates(void)
 {
-  UploadMatrices();
+  ComputeMatrices();
 
   if (texture_dirty)
   {
-    ApplyTexture();
+    ComputeTexture();
     texture_dirty = false;
     texenv_dirty = true; // with or without a texture
   }
 
   if (program_dirty)
   {
-    ApplyProgram();
+    ComputeProgram();
     program_dirty = false;
     texenv_dirty = true;
   }
 
   if (texenv_dirty)
   {
-    ApplyTexEnv();
+    ComputeTexEnv();
     texenv_dirty = false;
   }
 
   if (fragment_dirty)
   {
-    ApplyFragment();
+    ComputeFragment();
     fragment_dirty = false;
   }
 
   if (viewport_dirty)
   {
-    ApplyViewport();
+    ComputeViewport();
     viewport_dirty = false;
   }
+
+  return pending_changes;
+}
+
+// Gives citro3d what PrepareStates found changed.
+static void CommitStates(void)
+{
+  const unsigned changes = pending_changes;
+
+  if (changes & CHANGE_MVP)
+    UploadMatrix(u_mvp, desired.mvp);
+
+  if (changes & CHANGE_TEXMTX)
+    UploadMatrix(u_texmtx, desired.texmtx);
+
+  if (changes & CHANGE_TEXGEN)
+  {
+    UploadMatrix(u_texgen, desired.texgen);
+    UploadMatrix(u_modelview, desired.modelview);
+    C3D_FVUnifSet(GPU_VERTEX_SHADER, u_texgen_on, desired.texgen_on, 0, 0, 0);
+  }
+
+  if (changes & CHANGE_TEXTURE)
+    ApplyTexture();
+
+  if (changes & CHANGE_PROGRAM)
+    ApplyProgram();
+
+  if (changes & CHANGE_TEXENV)
+  {
+    ++stat_texenv;
+    C3D_SetTexEnv(0, &desired.env);
+  }
+
+  if (changes & CHANGE_FRAGMENT)
+    ApplyFragment();
+
+  if (changes & CHANGE_VIEWPORT)
+    ApplyViewport();
+
+  applied = desired;
+  pending_changes = 0;
 }
 
 // ==========================================================================
@@ -911,20 +1098,61 @@ static vertex_t *ReserveVertices(int count)
   return vertices + vertex_count;
 }
 
-static void DrawVertices(GPU_Primitive_t primitive, int first, int count)
+// The waiting draws, to the GPU. Before anything else that changes
+// citro3d's states or what they point to (the textures).
+static void FlushBatch(void)
 {
-  if (count <= 0 || !DrawableArea() || !RoomForCommands())
+  if (!batch_count)
     return;
 
-  {
-    const u64 start = svcGetSystemTick();
-
-    ApplyStates();
-    C3D_DrawArrays(primitive, first, count);
-    stat_draw_ticks += svcGetSystemTick() - start;
-  }
+  C3D_DrawArrays(GPU_TRIANGLES, batch_first, batch_count);
+  batch_count = 0;
   ++frame_draws;
   ++stat_draws;
+}
+
+// Triangles join the waiting ones when the states are the same and they
+// follow them in the vertex buffer: one draw for the GPU instead of many
+// (each draw costs the CPU, in citro3d, more than its vertices).
+static void DrawVertices(GPU_Primitive_t primitive, int first, int count)
+{
+  u64 start;
+  unsigned changes;
+
+  if (count <= 0 || !DrawableArea())
+    return;
+
+  start = svcGetSystemTick();
+  changes = PrepareStates();
+
+  if (!changes && primitive == GPU_TRIANGLES && batch_count
+      && batch_first + batch_count == first)
+  {
+    batch_count += count;
+  }
+  else
+  {
+    FlushBatch();
+
+    if (!RoomForCommands())
+      return;
+
+    CommitStates();
+
+    if (primitive == GPU_TRIANGLES)
+    {
+      batch_first = first;
+      batch_count = count;
+    }
+    else
+    {
+      C3D_DrawArrays(primitive, first, count);
+      ++frame_draws;
+      ++stat_draws;
+    }
+  }
+
+  stat_draw_ticks += svcGetSystemTick() - start;
   LogDraw(primitive == GPU_TRIANGLES ? "triangles" : primitive == GPU_TRIANGLE_STRIP ? "strip" : "fan",
           count);
 }
@@ -1062,13 +1290,13 @@ static void DrawLinesAsQuads(const vertex_t *source, int count, GLenum mode)
 
   // Already projected: no matrices for these.
   {
-    static const matrix_t identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     const int first = vertex_count;
 
     vertex_count += segments * 6;
-    UploadMatrices();
-    UploadMatrix(u_mvp, identity);
+    projected_draw = true;
+    mvp_dirty = true;
     DrawVertices(GPU_TRIANGLES, first, segments * 6);
+    projected_draw = false;
     mvp_dirty = true;
   }
 }
@@ -1086,13 +1314,52 @@ static void DrawMode(GLenum mode, int first, int count)
 
     case GL_TRIANGLE_STRIP:
     case GL_QUAD_STRIP: // the same vertices, the same triangles
-      DrawVertices(GPU_TRIANGLE_STRIP, first, count);
-      break;
-
     case GL_TRIANGLE_FAN:
     case GL_POLYGON:
-      DrawVertices(GPU_TRIANGLE_FAN, first, count);
+    {
+      // As triangles, to join others in one draw (see DrawVertices): a
+      // wall is a fan of 4.
+      const bool fan = mode == GL_TRIANGLE_FAN || mode == GL_POLYGON;
+      const int triangles = count - 2;
+      vertex_t *out = (triangles > 0 && triangles <= MAX_JOINED_TRIANGLES)
+                    ? ReserveVertices(triangles * 3) : NULL;
+      int k;
+
+      if (!out)
+      {
+        DrawVertices(fan ? GPU_TRIANGLE_FAN : GPU_TRIANGLE_STRIP, first, count);
+        break;
+      }
+
+      for (k = 0; k < triangles; ++k)
+      {
+        if (fan)
+        {
+          out[0] = source[0];
+          out[1] = source[k + 1];
+          out[2] = source[k + 2];
+        }
+        else if (k & 1) // every other one turns the other way round
+        {
+          out[0] = source[k + 1];
+          out[1] = source[k];
+          out[2] = source[k + 2];
+        }
+        else
+        {
+          out[0] = source[k];
+          out[1] = source[k + 1];
+          out[2] = source[k + 2];
+        }
+
+        out += 3;
+      }
+
+      first = vertex_count;
+      vertex_count += triangles * 3;
+      DrawVertices(GPU_TRIANGLES, first, triangles * 3);
       break;
+    }
 
     case GL_QUADS:
     {
@@ -1206,6 +1473,8 @@ void pglDeleteContext(void)
   if (!initialized)
     return;
 
+  batch_count = 0;
+
   if (in_frame)
   {
     target->used = false;
@@ -1252,6 +1521,7 @@ void pglSwapBuffers(void)
   if (before_swap)
     before_swap();
 
+  FlushBatch();
   usage = C3D_GetCmdBufUsage();
   C3D_FrameEnd(0);
 
@@ -1665,8 +1935,11 @@ static void ScreenQuad(const float *color, float z, int write, bool blend, bool 
                        bool scissor)
 {
   static const matrix_t identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  vertex_t *v = ReserveVertices(4);
+  vertex_t *v;
   int k, r[4];
+
+  FlushBatch();
+  v = ReserveVertices(4);
 
   if (!v || !RoomForCommands())
     return;
@@ -1692,7 +1965,6 @@ static void ScreenQuad(const float *color, float z, int write, bool blend, bool 
     v[k].a = ColorByte(color[3]);
   }
 
-  UploadMatrices();
   UploadMatrix(u_mvp, identity);
   C3D_TexBind(0, NULL);
   {
@@ -1812,6 +2084,7 @@ void glClear(GLbitfield mask)
                 | (u32) ((1 - clear_depth) * 0xFFFFFF);
 
     // After the draws so far: they go to the GPU first.
+    FlushBatch();
     C3D_FrameSplit(0);
     C3D_RenderTargetClear(target, bits, color_value, depth_value);
     LogDraw(bits == C3D_CLEAR_COLOR ? "fill color" : bits == C3D_CLEAR_DEPTH ? "fill depth" : "fill both", 0);
@@ -2173,6 +2446,11 @@ void glGenTextures(GLsizei n, GLuint *names)
   {
     const int old = texture_count;
 
+    // The textures move: the waiting draws go first, all bound again.
+    FlushBatch();
+    applied.texture = NULL;
+    texture_dirty = true;
+
     texture_count *= 2;
     textures = realloc(textures, texture_count * sizeof(*textures));
     memset(textures + old, 0, (texture_count - old) * sizeof(*textures));
@@ -2191,6 +2469,20 @@ void glGenTextures(GLsizei n, GLuint *names)
     t->min_filter = GL_NEAREST_MIPMAP_LINEAR;
     t->mag_filter = GL_LINEAR;
     t->wrap_s = t->wrap_t = GL_REPEAT;
+  }
+}
+
+// Before a texture's citro3d data changes: the waiting draws go first
+// (citro3d reads the texture when they go), and it is bound again.
+static void TextureChanging(texture_t *t)
+{
+  FlushBatch();
+
+  if (applied.texture == t)
+  {
+    applied.texture = NULL;
+    applied.projected = false;
+    texture_dirty = true;
   }
 }
 
@@ -2214,6 +2506,7 @@ void glDeleteTextures(GLsizei n, const GLuint *names)
     if (name == 0 || name >= (GLuint) texture_count)
       continue;
 
+    TextureChanging(&textures[name]);
     FreeTextureData(&textures[name]);
     textures[name].used = false;
 
@@ -2297,6 +2590,7 @@ static void ApplySampling(texture_t *t)
   if (!t->has_data)
     return;
 
+  TextureChanging(t);
   C3D_TexSetFilter(&t->tex, Filter(t->mag_filter), Filter(t->min_filter));
   C3D_TexSetWrap(&t->tex, Wrap(t->wrap_s), Wrap(t->wrap_t));
 
@@ -2307,18 +2601,24 @@ static void ApplySampling(texture_t *t)
 void glTexParameteri(GLenum target_, GLenum name, GLint param)
 {
   texture_t *t = ActiveTexture();
+  GLenum *value;
 
   if (!t)
     return;
 
   switch (name)
   {
-    case GL_TEXTURE_MIN_FILTER: t->min_filter = param; break;
-    case GL_TEXTURE_MAG_FILTER: t->mag_filter = param; break;
-    case GL_TEXTURE_WRAP_S: t->wrap_s = param; break;
-    case GL_TEXTURE_WRAP_T: t->wrap_t = param; break;
+    case GL_TEXTURE_MIN_FILTER: value = &t->min_filter; break;
+    case GL_TEXTURE_MAG_FILTER: value = &t->mag_filter; break;
+    case GL_TEXTURE_WRAP_S: value = &t->wrap_s; break;
+    case GL_TEXTURE_WRAP_T: value = &t->wrap_t; break;
     default: return; // mipmap generation, anisotropy...: not here
   }
+
+  if (*value == (GLenum) param)
+    return;
+
+  *value = param;
 
   ApplySampling(t);
 }
@@ -2514,6 +2814,7 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
   const u64 upload_start = svcGetSystemTick();
 
   // New memory each time: the GPU may still draw with the old one.
+  TextureChanging(t);
   FreeTextureData(t);
 
   if (!C3D_TexInit(&t->tex, tex_width, tex_height, GPU_RGBA8))
@@ -2549,6 +2850,8 @@ void glTexSubImage2D(GLenum target_, GLint level, GLint xoffset, GLint yoffset,
 
   if (!t || !t->has_data || level != 0 || type != GL_UNSIGNED_BYTE)
     return;
+
+  TextureChanging(t);
 
   // Drawn with in this frame: a copy to change, the GPU keeps the old one.
   if (t->frame == frame_number)

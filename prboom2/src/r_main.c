@@ -38,6 +38,10 @@
 #endif
 #include "SDL.h"
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 #include "doomstat.h"
 #include "d_net.h"
 #include "w_wad.h"
@@ -1088,7 +1092,16 @@ void R_RenderPlayerView (player_t* player)
   }
 
   DSDA_ADD_CONTEXT(sf_bsp_nodes);
+#ifdef __3DS__
+  {
+    const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+    R_RenderBSPNodes();
+    N3DS_ProfileAdd(N3DS_PROFILE_BSP, n3ds_start);
+  }
+#else
   R_RenderBSPNodes();
+#endif
   DSDA_REMOVE_CONTEXT(sf_bsp_nodes);
 
   FakeNetUpdate();
@@ -1117,8 +1130,18 @@ void R_RenderPlayerView (player_t* player)
 
   if (V_IsOpenGLMode() && !automap_solid) {
     DSDA_ADD_CONTEXT(sf_draw_scene);
+#ifdef __3DS__
+    {
+      const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+      gld_DrawScene(player);
+      gld_EndDrawScene();
+      N3DS_ProfileAdd(N3DS_PROFILE_SCENE, n3ds_start);
+    }
+#else
     gld_DrawScene(player);
     gld_EndDrawScene();
+#endif
     DSDA_REMOVE_CONTEXT(sf_draw_scene);
   }
 }

@@ -71,6 +71,8 @@ enum
 {
   N3DS_PROFILE_TICS,     // G_Ticker
   N3DS_PROFILE_DISPLAY,  // D_Display (the drawing, pgl included)
+  N3DS_PROFILE_BSP,      // R_RenderBSPNodes: walking the map, what is seen
+  N3DS_PROFILE_SCENE,    // gld_DrawScene: sorting and drawing it (pgl included)
   N3DS_PROFILE_COUNT
 };
 

@@ -2444,6 +2444,28 @@ void gld_ProcessWall(GLWall *wall)
   gld_DrawWall(wall);
 }
 
+#ifdef __3DS__
+// [3DS] Then by light: each light level is a fog table for the GPU, sent
+// again at each change; together, fewer changes, and draws that join.
+static int C_DECL dicmp_wall(const void *a, const void *b)
+{
+  const GLWall *w1 = ((const GLDrawItem *)a)->item.wall;
+  const GLWall *w2 = ((const GLDrawItem *)b)->item.wall;
+
+  if (w1->gltexture != w2->gltexture)
+    return w1->gltexture < w2->gltexture ? -1 : 1;
+  return w1->light < w2->light ? -1 : w1->light > w2->light ? 1 : 0;
+}
+static int C_DECL dicmp_flat(const void *a, const void *b)
+{
+  const GLFlat *f1 = ((const GLDrawItem *)a)->item.flat;
+  const GLFlat *f2 = ((const GLDrawItem *)b)->item.flat;
+
+  if (f1->gltexture != f2->gltexture)
+    return f1->gltexture < f2->gltexture ? -1 : 1;
+  return f1->light < f2->light ? -1 : f1->light > f2->light ? 1 : 0;
+}
+#else
 static int C_DECL dicmp_wall(const void *a, const void *b)
 {
   GLTexture *tx1 = ((const GLDrawItem *)a)->item.wall->gltexture;
@@ -2456,6 +2478,7 @@ static int C_DECL dicmp_flat(const void *a, const void *b)
   GLTexture *tx2 = ((const GLDrawItem *)b)->item.flat->gltexture;
   return tx1 - tx2;
 }
+#endif
 static int C_DECL dicmp_sprite(const void *a, const void *b)
 {
   GLTexture *tx1 = ((const GLDrawItem *)a)->item.sprite->gltexture;

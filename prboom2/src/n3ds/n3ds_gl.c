@@ -218,7 +218,8 @@ void N3DS_GLSwap(void)
   }
 
   // Every 10 seconds, per frame: the game's logic, the drawing (without
-  // waiting for the GPU), of it pgl's part, the wait, and pgl's counts.
+  // waiting for the GPU), of it walking the map, drawing the scene (DSDA's
+  // part and pgl's), and pgl's part alone, the wait, and pgl's counts.
   {
     static int frames;
     static unsigned long long start;
@@ -249,10 +250,11 @@ void N3DS_GLSwap(void)
       }
 
       printf("perf: %d frames; per frame: logic %.1f ms (%d tics), drawing %.1f ms "
-             "(pgl %.1f), waiting %.1f ms, uploads %.1f ms (%d); "
+             "(map %.1f, scene %.1f, pgl %.1f), waiting %.1f ms, uploads %.1f ms (%d); "
              "draws %d, binds %d, light changes %d, combiner changes %d\n",
              frames, ms[N3DS_PROFILE_TICS] / frames, calls[N3DS_PROFILE_TICS],
-             (ms[N3DS_PROFILE_DISPLAY] - stats.wait_ms) / frames, stats.draw_ms / frames,
+             (ms[N3DS_PROFILE_DISPLAY] - stats.wait_ms) / frames, ms[N3DS_PROFILE_BSP] / frames,
+             ms[N3DS_PROFILE_SCENE] / frames, stats.draw_ms / frames,
              stats.wait_ms / frames, stats.upload_ms / frames, stats.uploads,
              stats.draws / frames, stats.binds / frames, stats.fog_changes / frames,
              stats.texenv_changes / frames);
