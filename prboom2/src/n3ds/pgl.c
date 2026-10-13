@@ -51,6 +51,9 @@
 // does not wait for the screen's refresh to start the next.
 #define SYNC_WORK_US 16000
 
+// VRAM kept free when placing textures (bytes).
+#define VRAM_RESERVE (256 * 1024)
+
 // Strips and fans up to this many triangles are drawn as triangles.
 #define MAX_JOINED_TRIANGLES 64
 
@@ -404,12 +407,24 @@ static void ComputeMatrices(void)
 // ==========================================================================
 // Frames
 
+// VRAM: the GPU's own memory (6 MB). Textures there do not take the
+// main memory's time from the CPU while the GPU draws.
+static bool IsVRAM(const void *data)
+{
+  return (u32) data >= OS_VRAM_VADDR && (u32) data < OS_VRAM_VADDR + OS_VRAM_SIZE;
+}
+
 static void FreePending(void)
 {
   int k;
 
   for (k = 0; k < pending_count; ++k)
-    linearFree(pending_free[k]);
+  {
+    if (IsVRAM(pending_free[k]))
+      vramFree(pending_free[k]);
+    else
+      linearFree(pending_free[k]);
+  }
 
   pending_count = 0;
 }
@@ -1596,8 +1611,10 @@ void pglSwapBuffers(void)
   if (osGetTime() - report_time > 10000)
   {
     if (report_time)
-      printf("pgl: up to %d draws, %d%% of the command list, %d vertices\n",
-             max_draws, (int) (max_usage * 100), vertex_count);
+      printf("pgl: up to %d draws, %d%% of the command list, %d vertices; "
+             "%u KiB of VRAM free\n",
+             max_draws, (int) (max_usage * 100), vertex_count,
+             (unsigned) (vramSpaceFree() / 1024));
     report_time = osGetTime();
     max_draws = 0;
     max_usage = 0;
@@ -2864,13 +2881,12 @@ static int PowerOfTwo(int size)
 
 // Copies a width x height image at xoffset, yoffset of t's image (its
 // OpenGL size), into the texels: each texel takes the nearest pixel.
-static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int height,
-                        GLenum format, const void *pixels)
+static void WriteTexelsTo(u32 *texels, texture_t *t, int xoffset, int yoffset, int width,
+                          int height, GLenum format, const void *pixels)
 {
   const int tex_width = t->tex.width, tex_height = t->tex.height;
   const int bpp = BytesPerPixel(format);
   const int pitch = (width * bpp + unpack_alignment - 1) / unpack_alignment * unpack_alignment;
-  u32 *texels = t->tex.data;
   int x, y;
 
   for (y = 0; y < tex_height; ++y)
@@ -2897,6 +2913,12 @@ static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int h
   }
 }
 
+static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int height,
+                        GLenum format, const void *pixels)
+{
+  WriteTexelsTo(t->tex.data, t, xoffset, yoffset, width, height, format, pixels);
+}
+
 void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei width,
                   GLsizei height, GLint border, GLenum format, GLenum type,
                   const GLvoid *pixels)
@@ -2920,7 +2942,10 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
   TextureChanging(t);
   FreeTextureData(t);
 
-  if (!C3D_TexInit(&t->tex, tex_width, tex_height, GPU_RGBA8))
+  // In VRAM while there is room (some kept for the screens' buffers).
+  if (!(vramSpaceFree() >= (u32) (tex_width * tex_height * 4) + VRAM_RESERVE
+        && C3D_TexInitVRAM(&t->tex, tex_width, tex_height, GPU_RGBA8))
+      && !C3D_TexInit(&t->tex, tex_width, tex_height, GPU_RGBA8))
   {
     printf("pgl: no memory for a %dx%d texture\n", tex_width, tex_height);
     SetError(GL_OUT_OF_MEMORY);
@@ -2931,10 +2956,32 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
   t->width = width;
   t->height = height;
 
-  if (pixels)
+  if (pixels && IsVRAM(t->tex.data))
+  {
+    // Made in main memory, then copied in one go: the CPU writes to VRAM
+    // without its cache, slow one texel at a time.
+    u32 *staging = malloc(t->tex.size);
+
+    if (staging)
+    {
+      memset(staging, 0, t->tex.size);
+      WriteTexelsTo(staging, t, 0, 0, width, height, format, pixels);
+      memcpy(t->tex.data, staging, t->tex.size);
+      free(staging);
+    }
+    else
+    {
+      WriteTexels(t, 0, 0, width, height, format, pixels);
+    }
+  }
+  else if (pixels)
+  {
     WriteTexels(t, 0, 0, width, height, format, pixels);
+  }
   else
+  {
     memset(t->tex.data, 0, t->tex.size);
+  }
 
   ApplySampling(t);
 

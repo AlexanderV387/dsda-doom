@@ -250,6 +250,14 @@ static void R_FilterValidPatches(int *lookup, int count, const char *names)
       fwrite(png, 1, count, file);
       N3DS_CloseRewrite(file);
     }
+
+    lprintf(LO_INFO, "R_InitTextures: %d patches checked for PNGs, the list saved %s\n",
+            count, file ? "for the next time" : "(could not be)");
+  }
+  else
+  {
+    lprintf(LO_INFO, "R_InitTextures: the PNG list of %d patches read from the last time\n",
+            count);
   }
 
   for (i = 0; i < count; ++i)
