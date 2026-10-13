@@ -47,6 +47,10 @@
 // Command words a draw may take at most, state changes included.
 #define DRAW_COMMANDS 512
 
+// A frame whose work (the CPU's, without waiting) took longer than this
+// does not wait for the screen's refresh to start the next.
+#define SYNC_WORK_US 16000
+
 // Strips and fans up to this many triangles are drawn as triangles.
 #define MAX_JOINED_TRIANGLES 64
 
@@ -485,8 +489,12 @@ static void BeginFrame(void)
   if (frame_number <= 3)
     printf("pgl: frame %lu: waiting for the GPU\n", (unsigned long) frame_number);
 
+  // At the screen's pace (60 a second) while the frames are quick enough;
+  // a slow one starts at once: waiting for the next refresh would make it
+  // 30 a second, without waiting it is shown at the refresh after it ends
+  // (between 30 and 60).
   start = svcGetSystemTick();
-  StartFrame(true);
+  StartFrame(work_us < SYNC_WORK_US);
   wait_ticks += svcGetSystemTick() - start;
   stat_wait_ticks += svcGetSystemTick() - start;
   C3D_FrameDrawOn(target);
