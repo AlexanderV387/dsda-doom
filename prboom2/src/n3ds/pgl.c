@@ -368,10 +368,17 @@ static void BeginFrame(void)
   if (in_frame)
     return;
 
+  // In the log, the first frames step by step: where it stops, if it does.
+  if (frame_number <= 3)
+    printf("pgl: frame %lu: waiting for the GPU\n", (unsigned long) frame_number);
+
   start = svcGetSystemTick();
   C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
   wait_ticks += svcGetSystemTick() - start;
   C3D_FrameDrawOn(target);
+
+  if (frame_number <= 3)
+    printf("pgl: frame %lu: drawing\n", (unsigned long) frame_number);
   in_frame = true;
 
   // The GPU is done with everything before: its memory is free.
@@ -1132,7 +1139,7 @@ void pglSetBeforeSwap(void (*callback)(void))
 
 void pglSwapBuffers(void)
 {
-  static u32 report_time;
+  static u64 report_time;
   static int max_draws;
   static float max_usage;
   float usage;
@@ -1147,6 +1154,10 @@ void pglSwapBuffers(void)
 
   usage = C3D_GetCmdBufUsage();
   C3D_FrameEnd(0);
+
+  if (frame_number <= 3)
+    printf("pgl: frame %lu: sent (%d draws, %d vertices)\n", (unsigned long) frame_number,
+           frame_draws, vertex_count);
   in_frame = false;
   ++frame_number;
 

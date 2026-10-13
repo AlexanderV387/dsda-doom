@@ -363,6 +363,7 @@ static LightEvent frame_ready, frame_done;
 static Thread present_thread = NULL;
 static volatile dboolean present_quit = false;
 static u64 compose_ticks; // composing the last frame
+static dboolean presenting_started; // once, for both modes
 
 // The top screen (400x240): the frame centered (DSDA-Doom draws at the
 // screen's own size; a smaller frame is centered, a taller one cut).
@@ -548,7 +549,6 @@ void N3DS_StopPresenting(void)
 void N3DS_Present(const byte *buffer, int width, int height, int pitch,
                   const SDL_Color *palette, dboolean palette_changed)
 {
-  static dboolean started = false;
   static int bottom_frames = 0;
   static u64 work_start = 0;
   u64 work_end;
@@ -558,10 +558,10 @@ void N3DS_Present(const byte *buffer, int width, int height, int pitch,
   if (N3DS_IsClosing())
     return;
 
-  if (!started)
+  if (!presenting_started)
   {
     StartPresenting();
-    started = true;
+    presenting_started = true;
     palette_changed = true;
   }
 
@@ -587,6 +587,10 @@ void N3DS_Present(const byte *buffer, int width, int height, int pitch,
 
   for (y = 0; y < height; ++y)
     memcpy(frame.top + y * width, buffer + y * pitch, width);
+
+  // Back from OpenGL mode: the colors were the bottom screen's.
+  if (!frame.has_top)
+    palette_changed = true;
 
   frame.has_top = true;
   frame.width = width;
@@ -632,17 +636,16 @@ void N3DS_Present(const byte *buffer, int width, int height, int pitch,
 void N3DS_PresentBottom(const SDL_Color *palette, dboolean palette_changed,
                         int work_us, int gpu_us)
 {
-  static dboolean started = false;
   static int bottom_frames = 0;
   int k;
 
   if (N3DS_IsClosing())
     return;
 
-  if (!started)
+  if (!presenting_started)
   {
     StartPresenting();
-    started = true;
+    presenting_started = true;
     palette_changed = true;
   }
 

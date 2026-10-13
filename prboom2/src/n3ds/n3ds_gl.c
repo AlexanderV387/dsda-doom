@@ -208,6 +208,13 @@ void N3DS_GLSwap(void)
   pglFrameTimes(&work_us, &gpu_us);
   palette = BottomPalette(&changed);
   N3DS_PresentBottom(palette, changed, work_us, gpu_us);
+
+  {
+    static int frames;
+
+    if (++frames <= 3)
+      printf("N3DS_GLSwap: frame %d on the screens\n", frames);
+  }
 }
 
 // ==========================================================================
