@@ -1318,69 +1318,76 @@ static void DrawMode(GLenum mode, int first, int count)
     case GL_POLYGON:
     {
       // As triangles, to join others in one draw (see DrawVertices): a
-      // wall is a fan of 4.
+      // wall is a fan of 4. Made in place, from the last one back (each
+      // only overwrites vertices already used), so that the next draw's
+      // vertices follow these.
       const bool fan = mode == GL_TRIANGLE_FAN || mode == GL_POLYGON;
       const int triangles = count - 2;
-      vertex_t *out = (triangles > 0 && triangles <= MAX_JOINED_TRIANGLES)
-                    ? ReserveVertices(triangles * 3) : NULL;
       int k;
 
-      if (!out)
+      if (triangles <= 0 || triangles > MAX_JOINED_TRIANGLES
+          || first + count != vertex_count || !ReserveVertices(triangles * 3 - count))
       {
         DrawVertices(fan ? GPU_TRIANGLE_FAN : GPU_TRIANGLE_STRIP, first, count);
         break;
       }
 
-      for (k = 0; k < triangles; ++k)
+      for (k = triangles - 1; k >= 0; --k)
       {
+        vertex_t a, b, c;
+
         if (fan)
         {
-          out[0] = source[0];
-          out[1] = source[k + 1];
-          out[2] = source[k + 2];
+          a = source[0];
+          b = source[k + 1];
+          c = source[k + 2];
         }
         else if (k & 1) // every other one turns the other way round
         {
-          out[0] = source[k + 1];
-          out[1] = source[k];
-          out[2] = source[k + 2];
+          a = source[k + 1];
+          b = source[k];
+          c = source[k + 2];
         }
         else
         {
-          out[0] = source[k];
-          out[1] = source[k + 1];
-          out[2] = source[k + 2];
+          a = source[k];
+          b = source[k + 1];
+          c = source[k + 2];
         }
 
-        out += 3;
+        source[k * 3 + 0] = a;
+        source[k * 3 + 1] = b;
+        source[k * 3 + 2] = c;
       }
 
-      first = vertex_count;
-      vertex_count += triangles * 3;
+      vertex_count = first + triangles * 3;
       DrawVertices(GPU_TRIANGLES, first, triangles * 3);
       break;
     }
 
     case GL_QUADS:
     {
+      // Two triangles each, in place as above.
       const int quads = count / 4;
-      vertex_t *out = ReserveVertices(quads * 6);
       int k;
 
-      if (!out)
+      if (quads <= 0)
         break;
 
-      for (k = 0; k < quads; ++k)
-      {
-        const vertex_t *q = source + k * 4;
+      if (first + count != vertex_count || !ReserveVertices(quads * 6 - count))
+        break;
 
-        out[0] = q[0]; out[1] = q[1]; out[2] = q[2];
-        out[3] = q[0]; out[4] = q[2]; out[5] = q[3];
-        out += 6;
+      for (k = quads - 1; k >= 0; --k)
+      {
+        const vertex_t q0 = source[k * 4 + 0], q1 = source[k * 4 + 1];
+        const vertex_t q2 = source[k * 4 + 2], q3 = source[k * 4 + 3];
+        vertex_t *out = source + k * 6;
+
+        out[0] = q0; out[1] = q1; out[2] = q2;
+        out[3] = q0; out[4] = q2; out[5] = q3;
       }
 
-      first = vertex_count;
-      vertex_count += quads * 6;
+      vertex_count = first + quads * 6;
       DrawVertices(GPU_TRIANGLES, first, quads * 6);
       break;
     }

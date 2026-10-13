@@ -1064,7 +1064,21 @@ static void R_RenderBSPNodes(void)
 // R_RenderView
 //
 
+#ifdef __3DS__
+static void N3DS_RenderPlayerView(player_t* player);
+
 void R_RenderPlayerView (player_t* player)
+{
+  const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+  N3DS_RenderPlayerView(player);
+  N3DS_ProfileAdd(N3DS_PROFILE_VIEW, n3ds_start);
+}
+
+static void N3DS_RenderPlayerView (player_t* player)
+#else
+void R_RenderPlayerView (player_t* player)
+#endif
 {
   r_frame_count++;
 

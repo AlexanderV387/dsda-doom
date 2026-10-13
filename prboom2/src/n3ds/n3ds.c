@@ -686,8 +686,11 @@ void N3DS_PresentBottom(const SDL_Color *palette, dboolean palette_changed,
 
   if (present_thread != NULL)
   {
+    const unsigned long long start = N3DS_ProfileNow();
+
     LightEvent_Wait(&frame_done);
     LightEvent_Clear(&frame_done);
+    N3DS_ProfileAdd(N3DS_PROFILE_CORE1, start);
   }
 
   // The frame counter: the game's work per frame (green) and the GPU's
@@ -706,7 +709,12 @@ void N3DS_PresentBottom(const SDL_Color *palette, dboolean palette_changed,
   frame.bottom = (++bottom_frames & 1) == 0;
 
   if (frame.bottom)
+  {
+    const unsigned long long start = N3DS_ProfileNow();
+
     frame.bottom_showing = N3DS_DrawBottom != NULL && N3DS_DrawBottom(frame.bottom_screen);
+    N3DS_ProfileAdd(N3DS_PROFILE_BOTTOM, start);
+  }
 
   if (present_thread != NULL)
     LightEvent_Signal(&frame_ready);

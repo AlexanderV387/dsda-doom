@@ -73,6 +73,9 @@ enum
   N3DS_PROFILE_DISPLAY,  // D_Display (the drawing, pgl included)
   N3DS_PROFILE_BSP,      // R_RenderBSPNodes: walking the map, what is seen
   N3DS_PROFILE_SCENE,    // gld_DrawScene: sorting and drawing it (pgl included)
+  N3DS_PROFILE_VIEW,     // R_RenderPlayerView: the whole 3D view (map, scene...)
+  N3DS_PROFILE_BOTTOM,   // the bottom screen (status bar, map)
+  N3DS_PROFILE_CORE1,    // waiting for core 1 to finish showing the last frame
   N3DS_PROFILE_COUNT
 };
 
