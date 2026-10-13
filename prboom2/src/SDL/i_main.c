@@ -194,12 +194,20 @@ void I_SafeExit(int rc)
 
       if (rc == 0 || entry->run_on_error)
       {
+#ifdef __3DS__
+        // [3DS] In the log, with the time of each: what makes closing slow.
+        lprintf(LO_INFO, "Exit Sequence[%d]: %s (%d)\n", exit_priority, entry->name, rc);
+#else
         lprintf(LO_DEBUG, "Exit Sequence[%d]: %s (%d)\n", exit_priority, entry->name, rc);
+#endif
         entry->func();
       }
     }
   }
 
+#ifdef __3DS__
+  lprintf(LO_INFO, "Exit Sequence: done\n");
+#endif
   exit(rc);
 }
 
