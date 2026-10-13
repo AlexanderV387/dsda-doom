@@ -55,6 +55,10 @@ typedef struct pgl_fog_table_s pgl_fog_table_t;
 pgl_fog_table_t *pglNewFogTable(const float brightness[129]);
 void pglFogTable(pgl_fog_table_t *table);
 
+// New textures in 16 bits (RGBA5551, or RGBA4 for alphas in between) instead
+// of 32: half the memory and of the GPU's reading, a little less color.
+void pglTextures16(bool on);
+
 // Blends a color over the whole screen (alpha: how much), whatever the
 // OpenGL states: e.g. the red of pain, in pglSetBeforeSwap's callback.
 void pglBlendScreen(float red, float green, float blue, float alpha);

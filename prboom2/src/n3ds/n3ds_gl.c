@@ -30,6 +30,7 @@
 
 #include "n3ds/n3ds.h"
 #include "n3ds/n3ds_gl.h"
+#include "dsda/configuration.h"
 
 // ==========================================================================
 // Palettes
@@ -196,6 +197,7 @@ void *N3DS_GLCreateContext(void)
     return NULL;
 
   pglSetBeforeSwap(BeforeSwap);
+  pglTextures16(dsda_IntConfig(dsda_config_n3ds_textures16));
   return (void *) 1;
 }
 
@@ -207,6 +209,20 @@ void N3DS_GLSwap(void)
 
   pglSwapBuffers();
   pglFrameTimes(&work_us, &gpu_us);
+
+  // The textures in 16 or 32 bits: when changed, all made again.
+  {
+    static int textures16 = -1;
+    const int want = dsda_IntConfig(dsda_config_n3ds_textures16);
+
+    if (want != textures16)
+    {
+      pglTextures16(want);
+      if (textures16 != -1)
+        gld_FlushTextures();
+      textures16 = want;
+    }
+  }
   palette = BottomPalette(&changed);
   N3DS_PresentBottom(palette, changed, work_us, gpu_us);
 

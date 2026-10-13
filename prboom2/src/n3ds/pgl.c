@@ -2876,6 +2876,86 @@ static inline u32 TexelFrom(const u8 *p, GLenum format)
   }
 }
 
+// Texels in a texture's format: RGBA8 (32 bits), or with pglTextures16
+// RGBA5551 (5 bits a color, alpha on or off) or RGBA4 (4 bits each, for
+// alphas in between).
+static inline int TexelBytes(GPU_TEXCOLOR fmt)
+{
+  return fmt == GPU_RGBA8 ? 4 : 2;
+}
+
+static inline void PutTexel(void *texels, GPU_TEXCOLOR fmt, u32 index, u32 rgba)
+{
+  if (fmt == GPU_RGBA8)
+    ((u32 *) texels)[index] = rgba;
+  else if (fmt == GPU_RGBA5551)
+    ((u16 *) texels)[index] = ((rgba >> 27) << 11) | (((rgba >> 19) & 31) << 6)
+                            | (((rgba >> 11) & 31) << 1) | ((rgba & 0xFF) >= 128);
+  else // GPU_RGBA4
+    ((u16 *) texels)[index] = ((rgba >> 28) << 12) | (((rgba >> 20) & 15) << 8)
+                            | (((rgba >> 12) & 15) << 4) | ((rgba >> 4) & 15);
+}
+
+static inline u32 GetTexel(const void *texels, GPU_TEXCOLOR fmt, u32 index)
+{
+  u32 v, r, g, b, a;
+
+  if (fmt == GPU_RGBA8)
+    return ((const u32 *) texels)[index];
+
+  v = ((const u16 *) texels)[index];
+
+  if (fmt == GPU_RGBA5551)
+  {
+    r = (v >> 11) & 31; g = (v >> 6) & 31; b = (v >> 1) & 31;
+    r = (r << 3) | (r >> 2); g = (g << 3) | (g >> 2); b = (b << 3) | (b >> 2);
+    a = (v & 1) ? 255 : 0;
+  }
+  else
+  {
+    r = ((v >> 12) & 15) * 17; g = ((v >> 8) & 15) * 17;
+    b = ((v >> 4) & 15) * 17; a = (v & 15) * 17;
+  }
+
+  return (r << 24) | (g << 16) | (b << 8) | a;
+}
+
+static bool textures16;
+
+void pglTextures16(bool on)
+{
+  textures16 = on;
+}
+
+// The format for new texels: RGBA8, or with pglTextures16 one of 16 bits:
+// RGBA5551 if the alpha is only on or off (Doom's), RGBA4 otherwise.
+static GPU_TEXCOLOR TexelFormat(GLenum format, int width, int height, const void *pixels)
+{
+  int pitch, x, y;
+
+  if (!textures16 || !pixels)
+    return GPU_RGBA8;
+
+  if (format == GL_RGB || format == GL_BGR)
+    return GPU_RGBA5551;
+
+  if (format != GL_RGBA && format != GL_BGRA)
+    return GPU_RGBA8;
+
+  pitch = (width * 4 + unpack_alignment - 1) / unpack_alignment * unpack_alignment;
+
+  for (y = 0; y < height; ++y)
+  {
+    const u8 *row = (const u8 *) pixels + y * pitch;
+
+    for (x = 0; x < width; ++x)
+      if (row[x * 4 + 3] != 0 && row[x * 4 + 3] != 255)
+        return GPU_RGBA4;
+  }
+
+  return GPU_RGBA5551;
+}
+
 static int PowerOfTwo(int size)
 {
   int p = MIN_TEXTURE_SIZE;
@@ -2888,7 +2968,7 @@ static int PowerOfTwo(int size)
 
 // Copies a width x height image at xoffset, yoffset of t's image (its
 // OpenGL size), into the texels: each texel takes the nearest pixel.
-static void WriteTexelsTo(u32 *texels, texture_t *t, int xoffset, int yoffset, int width,
+static void WriteTexelsTo(void *texels, texture_t *t, int xoffset, int yoffset, int width,
                           int height, GLenum format, const void *pixels)
 {
   const int tex_width = t->tex.width, tex_height = t->tex.height;
@@ -2915,7 +2995,8 @@ static void WriteTexelsTo(u32 *texels, texture_t *t, int xoffset, int yoffset, i
 
       // The PICA200 keeps a texture's rows from t = 1 down: OpenGL's
       // first row (t = 0) is its last.
-      texels[TexelOffset(x, tex_height - 1 - y, tex_width)] = TexelFrom(row + sx * bpp, format);
+      PutTexel(texels, t->tex.fmt, TexelOffset(x, tex_height - 1 - y, tex_width),
+               TexelFrom(row + sx * bpp, format));
     }
   }
 }
@@ -2931,10 +3012,10 @@ static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int h
 // and the GPU's copier (DMA) takes them there; that waits for the GPU to be
 // idle, so only between frames (a level's textures are made when it
 // loads). A copy stays in the heap for the CPU (glGetTexImage).
-static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GLenum format,
-                         const void *pixels)
+static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GPU_TEXCOLOR fmt,
+                         GLenum format, const void *pixels)
 {
-  const u32 size = tex_width * tex_height * 4;
+  const u32 size = tex_width * tex_height * TexelBytes(fmt);
   u32 *staging, *shadow;
 
   if (vramSpaceFree() < size + VRAM_RESERVE)
@@ -2943,7 +3024,7 @@ static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GLenum for
   staging = linearAlloc(size);
   shadow = malloc(size);
 
-  if (!staging || !shadow || !C3D_TexInitVRAM(&t->tex, tex_width, tex_height, GPU_RGBA8))
+  if (!staging || !shadow || !C3D_TexInitVRAM(&t->tex, tex_width, tex_height, fmt))
   {
     linearFree(staging);
     free(shadow);
@@ -2992,6 +3073,7 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
 {
   texture_t *t = ActiveTexture();
   const int tex_width = PowerOfTwo(width), tex_height = PowerOfTwo(height);
+  GPU_TEXCOLOR fmt;
 
   // One level: no mipmaps.
   if (!t || level != 0)
@@ -3012,9 +3094,11 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
   t->width = width;
   t->height = height;
 
-  if (!(pixels && !in_frame && UploadToVRAM(t, tex_width, tex_height, format, pixels)))
+  fmt = TexelFormat(format, width, height, pixels);
+
+  if (!(pixels && !in_frame && UploadToVRAM(t, tex_width, tex_height, fmt, format, pixels)))
   {
-    if (!C3D_TexInit(&t->tex, tex_width, tex_height, GPU_RGBA8))
+    if (!C3D_TexInit(&t->tex, tex_width, tex_height, fmt))
     {
       printf("pgl: no memory for a %dx%d texture\n", tex_width, tex_height);
       SetError(GL_OUT_OF_MEMORY);
@@ -3108,8 +3192,9 @@ void glGetTexImage(GLenum target_, GLint level, GLenum format, GLenum type, GLvo
     {
       const int tx = x * t->tex.width / t->width;
       const int ty = y * t->tex.height / t->height;
-      const u32 *texels = t->shadow ? t->shadow : t->tex.data;
-      const u32 texel = texels[TexelOffset(tx, t->tex.height - 1 - ty, t->tex.width)];
+      const void *texels = t->shadow ? (const void *) t->shadow : t->tex.data;
+      const u32 texel = GetTexel(texels, t->tex.fmt,
+                                 TexelOffset(tx, t->tex.height - 1 - ty, t->tex.width));
 
       *out++ = texel >> 24;
       *out++ = texel >> 16;

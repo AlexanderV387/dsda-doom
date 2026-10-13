@@ -1097,6 +1097,12 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "n3ds_show_fps", dsda_config_n3ds_show_fps,
     CONF_BOOL(0)
   },
+  // [3DS] OpenGL textures in 16 bits: half the memory and of the GPU's
+  // reading, a little less color. Off: as the original.
+  [dsda_config_n3ds_textures16] = {
+    "n3ds_textures16", dsda_config_n3ds_textures16,
+    CONF_BOOL(0)
+  },
   // The bottom screen map's zoom, in percent of the whole level.
   [dsda_config_n3ds_map_zoom] = {
     "n3ds_map_zoom", dsda_config_n3ds_map_zoom,

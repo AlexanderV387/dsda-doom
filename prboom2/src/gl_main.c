@@ -250,8 +250,19 @@ void gld_InitCommandLine(void)
 
 static int C_DECL dicmp_visible_subsectors_by_pic(const void *a, const void *b)
 {
+#ifdef __3DS__
+  // [3DS] Then by light, as the walls: fewer fog table changes, and the
+  // pieces join in fewer draws.
+  const sector_t *s1 = (*((const subsector_t *const *)a))->sector;
+  const sector_t *s2 = (*((const subsector_t *const *)b))->sector;
+
+  if (s1->floorpic != s2->floorpic)
+    return s2->floorpic - s1->floorpic;
+  return s1->lightlevel - s2->lightlevel;
+#else
   return (*((const subsector_t *const *)b))->sector->floorpic -
          (*((const subsector_t *const *)a))->sector->floorpic;
+#endif
 }
 
 static int visible_subsectors_count_prev = -1;
