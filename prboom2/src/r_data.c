@@ -444,13 +444,23 @@ int R_ColormapNumForName(const char *name)
 
 void R_InitData(void)
 {
+#ifdef __3DS__
+#define N3DS_STEP(name) lprintf(LO_INFO, "startup:     %s\n", name)
+#else
+#define N3DS_STEP(name)
+#endif
   lprintf(LO_DEBUG, "Textures ");
+  N3DS_STEP("R_InitTextures");
   R_InitTextures();
   lprintf(LO_DEBUG, "Flats ");
+  N3DS_STEP("R_InitFlats");
   R_InitFlats();
   lprintf(LO_DEBUG, "Sprites ");
+  N3DS_STEP("R_InitSpriteLumps");
   R_InitSpriteLumps();
+  N3DS_STEP("R_InitColormaps");
   R_InitColormaps();                    // killough 3/20/98
+#undef N3DS_STEP
 }
 
 //

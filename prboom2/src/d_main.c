@@ -123,6 +123,10 @@
 
 #ifdef __3DS__
 #include "n3ds/n3ds.h"
+// [3DS] Each startup step in the log, with its time: what makes it slow.
+#define N3DS_STARTUP_STEP(name) lprintf(LO_INFO, "startup: %s\n", name)
+#else
+#define N3DS_STARTUP_STEP(name)
 #endif
 
 static void D_PageDrawer(void);
@@ -2227,12 +2231,15 @@ static void D_DoomMainSetup(void)
 
   lprintf(LO_INFO, "\n"); // Separator after file loading
 
+  N3DS_STARTUP_STEP("V_InitColorTranslation");
   V_InitColorTranslation(); //jff 4/24/98 load color translation lumps
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "M_Init: Init miscellaneous info.\n");
+  N3DS_STARTUP_STEP("M_Init");
   M_Init();
 
+  N3DS_STARTUP_STEP("dsda_LoadSndInfo");
   dsda_LoadSndInfo();
 
   if (map_format.sndseq)
@@ -2242,18 +2249,24 @@ static void D_DoomMainSetup(void)
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "R_Init: Init DOOM refresh daemon - ");
+  N3DS_STARTUP_STEP("R_Init");
   R_Init();
 
+  N3DS_STARTUP_STEP("dsda_LoadWadPreferences");
   dsda_LoadWadPreferences();
+  N3DS_STARTUP_STEP("dsda_LoadMapInfo");
   dsda_LoadMapInfo();
+  N3DS_STARTUP_STEP("dsda_InitSkills");
   dsda_InitSkills();
   dsda_InitGameModifiers(); // Set game modifiers based off args / persistent cfgs
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "\nP_Init: Init Playloop state.\n");
+  N3DS_STARTUP_STEP("P_Init");
   P_Init();
 
   // Must be after P_Init
+  N3DS_STARTUP_STEP("HandleWarp");
   HandleWarp();
 
   // Must be after HandleWarp
@@ -2261,17 +2274,21 @@ static void D_DoomMainSetup(void)
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "I_Init: Setting up machine state.\n");
+  N3DS_STARTUP_STEP("I_Init");
   I_Init();
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "S_Init: Setting up sound.\n");
+  N3DS_STARTUP_STEP("S_Init");
   S_Init();
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "dsda_InitFont: Loading the hud fonts.\n");
+  N3DS_STARTUP_STEP("dsda_InitFont");
   dsda_InitFont();
 
   if (!(dsda_Flag(dsda_arg_nodraw) && dsda_Flag(dsda_arg_nosound)))
+    N3DS_STARTUP_STEP("I_InitGraphics");
     I_InitGraphics();
 
   // NSM
@@ -2283,6 +2300,7 @@ static void D_DoomMainSetup(void)
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "ST_Init: Init status bar.\n");
+  N3DS_STARTUP_STEP("ST_Init");
   ST_Init();
 
   // start the appropriate game based on parms
@@ -2304,10 +2322,12 @@ static void D_DoomMainSetup(void)
     }
   }
 
+  N3DS_STARTUP_STEP("dsda_ExecutePlaybackOptions");
   dsda_ExecutePlaybackOptions();
 
   if (slot == -1 && !userdemo)
   {
+    N3DS_STARTUP_STEP("the first level or the title");
     if (autostart || netgame)
     {
       G_InitNew(startskill, startepisode, startmap, true);
@@ -2321,6 +2341,7 @@ static void D_DoomMainSetup(void)
   // do not try to interpolate during timedemo
   M_ChangeUncappedFrameRate();
 
+  N3DS_STARTUP_STEP("done");
   lprintf(LO_DEBUG, "\n"); // Separator after setup
 }
 

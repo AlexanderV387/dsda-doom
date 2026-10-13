@@ -779,21 +779,36 @@ void R_Init (void)
   // CPhipps - R_DrawColumn isn't constant anymore, so must
   //  initialise in code
   // current column draw function
+#ifdef __3DS__
+#define N3DS_STEP(name) lprintf(LO_INFO, "startup:   %s\n", name)
+#else
+#define N3DS_STEP(name)
+#endif
   lprintf(LO_DEBUG, "\nR_LoadTrigTables: ");
+  N3DS_STEP("R_LoadTrigTables");
   R_LoadTrigTables();
   lprintf(LO_DEBUG, "\nR_InitData: ");
+  N3DS_STEP("R_InitData");
   R_InitData();
+  N3DS_STEP("R_SetViewSize");
   R_SetViewSize();
   lprintf(LO_DEBUG, "\nR_Init: R_InitPlanes ");
+  N3DS_STEP("R_InitPlanes");
   R_InitPlanes();
   lprintf(LO_DEBUG, "R_InitLightTables ");
+  N3DS_STEP("R_InitLightTables");
   R_InitLightTables();
   lprintf(LO_DEBUG, "R_InitSkyMap ");
+  N3DS_STEP("R_InitSkyMap");
   R_InitSkyMap();
   lprintf(LO_DEBUG, "R_InitTranslationsTables ");
+  N3DS_STEP("R_InitTranslationTables");
   R_InitTranslationTables();
   lprintf(LO_DEBUG, "R_InitPatches ");
+  N3DS_STEP("R_InitPatches");
   R_InitPatches();
+  N3DS_STEP("R_Init done");
+#undef N3DS_STEP
 }
 
 //
