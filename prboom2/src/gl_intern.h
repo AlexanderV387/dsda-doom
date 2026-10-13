@@ -98,9 +98,16 @@ typedef struct
   int buffer_width,buffer_height;
   int buffer_size;
 
+#ifdef __3DS__
+  // [3DS] Only the color translation / colormap combinations in use: the
+  // full table (61 x 9 x the mod's colormaps per texture) takes the 3DS's
+  // whole memory with big mods.
+  struct gl_texid_s *texids;
+#else
   //e6y: support for Boom colormaps
   GLuint ***glTexExID;
   unsigned int texflags[CR_LIMIT+MAX_MAXPLAYERS][PLAYERCOLORMAP_COUNT];
+#endif
   GLuint *texid_p;
   unsigned int *texflags_p;
 

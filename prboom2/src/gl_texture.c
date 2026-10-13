@@ -77,6 +77,15 @@
 #ifdef __3DS__
 #include <stdlib.h>
 #include "n3ds/n3ds_gl.h"
+
+// [3DS] One GL texture of a GLTexture: its translation and colormaps.
+struct gl_texid_s
+{
+  struct gl_texid_s *next;
+  short cm, player_cm, bcm;
+  unsigned int flags;
+  GLuint id;
+};
 #endif
 
 int imageformats[5] = {0, GL_LUMINANCE, GL_LUMINANCE_ALPHA, GL_RGB, GL_RGBA};
@@ -199,8 +208,31 @@ static void gld_GetTextureTexID(GLTexture *gltexture, int cm)
       bcm = 0;
     }
   }
+#ifdef __3DS__
+  {
+    struct gl_texid_s *id;
+
+    for (id = gltexture->texids; id; id = id->next)
+      if (id->cm == cm && id->player_cm == player_cm && id->bcm == bcm)
+        break;
+
+    if (!id)
+    {
+      id = Z_Calloc(1, sizeof(*id));
+      id->cm = cm;
+      id->player_cm = player_cm;
+      id->bcm = bcm;
+      id->next = gltexture->texids;
+      gltexture->texids = id;
+    }
+
+    gltexture->texflags_p = &id->flags;
+    gltexture->texid_p = &id->id;
+  }
+#else
   gltexture->texflags_p = &gltexture->texflags[cm][player_cm];
   gltexture->texid_p = &gltexture->glTexExID[cm][player_cm][bcm];
+#endif
   return;
 }
 
@@ -222,11 +254,13 @@ static GLTexture *gld_AddNewGLTexItem(int num, int count, GLTexture ***items)
     (*items)[num]=Z_Calloc(1, sizeof(GLTexture));
     (*items)[num]->textype=GLDT_UNREGISTERED;
 
+#ifndef __3DS__
     {
       GLTexture *texture = (*items)[num];
       int dims[3] = {(CR_LIMIT+MAX_MAXPLAYERS), (PLAYERCOLORMAP_COUNT), numcolormaps};
       texture->glTexExID = NewIntDynArray(3, dims);
     }
+#endif
   }
   return (*items)[num];
 }
@@ -1424,6 +1458,22 @@ static void gld_CleanTexItems(int count, GLTexture ***items)
   {
     if ((*items)[i])
     {
+#ifdef __3DS__
+      struct gl_texid_s *id = (*items)[i]->texids;
+
+      while (id)
+      {
+        struct gl_texid_s *next = id->next;
+
+        if (id->id)
+          glDeleteTextures(1, &id->id);
+        Z_Free(id);
+        id = next;
+      }
+
+      (*items)[i]->texids = NULL;
+      Z_Free((*items)[i]);
+#else
       int cm, n;
       for (j=0; j<(CR_LIMIT+MAX_MAXPLAYERS); j++)
       {
@@ -1443,6 +1493,7 @@ static void gld_CleanTexItems(int count, GLTexture ***items)
       (*items)[i]->glTexExID = NULL;
 
       Z_Free((*items)[i]);
+#endif
     }
   }
   memset((*items),0,count*sizeof(GLTexture *));

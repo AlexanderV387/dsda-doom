@@ -14,6 +14,7 @@
 // This file replaces gl_shader.c on the 3DS.
 //
 
+#include <malloc.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -237,6 +238,15 @@ void N3DS_GLSwap(void)
 
       N3DS_ProfileTake(ms, calls);
       pglTakeStats(&stats);
+
+      {
+        extern unsigned int __ctru_heap_size;
+        const struct mallinfo info = mallinfo();
+
+        printf("memory: heap %u of %u KiB used, %u KiB free for the GPU\n",
+               (unsigned) (info.uordblks / 1024), __ctru_heap_size / 1024,
+               (unsigned) (N3DS_LinearFree() / 1024));
+      }
 
       printf("perf: %d frames; per frame: logic %.1f ms (%d tics), drawing %.1f ms "
              "(pgl %.1f), waiting %.1f ms, uploads %.1f ms (%d); "

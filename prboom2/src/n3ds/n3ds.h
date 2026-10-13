@@ -75,6 +75,7 @@ enum
 };
 
 unsigned long long N3DS_ProfileNow(void);
+unsigned int N3DS_LinearFree(void);
 void N3DS_ProfileAdd(int what, unsigned long long start);
 // Milliseconds per call so far, and clears them.
 void N3DS_ProfileTake(double *ms, int *calls);

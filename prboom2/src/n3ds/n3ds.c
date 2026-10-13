@@ -264,6 +264,11 @@ dboolean N3DS_GetTouch(int *x, int *y)
 static u64 profile_ticks[N3DS_PROFILE_COUNT];
 static int profile_calls[N3DS_PROFILE_COUNT];
 
+unsigned int N3DS_LinearFree(void)
+{
+  return linearSpaceFree();
+}
+
 unsigned long long N3DS_ProfileNow(void)
 {
   return svcGetSystemTick();
