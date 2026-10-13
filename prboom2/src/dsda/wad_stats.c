@@ -29,6 +29,10 @@
 
 #include "wad_stats.h"
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 static const char* filename = "stats.txt";
 static const int current_version = 1;
 static map_stats_t* current_map_stats;
@@ -224,7 +228,12 @@ void dsda_SaveWadStats(void) {
 
   path = dsda_WadStatsPath();
 
+#ifdef __3DS__
+  // [3DS] Over the old file: creating one on the SD card takes seconds.
+  file = N3DS_OpenRewrite(path);
+#else
   file = M_OpenFile(path, "wb");
+#endif
   if (!file)
   {
     lprintf(LO_WARN, "dsda_SaveWadStats: Failed to save wad stats file \"%s\".\n", path);
@@ -246,7 +255,11 @@ void dsda_SaveWadStats(void) {
             ms->max_kills, ms->max_items, ms->max_secrets);
   }
 
+#ifdef __3DS__
+  N3DS_CloseRewrite(file);
+#else
   fclose(file);
+#endif
 }
 
 static map_stats_t* dsda_MapStats(int episode, int map) {

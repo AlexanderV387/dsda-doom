@@ -211,22 +211,29 @@ void I_SafeExit(int rc)
   exit(rc);
 }
 
+#ifdef __3DS__
+// [3DS] Each step in the log, with its time.
+#define N3DS_STEP(step) (step, lprintf(LO_INFO, "  " #step " done\n"))
+#else
+#define N3DS_STEP(step) step
+#endif
+
 static void I_EssentialQuit (void)
 {
   if (demorecording)
   {
-    G_CheckDemoStatus();
+    N3DS_STEP(G_CheckDemoStatus());
   }
-  dsda_ExportTextFile();
-  dsda_WriteAnalysis();
-  dsda_WriteSplits();
-  dsda_SaveWadStats();
+  N3DS_STEP(dsda_ExportTextFile());
+  N3DS_STEP(dsda_WriteAnalysis());
+  N3DS_STEP(dsda_WriteSplits());
+  N3DS_STEP(dsda_SaveWadStats());
   // We need to close out all wad handles/memory mappings before we can remove
   // temporary wads on Windows
   // Read Endoom before dumping the wads!
-  dsda_CacheEndoom();
-  W_Shutdown();
-  dsda_CleanZipTempDirs();
+  N3DS_STEP(dsda_CacheEndoom());
+  N3DS_STEP(W_Shutdown());
+  N3DS_STEP(dsda_CleanZipTempDirs());
 }
 
 static void I_Quit (void)
