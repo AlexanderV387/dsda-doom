@@ -2787,6 +2787,14 @@ static const char *example_steps[] = {
   "+ strip of 4",
   "+ pgl's vertex buffer",
   "+ pgl's matrix",
+  "+ pgl's frame start",
+  "+ pgl's matrices",
+  "+ pgl's texture",
+  "+ pgl's program",
+  "+ pgl's texenv",
+  "+ pgl's fragment states",
+  "+ pgl's viewport",
+  "+ pgl's draw",
 };
 
 static bool ExampleTriangle(int level)
@@ -2807,10 +2815,18 @@ static bool ExampleTriangle(int level)
     memcpy(buffer, triangle, sizeof(triangle));
   }
 
-  C3D_FrameSync();
-  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
-    svcSleepThread(1000 * 1000);
-  C3D_FrameDrawOn(target);
+  if (level >= 14)
+  {
+    BeginFrame();
+  }
+  else
+  {
+    C3D_FrameSync();
+    while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+      svcSleepThread(1000 * 1000);
+    C3D_FrameDrawOn(target);
+  }
+
   C3D_BindProgram(&test_shaders[0]);
   attributes = C3D_GetAttrInfo();
   AttrInfo_Init(attributes);
@@ -2870,13 +2886,39 @@ static bool ExampleTriangle(int level)
   if (level >= 9) C3D_DepthMap(true, -1.0f, 0.0f);
   if (level >= 10) C3D_SetViewport(0, 0, TOP_HEIGHT, TOP_WIDTH);
 
-  if (level >= 11)
+  // pgl's own functions, one by one, over the same settings.
+  DirtyAll();
+  if (level >= 15)
+  {
+    UploadMatrices();
+
+    // Its own matrix again (the test has no projection set).
+    Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
+  }
+  if (level >= 16) ApplyTexture();
+  if (level >= 17) ApplyProgram();
+  if (level >= 18) ApplyTexEnv();
+  if (level >= 19) ApplyFragment();
+  if (level >= 20) ApplyViewport();
+
+  if (level >= 21)
+  {
+    texture_dirty = texenv_dirty = fragment_dirty = viewport_dirty = program_dirty = false;
+    DrawVertices(GPU_TRIANGLE_STRIP, 0, 4);
+  }
+  else if (level >= 11)
+  {
     C3D_DrawArrays(GPU_TRIANGLE_STRIP, 0, 4);
+  }
   else
+  {
     C3D_DrawArrays(GPU_TRIANGLES, 0, 3);
+  }
 
   target->used = false;
   C3D_FrameEnd(0);
+  in_frame = false;
 
   start = osGetTime();
 
@@ -2947,7 +2989,7 @@ static void SelfTest(void)
   {
     int level;
 
-    for (level = 0; level <= 13; ++level)
+    for (level = 0; level <= 21; ++level)
       if (!ExampleTriangle(level))
         return;
   }
