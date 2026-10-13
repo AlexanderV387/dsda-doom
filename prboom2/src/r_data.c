@@ -49,6 +49,10 @@
 #include "dsda/map_format.h"
 #include "dsda/utility.h"
 
+#ifdef __3DS__
+#include <unistd.h>
+#endif
+
 //
 // Graphics.
 // DOOM graphics for walls and sprites
@@ -126,11 +130,35 @@ const byte *R_GetTextureColumn(const rpatch_t *texpatch, int col) {
 //  with the textures from the world map.
 //
 
+#ifdef __3DS__
+// [3DS] Only the first 8 bytes from the file: W_LumpByNum reads the whole
+// lump and keeps it in memory, here for every patch of PNAMES. With a big
+// mod (Eviternity: thousands) that was most of the start (24 seconds on
+// the SD card) and megabytes of memory.
+static dboolean R_IsPNGLump(int lump_num)
+{
+  const lumpinfo_t *l = W_GetLumpInfoByNum(lump_num);
+  byte header[8];
+
+  if (l->size < 8)
+    return false;
+
+  if (!l->wadfile)
+    return !memcmp(W_LumpByNum(lump_num), "\211PNG\r\n\032\n", 8);
+
+  if (lseek(l->wadfile->handle, l->position, SEEK_SET) == -1
+      || read(l->wadfile->handle, header, 8) != 8)
+    return false;
+
+  return !memcmp(header, "\211PNG\r\n\032\n", 8);
+}
+#else
 static dboolean R_IsPNGLump(int lump_num)
 {
   return W_LumpLength(lump_num) >= 8 &&
          !memcmp(W_LumpByNum(lump_num), "\211PNG\r\n\032\n", 8);
 }
+#endif
 
 static int R_FilterValidPatch(int lump_num, const char *name)
 {
