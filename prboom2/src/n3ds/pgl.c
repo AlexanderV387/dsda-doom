@@ -2602,8 +2602,10 @@ void glGetTexImage(GLenum target_, GLint level, GLenum format, GLenum type, GLvo
 // once the GPU has drawn it: 0xRRGGBBAA.
 static u32 ReadPixel(const u32 *color_buffer, int x, int y)
 {
+  // In memory the target's rows run the other way from its window
+  // coordinates (seen on the hardware: the screen wipe came out mirrored).
   const int rx = y;
-  const int ry = TOP_WIDTH - 1 - x;
+  const int ry = x;
 
   return color_buffer[TexelOffset(rx, ry, TOP_HEIGHT)];
 }

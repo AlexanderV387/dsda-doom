@@ -3457,6 +3457,9 @@ static const char *n3ds_run_modes[] =
   NULL
 };
 
+static const char *n3ds_crosshairs[] =
+  { "none", "cross", "angle", "dot", "small", "slim", "tiny", "big", NULL };
+
 // The values of "videomode": the GPU's renderer is OpenGL (on citro3d).
 static const char *n3ds_renderers[] = { "Software", "OpenGL", NULL };
 
@@ -3472,6 +3475,7 @@ setup_menu_t n3ds_main_settings[] =
   EMPTY_LINE,
   { "Camera", S_SKIP | S_TITLE, m_null, N3DS_X },
   { "Free Look (Up and Down)", S_YESNO, m_conf, N3DS_X, dsda_config_freelook },
+  { "Crosshair", S_CHOICE, m_conf, N3DS_X, dsda_config_hudadd_crosshair, 0, n3ds_crosshairs },
   EMPTY_LINE,
   { "Touch Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
   { "Turn with the Touch Screen", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_touch_turn },
