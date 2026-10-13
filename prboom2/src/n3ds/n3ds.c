@@ -988,7 +988,8 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     const int entry = game_index[game];
 
     i = 0;
-    args[i++] = (*argv)[0];
+    // A .cia starts with no arguments at all (no program name either).
+    args[i++] = (*argc > 0 && *argv != NULL && (*argv)[0] != NULL) ? (*argv)[0] : "dsda-doom";
     args[i++] = "-iwad";
     args[i++] = (char *) iwad_names[entry].file;
 
