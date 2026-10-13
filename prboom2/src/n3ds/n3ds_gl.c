@@ -215,6 +215,41 @@ void N3DS_GLSwap(void)
     if (++frames <= 3)
       printf("N3DS_GLSwap: frame %d on the screens\n", frames);
   }
+
+  // Every 10 seconds, per frame: the game's logic, the drawing (without
+  // waiting for the GPU), of it pgl's part, the wait, and pgl's counts.
+  {
+    static int frames;
+    static unsigned long long start;
+    const unsigned long long now = N3DS_ProfileNow();
+
+    ++frames;
+
+    if (!start)
+    {
+      start = now;
+    }
+    else if (now - start > 10ULL * 268111856ULL)
+    {
+      double ms[N3DS_PROFILE_COUNT];
+      int calls[N3DS_PROFILE_COUNT];
+      pgl_stats_t stats;
+
+      N3DS_ProfileTake(ms, calls);
+      pglTakeStats(&stats);
+
+      printf("perf: %d frames; per frame: logic %.1f ms (%d tics), drawing %.1f ms "
+             "(pgl %.1f), waiting %.1f ms, uploads %.1f ms (%d); "
+             "draws %d, binds %d, light changes %d, combiner changes %d\n",
+             frames, ms[N3DS_PROFILE_TICS] / frames, calls[N3DS_PROFILE_TICS],
+             (ms[N3DS_PROFILE_DISPLAY] - stats.wait_ms) / frames, stats.draw_ms / frames,
+             stats.wait_ms / frames, stats.upload_ms / frames, stats.uploads,
+             stats.draws / frames, stats.binds / frames, stats.fog_changes / frames,
+             stats.texenv_changes / frames);
+      frames = 0;
+      start = now;
+    }
+  }
 }
 
 // ==========================================================================

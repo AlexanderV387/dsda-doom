@@ -65,6 +65,20 @@ dboolean N3DS_GetTouch(int *x, int *y);
 // something (showing) or the touch was used by the game (touch_used).
 void N3DS_UpdateBottomBacklight(dboolean showing, dboolean touch_used);
 
+// Where the time goes, in the log every 10 seconds (n3ds_gl.c reports it):
+// the game's logic and the drawing, per frame.
+enum
+{
+  N3DS_PROFILE_TICS,     // G_Ticker
+  N3DS_PROFILE_DISPLAY,  // D_Display (the drawing, pgl included)
+  N3DS_PROFILE_COUNT
+};
+
+unsigned long long N3DS_ProfileNow(void);
+void N3DS_ProfileAdd(int what, unsigned long long start);
+// Milliseconds per call so far, and clears them.
+void N3DS_ProfileTake(double *ms, int *calls);
+
 // The small frame counter on the bottom screen.
 extern int n3ds_show_fps;
 

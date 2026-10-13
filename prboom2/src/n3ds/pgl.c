@@ -92,6 +92,8 @@ static u32 frame_number = 1;
 static u64 wait_ticks;      // waiting for the GPU and the screen, this frame
 static u64 last_swap;
 static int work_us, gpu_us; // the last frame's
+static u64 stat_draw_ticks, stat_wait_ticks, stat_upload_ticks;
+static int stat_draws, stat_binds, stat_fog, stat_texenv, stat_uploads;
 static void (*before_swap)(void);
 
 static vertex_t *vertices;  // in linear memory
@@ -415,6 +417,7 @@ static void BeginFrame(void)
   start = svcGetSystemTick();
   StartFrame(true);
   wait_ticks += svcGetSystemTick() - start;
+  stat_wait_ticks += svcGetSystemTick() - start;
   C3D_FrameDrawOn(target);
 
   if (frame_number <= 3)
@@ -666,6 +669,8 @@ static void ApplyTexture(void)
 {
   texture_t *t = DrawTexture();
 
+  ++stat_binds;
+
   if (!t)
   {
     C3D_TexBind(0, NULL);
@@ -740,6 +745,8 @@ static GPU_COMBINEFUNC EnvFunc(GLenum func)
 static void ApplyTexEnv(void)
 {
   C3D_TexEnv env;
+
+  ++stat_texenv;
   bool textured = DrawTexture() != NULL;
 
   C3D_TexEnvInit(&env);
@@ -820,6 +827,7 @@ static void ApplyProgram(void)
 {
   if (program == PGL_PROGRAM_LIGHT && fog_table)
   {
+    ++stat_fog;
     C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
     C3D_FogColor(0);
     C3D_FogLutBind(&fog_table->lut);
@@ -908,9 +916,15 @@ static void DrawVertices(GPU_Primitive_t primitive, int first, int count)
   if (count <= 0 || !DrawableArea() || !RoomForCommands())
     return;
 
-  ApplyStates();
-  C3D_DrawArrays(primitive, first, count);
+  {
+    const u64 start = svcGetSystemTick();
+
+    ApplyStates();
+    C3D_DrawArrays(primitive, first, count);
+    stat_draw_ticks += svcGetSystemTick() - start;
+  }
   ++frame_draws;
+  ++stat_draws;
   LogDraw(primitive == GPU_TRIANGLES ? "triangles" : primitive == GPU_TRIANGLE_STRIP ? "strip" : "fan",
           count);
 }
@@ -2497,6 +2511,8 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
     return;
   }
 
+  const u64 upload_start = svcGetSystemTick();
+
   // New memory each time: the GPU may still draw with the old one.
   FreeTextureData(t);
 
@@ -2520,6 +2536,9 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
 
   if (t == BoundTexture(0))
     texture_dirty = true;
+
+  stat_upload_ticks += svcGetSystemTick() - upload_start;
+  ++stat_uploads;
 }
 
 void glTexSubImage2D(GLenum target_, GLint level, GLint xoffset, GLint yoffset,
@@ -2712,3 +2731,17 @@ void *pglGetProcAddress(const char *name)
   return NULL;
 }
 
+
+void pglTakeStats(pgl_stats_t *stats)
+{
+  stats->draw_ms = stat_draw_ticks / CPU_TICKS_PER_MSEC;
+  stats->wait_ms = stat_wait_ticks / CPU_TICKS_PER_MSEC;
+  stats->upload_ms = stat_upload_ticks / CPU_TICKS_PER_MSEC;
+  stats->draws = stat_draws;
+  stats->binds = stat_binds;
+  stats->fog_changes = stat_fog;
+  stats->texenv_changes = stat_texenv;
+  stats->uploads = stat_uploads;
+  stat_draw_ticks = stat_wait_ticks = stat_upload_ticks = 0;
+  stat_draws = stat_binds = stat_fog = stat_texenv = stat_uploads = 0;
+}

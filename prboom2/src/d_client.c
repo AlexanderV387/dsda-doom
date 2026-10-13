@@ -64,6 +64,10 @@
 #include "dsda/settings.h"
 #include "dsda/time.h"
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 ticcmd_t local_cmds[MAX_MAXPLAYERS][BACKUPTICS];
 int maketic;
 int solo_net = 0;
@@ -134,7 +138,16 @@ void TryRunTics (void)
         if (movement_smooth && gamestate==wipegamestate)
         {
           isExtraDDisplay = true;
+#ifdef __3DS__
+          {
+            const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+            D_Display(-1);
+            N3DS_ProfileAdd(N3DS_PROFILE_DISPLAY, n3ds_start);
+          }
+#else
           D_Display(-1);
+#endif
           isExtraDDisplay = false;
         }
       }
@@ -145,7 +158,16 @@ void TryRunTics (void)
     if (advancedemo)
       D_DoAdvanceDemo ();
     M_Ticker ();
+#ifdef __3DS__
+    {
+      const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+      G_Ticker ();
+      N3DS_ProfileAdd(N3DS_PROFILE_TICS, n3ds_start);
+    }
+#else
     G_Ticker ();
+#endif
     gametic++;
     FakeNetUpdate();
   }

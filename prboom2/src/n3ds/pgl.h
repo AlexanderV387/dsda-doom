@@ -63,4 +63,16 @@ void pglBlendScreen(float red, float green, float blue, float alpha);
 // swap, without waiting for the GPU or the screen) and the GPU's drawing.
 void pglFrameTimes(int *work_us, int *gpu_us);
 
+// Counts since the last call (then cleared), for the log: time drawing (in
+// pgl: states and draws), waiting for the GPU and the screen, uploading
+// textures; and how many draws, texture binds, light (fog) changes and
+// combiner changes.
+typedef struct
+{
+  double draw_ms, wait_ms, upload_ms;
+  int draws, binds, fog_changes, texenv_changes, uploads;
+} pgl_stats_t;
+
+void pglTakeStats(pgl_stats_t *stats);
+
 #endif

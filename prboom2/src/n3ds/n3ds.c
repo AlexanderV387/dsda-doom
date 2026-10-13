@@ -259,6 +259,36 @@ dboolean N3DS_GetTouch(int *x, int *y)
 }
 
 // ==========================================================================
+// Profiling
+
+static u64 profile_ticks[N3DS_PROFILE_COUNT];
+static int profile_calls[N3DS_PROFILE_COUNT];
+
+unsigned long long N3DS_ProfileNow(void)
+{
+  return svcGetSystemTick();
+}
+
+void N3DS_ProfileAdd(int what, unsigned long long start)
+{
+  profile_ticks[what] += svcGetSystemTick() - start;
+  ++profile_calls[what];
+}
+
+void N3DS_ProfileTake(double *ms, int *calls)
+{
+  int k;
+
+  for (k = 0; k < N3DS_PROFILE_COUNT; ++k)
+  {
+    ms[k] = profile_ticks[k] / (CPU_TICKS_PER_MSEC);
+    calls[k] = profile_calls[k];
+    profile_ticks[k] = 0;
+    profile_calls[k] = 0;
+  }
+}
+
+// ==========================================================================
 // Bottom screen (320x240, rotated like the top one): what the game draws
 // (the status bar), 30 times per second, and the frame counter.
 

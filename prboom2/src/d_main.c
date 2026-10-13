@@ -121,6 +121,10 @@
 
 #include "i_glob.h"
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 static void D_PageDrawer(void);
 
 char* iwadlump;
@@ -600,7 +604,16 @@ static void D_DoomLoop(void)
       if (advancedemo)
         D_DoAdvanceDemo ();
       M_Ticker ();
+#ifdef __3DS__
+      {
+        const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+        G_Ticker ();
+        N3DS_ProfileAdd(N3DS_PROFILE_TICS, n3ds_start);
+      }
+#else
       G_Ticker ();
+#endif
       gametic++;
       maketic++;
     }
@@ -630,7 +643,16 @@ static void D_DoomLoop(void)
             I_QueueFrameCapture();
           }
 
+#ifdef __3DS__
+          {
+            const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+            D_Display(cap_frac);
+            N3DS_ProfileAdd(N3DS_PROFILE_DISPLAY, n3ds_start);
+          }
+#else
           D_Display(cap_frac);
+#endif
 
           isExtraDDisplay = false;
           cap_frac += cap_step;
@@ -639,7 +661,16 @@ static void D_DoomLoop(void)
       }
       else
       {
+#ifdef __3DS__
+        {
+          const unsigned long long n3ds_start = N3DS_ProfileNow();
+
+          D_Display(-1);
+          N3DS_ProfileAdd(N3DS_PROFILE_DISPLAY, n3ds_start);
+        }
+#else
         D_Display(-1);
+#endif
       }
     }
   }
