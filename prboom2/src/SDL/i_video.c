@@ -1396,6 +1396,13 @@ void I_UpdateVideoMode(void)
 
   windowid = SDL_GetWindowID(sdl_window);
 
+#ifdef __3DS__
+  // [3DS] SDL sends no "size changed" when the window opens, which is
+  // where the viewport is set: OpenGL would draw into 0x0.
+  I_SetWindowRect();
+  I_SetViewportRect();
+#endif
+
   if (V_IsOpenGLMode())
   {
     SDL_GL_SetSwapInterval((render_vsync ? 1 : 0));

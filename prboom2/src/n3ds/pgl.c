@@ -443,6 +443,27 @@ static void ClipRect(int *rect, int width, int height)
   rect[3] = y1 > y0 ? y1 - y0 : 0;
 }
 
+// OpenGL draws nothing into an empty viewport or scissor box; the
+// PICA200 would divide by zero (and hang).
+static bool DrawableArea(void)
+{
+  int r[4];
+
+  if (viewport[2] <= 0 || viewport[3] <= 0)
+    return false;
+
+  if (scissor_on)
+  {
+    RotateRect(scissor_box, r);
+    ClipRect(r, TOP_HEIGHT, TOP_WIDTH);
+
+    if (r[2] <= 0 || r[3] <= 0)
+      return false;
+  }
+
+  return true;
+}
+
 static void ApplyViewport(void)
 {
   int r[4];
@@ -843,7 +864,7 @@ static vertex_t *ReserveVertices(int count)
 
 static void DrawVertices(GPU_Primitive_t primitive, int first, int count)
 {
-  if (count <= 0 || !RoomForCommands())
+  if (count <= 0 || !DrawableArea() || !RoomForCommands())
     return;
 
   ApplyStates();
@@ -872,7 +893,7 @@ static void DrawLinesAsQuads(const vertex_t *source, int count, GLenum mode)
   else // GL_POINTS: a segment from each point to itself
     segments = count;
 
-  if (segments <= 0)
+  if (segments <= 0 || !DrawableArea())
     return;
 
   out = ReserveVertices(segments * 6);
@@ -1156,8 +1177,9 @@ void pglSwapBuffers(void)
   C3D_FrameEnd(0);
 
   if (frame_number <= 3)
-    printf("pgl: frame %lu: sent (%d draws, %d vertices)\n", (unsigned long) frame_number,
-           frame_draws, vertex_count);
+    printf("pgl: frame %lu: sent (%d draws, %d vertices, viewport %d,%d %dx%d)\n",
+           (unsigned long) frame_number, frame_draws, vertex_count,
+           viewport[0], viewport[1], viewport[2], viewport[3]);
   in_frame = false;
   ++frame_number;
 
@@ -1506,6 +1528,14 @@ void glShadeModel(GLenum mode)
 
 void glViewport(GLint x, GLint y, GLsizei width, GLsizei height)
 {
+  static bool reported;
+
+  if ((width <= 0 || height <= 0) && !reported)
+  {
+    printf("pgl: an empty viewport (%dx%d): nothing drawn with it\n", (int) width, (int) height);
+    reported = true;
+  }
+
   viewport[0] = x;
   viewport[1] = y;
   viewport[2] = width;
@@ -1561,6 +1591,15 @@ static void ScreenQuad(const float *color, float z, int write, bool blend, bool 
 
   if (!v || !RoomForCommands())
     return;
+
+  if (scissor)
+  {
+    RotateRect(scissor_box, r);
+    ClipRect(r, TOP_HEIGHT, TOP_WIDTH);
+
+    if (r[2] <= 0 || r[3] <= 0)
+      return;
+  }
 
   for (k = 0; k < 4; ++k)
   {
