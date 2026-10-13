@@ -2795,6 +2795,82 @@ static void SelfTest(void)
   glLoadIdentity();
   glColor4f(1, 1, 1, 1);
 
+  // Where things are: the GPU reaches memory by physical address.
+  {
+    extern u32 __ctru_linear_heap, __ctru_linear_heap_size;
+    u32 *cmdbuf, cmdsize, cmdoffset;
+
+    GPUCMD_GetBuffer(&cmdbuf, &cmdsize, &cmdoffset);
+    printf("pgl: linear heap %08lx (%lu KiB), vertices %08lx, commands %08lx, "
+           "color %08lx, depth %08lx, application memory %lu KiB, free linear %lu KiB\n",
+           (unsigned long) osConvertVirtToPhys((void *) __ctru_linear_heap),
+           (unsigned long) (__ctru_linear_heap_size / 1024),
+           (unsigned long) osConvertVirtToPhys(vertices),
+           (unsigned long) osConvertVirtToPhys(cmdbuf),
+           (unsigned long) osConvertVirtToPhys(target->frameBuf.colorBuf),
+           (unsigned long) osConvertVirtToPhys(target->frameBuf.depthBuf),
+           (unsigned long) (osGetMemRegionSize(MEMREGION_APPLICATION) / 1024),
+           (unsigned long) (linearSpaceFree() / 1024));
+  }
+
+  // citro3d's simplest example (3ds-examples, graphics/gpu/simple_tri) as
+  // it is: its own buffer and matrix, citro3d's default states.
+  if (test_shader_count > 0)
+  {
+    static const float triangle[3][3] = {{200, 200, 0.5f}, {100, 40, 0.5f}, {300, 40, 0.5f}};
+    float *buffer = linearAlloc(sizeof(triangle));
+    C3D_AttrInfo *attributes;
+    C3D_BufInfo *buffers;
+    C3D_TexEnv *env;
+    C3D_Mtx projection;
+    const u64 start = osGetTime();
+    bool hung = false;
+
+    memcpy(buffer, triangle, sizeof(triangle));
+    printf("pgl test: example triangle, buffer %08lx\n", (unsigned long) osConvertVirtToPhys(buffer));
+
+    C3D_FrameSync();
+    while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+      svcSleepThread(1000 * 1000);
+    C3D_FrameDrawOn(target);
+    C3D_BindProgram(&test_shaders[0]);
+    attributes = C3D_GetAttrInfo();
+    AttrInfo_Init(attributes);
+    AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
+    buffers = C3D_GetBufInfo();
+    BufInfo_Init(buffers);
+    BufInfo_Add(buffers, buffer, sizeof(triangle[0]), 1, 0x0);
+    env = C3D_GetTexEnv(0);
+    C3D_TexEnvInit(env);
+    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+    Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
+    C3D_DrawArrays(GPU_TRIANGLES, 0, 3);
+    target->used = false;
+    C3D_FrameEnd(0);
+
+    while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+    {
+      if (osGetTime() - start > 2000)
+      {
+        printf("pgl test: example triangle: THE GPU HUNG\n");
+        hung = true;
+        break;
+      }
+      svcSleepThread(1000 * 1000);
+    }
+
+    if (hung)
+      return;
+
+    target->used = false;
+    C3D_FrameEnd(0);
+    printf("pgl test: example triangle: ok\n");
+    SetAttributes();
+    DirtyAll();
+  }
+
   // A command list with no draw in it.
   BeginFrame();
   GPUCMD_AddWrite(GPUREG_FRAMEBUFFER_FLUSH, 1);
