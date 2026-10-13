@@ -51,6 +51,9 @@
 
 #ifdef __3DS__
 #include <unistd.h>
+
+#include "dsda/data_organizer.h"
+#include "n3ds/n3ds.h"
 #endif
 
 //
@@ -160,6 +163,7 @@ static dboolean R_IsPNGLump(int lump_num)
 }
 #endif
 
+#ifndef __3DS__
 static int R_FilterValidPatch(int lump_num, const char *name)
 {
   if (lump_num != LUMP_NOT_FOUND)
@@ -173,6 +177,94 @@ static int R_FilterValidPatch(int lump_num, const char *name)
 
   return lump_num;
 }
+#endif
+
+#ifdef __3DS__
+// [3DS] Which PNAMES patches are PNGs, remembered in the data folder: even
+// 8 bytes of each is one SD card read each, seconds with a big mod. The
+// list is known by its lumps (number, place and size in the files): when
+// they change, the patches are checked again.
+#define PNG_LIST_MAGIC 0x31474E50 // "PNG1"
+
+static unsigned PatchListKey(const int *lookup, int count)
+{
+  unsigned key = 2166136261u;
+  int i;
+
+  for (i = 0; i < count; ++i)
+  {
+    unsigned values[3] = {(unsigned) lookup[i], 0, 0};
+    int k;
+
+    if (lookup[i] != LUMP_NOT_FOUND)
+    {
+      const lumpinfo_t *l = W_GetLumpInfoByNum(lookup[i]);
+
+      values[1] = (unsigned) l->position;
+      values[2] = (unsigned) l->size;
+    }
+
+    for (k = 0; k < 3; ++k)
+      key = (key ^ values[k]) * 16777619u;
+  }
+
+  return key;
+}
+
+static void R_FilterValidPatches(int *lookup, int count, const char *names)
+{
+  const unsigned key = PatchListKey(lookup, count);
+  byte *png = Z_Calloc(count > 0 ? count : 1, 1);
+  dboolean known = false;
+  char *path;
+  FILE *file;
+  int i;
+
+  path = Z_Malloc(strlen(dsda_DataDir()) + 32);
+  sprintf(path, "%s/n3ds_png_patches.dat", dsda_DataDir());
+
+  file = fopen(path, "rb");
+
+  if (file)
+  {
+    unsigned header[3];
+
+    known = fread(header, sizeof(header), 1, file) == 1
+         && header[0] == PNG_LIST_MAGIC && header[1] == (unsigned) count && header[2] == key
+         && fread(png, 1, count, file) == (size_t) count;
+    fclose(file);
+  }
+
+  if (!known)
+  {
+    const unsigned header[3] = {PNG_LIST_MAGIC, (unsigned) count, key};
+
+    for (i = 0; i < count; ++i)
+      png[i] = lookup[i] != LUMP_NOT_FOUND && R_IsPNGLump(lookup[i]);
+
+    file = N3DS_OpenRewrite(path);
+
+    if (file)
+    {
+      fwrite(header, sizeof(header), 1, file);
+      fwrite(png, 1, count, file);
+      N3DS_CloseRewrite(file);
+    }
+  }
+
+  for (i = 0; i < count; ++i)
+  {
+    if (png[i])
+    {
+      lprintf(LO_WARN, "Warning: patch %.8s is in an unsupported format (PNG)\n", names + i * 8);
+      lookup[i] = W_CheckNumForName2("TNT1A0", ns_sprites);
+    }
+  }
+
+  Z_Free(path);
+  Z_Free(png);
+}
+#endif
 
 static void R_InitTextures (void)
 {
@@ -220,8 +312,14 @@ static void R_InitTextures (void)
           patchlookup[i] = W_CheckNumForName2(name, ns_sprites);
         }
 
+#ifndef __3DS__
       patchlookup[i] = R_FilterValidPatch(patchlookup[i], name);
+#endif
     }
+
+#ifdef __3DS__
+  R_FilterValidPatches(patchlookup, nummappatches, name_p);
+#endif
 
   // Load the map texture definitions from textures.lmp.
   // The data is contained in one or two lumps,
