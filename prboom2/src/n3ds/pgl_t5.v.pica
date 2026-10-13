@@ -22,8 +22,11 @@
 	mov r2.xy, intc
 	mov r2.z, consts.yyyy
 	mov r2.w, consts.xxxx
-	dp4 outtc0.x, texmtx[0], r2
-	dp4 outtc0.y, texmtx[1], r2
-	dp4 outtc0w.x, texmtx[3], r2
+	dp4 r4.x, texmtx[0], r2
+	dp4 r4.y, texmtx[1], r2
+	mov r4.z, consts.yyyy
+	dp4 r4.w, texmtx[3], r2
+	mov outtc0, r4
+	mov outtc0w, r4.wwww
 	end
 .end
