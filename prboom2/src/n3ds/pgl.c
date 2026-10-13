@@ -2854,7 +2854,8 @@ static bool ExampleTriangle(int level)
       v[k].z = level >= 24 ? quad[k][2] : triangle[k][2];
     }
 
-    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 1, 0x0);
+    // The position, then 12 bytes the loader skips (0xE: padding).
+    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 2, 0xE0);
   }
   else
   {
@@ -3043,7 +3044,8 @@ static void SelfTest(void)
     AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
     buffers = C3D_GetBufInfo();
     BufInfo_Init(buffers);
-    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 1, 0x0);
+    // The position, then 12 bytes the loader skips (0xE: padding).
+    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 2, 0xE0);
     C3D_BindProgram(&test_shaders[0]);
     mvp_dirty = true;
     TestQuad();
