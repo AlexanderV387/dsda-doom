@@ -414,6 +414,15 @@ static void ComputeMatrices(void)
 // ==========================================================================
 // Frames
 
+// Closed from the HOME Menu: the screens and the GPU are no longer ours.
+// The GPU is not used any more (nothing sent, nothing waited for: the
+// screen's refreshes no longer come, and what is sent is never done), so
+// the game can get to its exit.
+static bool Closing(void)
+{
+  return aptShouldClose();
+}
+
 // VRAM: the GPU's own memory (6 MB). Textures there do not take the
 // main memory's time from the CPU while the GPU draws.
 static bool IsVRAM(const void *data)
@@ -536,7 +545,7 @@ static void BeginFrame(void)
   // 30 a second, without waiting it is shown at the refresh after it ends
   // (between 30 and 60).
   start = svcGetSystemTick();
-  StartFrame(work_us < SYNC_WORK_US);
+  StartFrame(work_us < SYNC_WORK_US && !Closing());
   frame_vram_uploads = 0; // the GPU list starts empty
   wait_ticks += svcGetSystemTick() - start;
   stat_wait_ticks += svcGetSystemTick() - start;
@@ -564,6 +573,9 @@ static void BeginFrame(void)
 // image), and goes on with the same frame. Not shown on the screen.
 static void FinishDrawing(void)
 {
+  if (Closing())
+    return;
+
   if (!in_frame)
     BeginFrame(); // with its waiting clears
 
@@ -1541,6 +1553,14 @@ void pglDeleteContext(void)
   batch_count = 0;
   pending_clear_count = 0;
 
+  // Closing: the GPU is not waited for (it would never finish); the
+  // system frees everything with the process.
+  if (Closing())
+  {
+    initialized = false;
+    return;
+  }
+
   if (in_frame)
   {
     target->used = false;
@@ -1586,6 +1606,15 @@ void pglSwapBuffers(void)
     return;
 
   BeginFrame();
+
+  // Closing: the frame is never sent; the next draws go on in it (the
+  // command list full, they are skipped).
+  if (Closing())
+  {
+    batch_count = 0;
+    frame_draws = 0;
+    return;
+  }
 
   if (before_swap)
     before_swap();
@@ -2197,6 +2226,9 @@ static void RunPendingClears(void)
   pending_clear_t current;
   int k;
 
+  if (Closing())
+    pending_clear_count = 0; // nothing for the GPU any more
+
   if (!pending_clear_count)
     return;
 
@@ -2215,6 +2247,9 @@ static void RunPendingClears(void)
 
 void glClear(GLbitfield mask)
 {
+  if (Closing())
+    return;
+
   if (!in_frame && pending_clear_count < MAX_PENDING_CLEARS)
   {
     pending_clear_t *c = &pending_clears[pending_clear_count++];
@@ -3044,7 +3079,7 @@ static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GPU_TEXCOL
   const u32 size = tex_width * tex_height * TexelBytes(fmt);
   u32 *staging, *shadow;
 
-  if (in_frame && frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS)
+  if ((in_frame && frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS) || Closing())
     return false;
 
   if (vramSpaceFree() < size + VRAM_RESERVE)
@@ -3120,7 +3155,7 @@ static void MigrateToVRAM(void)
   static int next; // where the search goes on, frame after frame
   int checked;
 
-  if (frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS || texture_count == 0)
+  if (frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS || texture_count == 0 || Closing())
     return;
 
   for (checked = 0; checked < texture_count; ++checked)

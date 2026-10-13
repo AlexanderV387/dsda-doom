@@ -189,6 +189,12 @@ static void SetBottomBacklight(dboolean on)
 // from there, and then the SD card is much slower.
 static void AptHook(APT_HookType hook, void *param)
 {
+  printf("N3DS: %s\n", hook == APTHOOK_ONSUSPEND ? "to the HOME Menu"
+                      : hook == APTHOOK_ONRESTORE ? "back from the HOME Menu"
+                      : hook == APTHOOK_ONSLEEP ? "to sleep"
+                      : hook == APTHOOK_ONWAKEUP ? "woken up"
+                      : hook == APTHOOK_ONEXIT ? "closed by the system" : "APT event");
+
   switch (hook)
   {
     case APTHOOK_ONSUSPEND:
