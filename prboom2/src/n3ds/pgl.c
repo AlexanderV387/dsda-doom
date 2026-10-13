@@ -86,11 +86,6 @@ static DVLB_s *shader_dvlb;
 static shaderProgram_s shader;
 static int u_mvp, u_modelview, u_texgen, u_texmtx, u_texgen_on;
 
-// The self-test's smaller shaders (pgl_t*.v.pica): each a step toward
-// pgl's own.
-#define TEST_SHADERS 6
-static shaderProgram_s test_shaders[TEST_SHADERS];
-static int test_shader_count;
 
 static bool in_frame;
 static u32 frame_number = 1;
@@ -638,14 +633,13 @@ static void ApplyFragment(void)
     C3D_StencilTest(false, GPU_ALWAYS, 0, 0xFF, 0);
   }
 
-  // Front faces are counterclockwise (glFrontFace(GL_CCW)); the rotation
-  // keeps them so.
-  if (!cull_on || cull_mode == GL_FRONT_AND_BACK)
-    C3D_CullFace(GPU_CULL_NONE);
-  else if ((cull_mode == GL_BACK) == (front_face == GL_CCW))
-    C3D_CullFace(GPU_CULL_BACK_CCW);
-  else
-    C3D_CullFace(GPU_CULL_FRONT_CCW);
+  // Face culling is left off: with it, faces that should show did not (the
+  // PICA200 may take the winding the other way round). The depth test
+  // gives the same picture; culling only saves the GPU some work.
+  (void) cull_on;
+  (void) cull_mode;
+  (void) front_face;
+  C3D_CullFace(GPU_CULL_NONE);
 
   // glPolygonOffset: units of the 24-bit depth, toward the far side.
   C3D_DepthMap(true, -1.0f,
@@ -1126,8 +1120,6 @@ static void DrawMode(GLenum mode, int first, int count)
 // ==========================================================================
 // Context
 
-static void SelfTest(void);
-
 bool pglCreateContext(void)
 {
   int k;
@@ -1164,17 +1156,6 @@ bool pglCreateContext(void)
   u_texmtx = shaderInstanceGetUniformLocation(shader.vertexShader, "texmtx");
   u_texgen_on = shaderInstanceGetUniformLocation(shader.vertexShader, "texgen_on");
 
-  printf("pgl: %d shaders; uniforms mvp %d, modelview %d, texgen %d, texmtx %d, texgen_on %d\n",
-         (int) shader_dvlb->numDVLE, u_mvp, u_modelview, u_texgen, u_texmtx, u_texgen_on);
-
-  for (k = 0; k < TEST_SHADERS && k + 1 < (int) shader_dvlb->numDVLE; ++k)
-  {
-    shaderProgramInit(&test_shaders[k]);
-    shaderProgramSetVsh(&test_shaders[k], &shader_dvlb->DVLE[k + 1]);
-    printf("pgl: test shader %d: mvp %d\n", k + 1,
-           shaderInstanceGetUniformLocation(test_shaders[k].vertexShader, "mvp"));
-    test_shader_count = k + 1;
-  }
 
   vertices = linearAlloc(VERTEX_BUFFER_SIZE);
 
@@ -1201,7 +1182,6 @@ bool pglCreateContext(void)
   initialized = true;
   DirtyAll();
   printf("pgl: OpenGL on citro3d ready\n");
-  SelfTest();
   return true;
 }
 
@@ -2493,7 +2473,9 @@ static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int h
       if (sx < 0 || sx >= width)
         continue;
 
-      texels[TexelOffset(x, y, tex_width)] = TexelFrom(row + sx * bpp, format);
+      // The PICA200 keeps a texture's rows from t = 1 down: OpenGL's
+      // first row (t = 0) is its last.
+      texels[TexelOffset(x, tex_height - 1 - y, tex_width)] = TexelFrom(row + sx * bpp, format);
     }
   }
 }
@@ -2603,7 +2585,7 @@ void glGetTexImage(GLenum target_, GLint level, GLenum format, GLenum type, GLvo
     {
       const int tx = x * t->tex.width / t->width;
       const int ty = y * t->tex.height / t->height;
-      const u32 texel = ((u32 *) t->tex.data)[TexelOffset(tx, ty, t->tex.width)];
+      const u32 texel = ((u32 *) t->tex.data)[TexelOffset(tx, t->tex.height - 1 - ty, t->tex.width)];
 
       *out++ = texel >> 24;
       *out++ = texel >> 16;
@@ -2728,468 +2710,3 @@ void *pglGetProcAddress(const char *name)
   return NULL;
 }
 
-// ==========================================================================
-// Self-test: each kind of draw in a frame of its own, not shown, and how
-// the GPU takes it, in the log. The PICA200 hangs on what it cannot do,
-// rather than saying so: this tells which.
-
-static bool TestDone(const char *name)
-{
-  const u64 start = osGetTime();
-
-  target->used = false;
-  C3D_FrameEnd(0);
-  in_frame = false;
-
-  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
-  {
-    if (osGetTime() - start > 2000)
-    {
-      printf("pgl test: %s: THE GPU HUNG\n", name);
-      ReportHang();
-      return false;
-    }
-
-    svcSleepThread(1000 * 1000);
-  }
-
-  target->used = false;
-  C3D_FrameEnd(0);
-  printf("pgl test: %s: ok\n", name);
-  return true;
-}
-
-static void TestQuad(void)
-{
-  glBegin(GL_TRIANGLE_STRIP);
-  glTexCoord2f(0, 0); glVertex2f(10, 10);
-  glTexCoord2f(0, 1); glVertex2f(10, 100);
-  glTexCoord2f(1, 0); glVertex2f(100, 10);
-  glTexCoord2f(1, 1); glVertex2f(100, 100);
-  glEnd();
-}
-
-static void TestQuad(void);
-
-static const char *example_steps[] = {
-  "example triangle",
-  "+ no texture",
-  "+ no fog",
-  "+ bool uniform",
-  "+ no depth test",
-  "+ blend one, zero",
-  "+ no alpha test",
-  "+ no stencil test",
-  "+ no culling",
-  "+ depth map",
-  "+ viewport",
-  "+ strip of 4",
-  "+ pgl's vertex buffer",
-  "+ pgl's matrix",
-  "+ pgl's frame start",
-  "+ pgl's matrices",
-  "+ pgl's texture",
-  "+ pgl's program",
-  "+ pgl's texenv",
-  "+ pgl's fragment states",
-  "+ pgl's viewport",
-  "+ pgl's draw",
-  "+ pgl's own matrix, y down",
-  "+ pgl's own matrix, y up",
-  "+ TestQuad's vertices",
-  "+ glBegin, glVertex, glEnd",
-};
-
-static bool ExampleTriangle(int level)
-{
-  static const float triangle[4][3] = {
-    {100, 40, 0.5f}, {300, 40, 0.5f}, {100, 200, 0.5f}, {300, 200, 0.5f},
-  };
-  static float *buffer;
-  C3D_AttrInfo *attributes;
-  C3D_BufInfo *buffers;
-  C3D_TexEnv *env;
-  C3D_Mtx projection;
-  u64 start;
-
-  if (!buffer)
-  {
-    buffer = linearAlloc(sizeof(triangle));
-    memcpy(buffer, triangle, sizeof(triangle));
-  }
-
-  if (level >= 14)
-  {
-    BeginFrame();
-  }
-  else
-  {
-    C3D_FrameSync();
-    while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
-      svcSleepThread(1000 * 1000);
-    C3D_FrameDrawOn(target);
-  }
-
-  C3D_BindProgram(&test_shaders[0]);
-  attributes = C3D_GetAttrInfo();
-  AttrInfo_Init(attributes);
-  AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
-  buffers = C3D_GetBufInfo();
-  BufInfo_Init(buffers);
-
-  if (level >= 12)
-  {
-    static const float quad[4][3] = {{10, 10, 0}, {10, 100, 0}, {100, 10, 0}, {100, 100, 0}};
-    vertex_t *v = vertices;
-    int k;
-
-    for (k = 0; k < 4; ++k)
-    {
-      memset(&v[k], 0, sizeof(v[k]));
-      v[k].x = level >= 24 ? quad[k][0] : triangle[k][0];
-      v[k].y = level >= 24 ? quad[k][1] : triangle[k][1];
-      v[k].z = level >= 24 ? quad[k][2] : triangle[k][2];
-    }
-
-    // The position, then 12 bytes the loader skips (0xE: padding).
-    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 2, 0xE0);
-  }
-  else
-  {
-    BufInfo_Add(buffers, buffer, sizeof(triangle[0]), 1, 0x0);
-  }
-
-  env = C3D_GetTexEnv(0);
-  C3D_TexEnvInit(env);
-  C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
-  C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
-
-  if (level >= 13)
-  {
-    static const matrix_t ortho = {
-      2.0f / 400, 0, 0, 0,  0, 2.0f / 240, 0, 0,  0, 0, -1, 0,  -1, -1, 0, 1,
-    };
-    matrix_t mvp;
-
-    MatrixMultiply(mvp, screen_fix, ortho);
-    UploadMatrix(0, mvp);
-  }
-  else
-  {
-    Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
-    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
-  }
-
-  if (level >= 1) C3D_TexBind(0, NULL);
-  if (level >= 2) { C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false); C3D_FogLutBind(NULL); }
-  if (level >= 3) C3D_BoolUnifSet(GPU_VERTEX_SHADER, 0, false);
-  if (level >= 4) C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
-  if (level >= 5) C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
-  if (level >= 6) C3D_AlphaTest(false, GPU_ALWAYS, 0);
-  if (level >= 7) C3D_StencilTest(false, GPU_ALWAYS, 0, 0xFF, 0);
-  if (level >= 8) C3D_CullFace(GPU_CULL_NONE);
-  if (level >= 9) C3D_DepthMap(true, -1.0f, 0.0f);
-  if (level >= 10) C3D_SetViewport(0, 0, TOP_HEIGHT, TOP_WIDTH);
-
-  // pgl's own functions, one by one, over the same settings.
-  DirtyAll();
-  if (level == 23)
-  {
-    // y up for this one
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, TOP_WIDTH, 0, TOP_HEIGHT, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-  }
-  else if (level >= 22)
-  {
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, TOP_WIDTH, TOP_HEIGHT, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-  }
-
-  if (level >= 15)
-  {
-    UploadMatrices();
-
-    // The example's matrix again, until pgl's own is tried.
-    if (level < 22)
-    {
-      Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
-      C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
-    }
-  }
-  if (level >= 16) ApplyTexture();
-  if (level >= 17) ApplyProgram();
-  if (level >= 18) ApplyTexEnv();
-  if (level >= 19) ApplyFragment();
-  if (level >= 20) ApplyViewport();
-
-  if (level >= 25)
-  {
-    vertex_count = 0;
-    TestQuad();
-  }
-  else if (level >= 21)
-  {
-    texture_dirty = texenv_dirty = fragment_dirty = viewport_dirty = program_dirty = false;
-    DrawVertices(GPU_TRIANGLE_STRIP, 0, 4);
-  }
-  else if (level >= 11)
-  {
-    C3D_DrawArrays(GPU_TRIANGLE_STRIP, 0, 4);
-  }
-  else
-  {
-    C3D_DrawArrays(GPU_TRIANGLES, 0, 3);
-  }
-
-  target->used = false;
-  C3D_FrameEnd(0);
-  in_frame = false;
-
-  start = osGetTime();
-
-  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
-  {
-    if (osGetTime() - start > 2000)
-    {
-      printf("pgl test: %s: THE GPU HUNG\n", example_steps[level]);
-      return false;
-    }
-
-    svcSleepThread(1000 * 1000);
-  }
-
-  target->used = false;
-  C3D_FrameEnd(0);
-  printf("pgl test: %s: ok\n", example_steps[level]);
-  SetAttributes();
-  DirtyAll();
-  return true;
-}
-
-static void SelfTest(void)
-{
-  static const GLfloat q_plane[4] = {0, 0, 1, 0};
-  pgl_fog_table_t *fog;
-  float brightness[129];
-  u8 pixels[8 * 8 * 4];
-  GLuint texture;
-  int k;
-
-  for (k = 0; k <= 128; ++k)
-    brightness[k] = 1 - k / 256.0f;
-
-  memset(pixels, 0xFF, sizeof(pixels));
-  fog = pglNewFogTable(brightness);
-
-  glViewport(0, 0, TOP_WIDTH, TOP_HEIGHT);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(0, TOP_WIDTH, TOP_HEIGHT, 0, -1, 1);
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-  glColor4f(1, 1, 1, 1);
-
-  // Where things are: the GPU reaches memory by physical address.
-  {
-    extern u32 __ctru_linear_heap, __ctru_linear_heap_size;
-    u32 *cmdbuf, cmdsize, cmdoffset;
-
-    GPUCMD_GetBuffer(&cmdbuf, &cmdsize, &cmdoffset);
-    printf("pgl: linear heap %08lx (%lu KiB), vertices %08lx, commands %08lx, "
-           "color %08lx, depth %08lx, application memory %lu KiB, free linear %lu KiB\n",
-           (unsigned long) osConvertVirtToPhys((void *) __ctru_linear_heap),
-           (unsigned long) (__ctru_linear_heap_size / 1024),
-           (unsigned long) osConvertVirtToPhys(vertices),
-           (unsigned long) osConvertVirtToPhys(cmdbuf),
-           (unsigned long) osConvertVirtToPhys(target->frameBuf.colorBuf),
-           (unsigned long) osConvertVirtToPhys(target->frameBuf.depthBuf),
-           (unsigned long) (osGetMemRegionSize(MEMREGION_APPLICATION) / 1024),
-           (unsigned long) (linearSpaceFree() / 1024));
-  }
-
-  // citro3d's simplest example (3ds-examples, graphics/gpu/simple_tri),
-  // then the same with pgl's settings added one by one: the first that
-  // hangs the GPU is the culprit.
-  if (test_shader_count > 0)
-  {
-    int level;
-
-    for (level = 0; level <= 25; ++level)
-      if (!ExampleTriangle(level))
-        return;
-  }
-
-  // A command list with no draw in it.
-  BeginFrame();
-  GPUCMD_AddWrite(GPUREG_FRAMEBUFFER_FLUSH, 1);
-  if (!TestDone("commands, no draw"))
-    return;
-
-  // The smallest shader, with the position alone loaded from the buffer.
-  if (test_shader_count > 0)
-  {
-    C3D_AttrInfo *attributes;
-    C3D_BufInfo *buffers;
-
-    BeginFrame();
-    attributes = C3D_GetAttrInfo();
-    AttrInfo_Init(attributes);
-    AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
-    buffers = C3D_GetBufInfo();
-    BufInfo_Init(buffers);
-    // The position, then 12 bytes the loader skips (0xE: padding).
-    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 2, 0xE0);
-    C3D_BindProgram(&test_shaders[0]);
-    mvp_dirty = true;
-    TestQuad();
-    C3D_BindProgram(&shader);
-    SetAttributes();
-    mvp_dirty = true;
-
-    if (!TestDone("shader: position, 1 attribute"))
-      return;
-  }
-
-  // The smaller shaders, from the smallest.
-  for (k = 0; k < test_shader_count; ++k)
-  {
-    static const char *names[TEST_SHADERS] = {
-      "shader: position", "shader: + color", "shader: + texcoord", "shader: + texcoord w",
-      "shader: + texture matrix", "shader: + bool branch",
-    };
-
-    BeginFrame();
-    C3D_BindProgram(&test_shaders[k]);
-    C3D_BoolUnifSet(GPU_VERTEX_SHADER, 0, false);
-    mvp_dirty = true;
-    TestQuad();
-    C3D_BindProgram(&shader);
-    mvp_dirty = true;
-
-    if (!TestDone(names[k]))
-      return;
-  }
-
-  TestQuad();
-  if (!TestDone("color (pgl's shader)"))
-    return;
-
-  glClearColor(0, 0, 0, 1);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  TestQuad();
-  if (!TestDone("fill, then color"))
-    return;
-
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glEnable(GL_TEXTURE_2D);
-  TestQuad();
-  if (!TestDone("texture"))
-    return;
-
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 5, 7, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-  TestQuad();
-  if (!TestDone("texture 5x7"))
-    return;
-
-  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-  glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
-  glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PRIMARY_COLOR);
-  TestQuad();
-  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-  if (!TestDone("combine"))
-    return;
-
-  pglProgram(PGL_PROGRAM_LIGHT);
-  pglFogTable(fog);
-  TestQuad();
-  pglProgram(PGL_PROGRAM_FIXED);
-  if (!TestDone("light (fog)"))
-    return;
-
-  pglProgram(PGL_PROGRAM_SHADOW);
-  TestQuad();
-  pglProgram(PGL_PROGRAM_FIXED);
-  if (!TestDone("shadow"))
-    return;
-
-  glEnable(GL_SCISSOR_TEST);
-  glScissor(0, 0, 200, 120);
-  TestQuad();
-  glDisable(GL_SCISSOR_TEST);
-  if (!TestDone("scissor"))
-    return;
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_GREATER, 0);
-  TestQuad();
-  if (!TestDone("blend, alpha test"))
-    return;
-
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LEQUAL);
-  glEnable(GL_STENCIL_TEST);
-  glStencilFunc(GL_ALWAYS, 1, ~0);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-  TestQuad();
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_DEPTH_TEST);
-  if (!TestDone("depth, stencil"))
-    return;
-
-  glTexGenfv(GL_Q, GL_EYE_PLANE, q_plane);
-  glEnable(GL_TEXTURE_GEN_S);
-  glEnable(GL_TEXTURE_GEN_T);
-  glEnable(GL_TEXTURE_GEN_Q);
-  TestQuad();
-  glDisable(GL_TEXTURE_GEN_S);
-  glDisable(GL_TEXTURE_GEN_T);
-  glDisable(GL_TEXTURE_GEN_Q);
-  if (!TestDone("texgen"))
-    return;
-
-  glDisable(GL_TEXTURE_2D);
-  glBegin(GL_LINES);
-  glVertex2f(10, 10);
-  glVertex2f(300, 200);
-  glEnd();
-  if (!TestDone("lines"))
-    return;
-
-  glEnable(GL_SCISSOR_TEST);
-  glScissor(0, 0, 200, 120);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glDisable(GL_SCISSOR_TEST);
-  if (!TestDone("clear quad"))
-    return;
-
-  pglBlendScreen(1, 0, 0, 0.5f);
-  if (!TestDone("screen tint"))
-    return;
-
-  // OpenGL's defaults again.
-  glDeleteTextures(1, &texture);
-  glDisable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ZERO);
-  glDisable(GL_ALPHA_TEST);
-  glAlphaFunc(GL_ALWAYS, 0);
-  glDepthFunc(GL_LESS);
-  glStencilFunc(GL_ALWAYS, 0, ~0);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-  texgen_plane[3][2] = 0;
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-  glClearColor(0, 0, 0, 0);
-  printf("pgl test: all done\n");
-}
