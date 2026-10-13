@@ -219,7 +219,11 @@ void N3DS_GLSwap(void)
     {
       pglTextures16(want);
       if (textures16 != -1)
+      {
+        printf("N3DS_GLSwap: textures in %d bits from now on: all made again\n",
+               want ? 16 : 32);
         gld_FlushTextures();
+      }
       textures16 = want;
     }
   }

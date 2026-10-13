@@ -79,6 +79,7 @@ typedef struct
   GLenum min_filter, mag_filter, wrap_s, wrap_t;
   u32 frame;          // the last frame it was drawn in
   u32 *shadow;        // in VRAM: its texels for the CPU (it cannot read VRAM)
+  bool keep_out;      // not for VRAM: the CPU changes it (a screen copy...)
 } texture_t;
 
 struct pgl_fog_table_s
@@ -481,6 +482,7 @@ static int draw_log_count;
 static void LogDraw(const char *what, int count);
 static void FlushBatch(void);
 static void RunPendingClears(void);
+static void MigrateToVRAM(void);
 
 static void ReportHang(void)
 {
@@ -554,6 +556,7 @@ static void BeginFrame(void)
   SetAttributes();
   DirtyAll();
 
+  MigrateToVRAM();
   RunPendingClears();
 }
 
@@ -3081,11 +3084,67 @@ static bool MoveOutOfVRAM(texture_t *t)
   free(t->shadow);
   t->shadow = NULL;
   t->tex.data = data;
+  t->keep_out = true; // changed by the CPU: it stays here
 
   if (t == BoundTexture(0))
     texture_dirty = true;
 
   return true;
+}
+
+// At a frame's start, textures drawn in the last frame that are still in
+// main memory move to VRAM, a few a frame, the GPU's copier taking their
+// texels before this frame's draws: those made when VRAM was full, or more
+// in a frame than it could take, get there as room is made.
+static void MigrateToVRAM(void)
+{
+  static int next; // where the search goes on, frame after frame
+  int checked;
+
+  if (frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS || texture_count == 0)
+    return;
+
+  for (checked = 0; checked < texture_count; ++checked)
+  {
+    texture_t *t;
+    void *vram;
+    u32 *shadow;
+
+    if (++next >= texture_count)
+      next = 1;
+
+    t = &textures[next];
+
+    if (!t->has_data || t->shadow || t->keep_out || IsVRAM(t->tex.data)
+        || t->frame + 1 != frame_number)
+      continue;
+
+    if (vramSpaceFree() < t->tex.size + VRAM_RESERVE)
+      return;
+
+    vram = vramAlloc(t->tex.size);
+    shadow = malloc(t->tex.size);
+
+    if (!vram || !shadow)
+    {
+      if (vram)
+        vramFree(vram);
+      free(shadow);
+      return;
+    }
+
+    memcpy(shadow, t->tex.data, t->tex.size);
+    C3D_SyncTextureCopy(t->tex.data, 0, vram, 0, t->tex.size, 8);
+    FreeLater(t->tex.data); // read by the copier when the frame goes
+    t->tex.data = vram;
+    t->shadow = shadow;
+
+    if (t == BoundTexture(0))
+      texture_dirty = true;
+
+    if (++frame_vram_uploads >= MAX_FRAME_VRAM_UPLOADS)
+      return;
+  }
 }
 
 void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei width,
@@ -3114,6 +3173,7 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
 
   t->width = width;
   t->height = height;
+  t->keep_out = t->keep_out || !pixels; // made empty: the CPU fills it
 
   fmt = TexelFormat(format, width, height, pixels);
 
