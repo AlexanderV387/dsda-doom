@@ -74,6 +74,7 @@ typedef struct
   int width, height;  // as OpenGL sees it (tex is a power of two)
   GLenum min_filter, mag_filter, wrap_s, wrap_t;
   u32 frame;          // the last frame it was drawn in
+  u32 *shadow;        // in VRAM: its texels for the CPU (it cannot read VRAM)
 } texture_t;
 
 struct pgl_fog_table_s
@@ -1541,8 +1542,11 @@ void pglDeleteContext(void)
   FreePending();
 
   for (k = 0; k < texture_count; ++k)
+  {
     if (textures[k].has_data)
       C3D_TexDelete(&textures[k].tex);
+    free(textures[k].shadow);
+  }
 
   free(textures);
   textures = NULL;
@@ -2613,6 +2617,9 @@ static void FreeTextureData(texture_t *t)
     FreeLater(t->tex.data);
     t->has_data = false;
   }
+
+  free(t->shadow);
+  t->shadow = NULL;
 }
 
 void glDeleteTextures(GLsizei n, const GLuint *names)
@@ -2919,6 +2926,66 @@ static void WriteTexels(texture_t *t, int xoffset, int yoffset, int width, int h
   WriteTexelsTo(t->tex.data, t, xoffset, yoffset, width, height, format, pixels);
 }
 
+// A texture into VRAM, if there is room (some kept for the screens'
+// buffers). The CPU cannot write VRAM: the texels are made in main memory
+// and the GPU's copier (DMA) takes them there; that waits for the GPU to be
+// idle, so only between frames (a level's textures are made when it
+// loads). A copy stays in the heap for the CPU (glGetTexImage).
+static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GLenum format,
+                         const void *pixels)
+{
+  const u32 size = tex_width * tex_height * 4;
+  u32 *staging, *shadow;
+
+  if (vramSpaceFree() < size + VRAM_RESERVE)
+    return false;
+
+  staging = linearAlloc(size);
+  shadow = malloc(size);
+
+  if (!staging || !shadow || !C3D_TexInitVRAM(&t->tex, tex_width, tex_height, GPU_RGBA8))
+  {
+    linearFree(staging);
+    free(shadow);
+    return false;
+  }
+
+  memset(staging, 0, size);
+  WriteTexelsTo(staging, t, 0, 0, t->width, t->height, format, pixels);
+  memcpy(shadow, staging, size);
+  GSPGPU_FlushDataCache(staging, size);
+  C3D_SyncTextureCopy(staging, 0, t->tex.data, 0, size, 8);
+  linearFree(staging);
+
+  t->shadow = shadow;
+  return true;
+}
+
+// Before the CPU changes a texture in VRAM: into main memory, from its copy.
+static bool MoveOutOfVRAM(texture_t *t)
+{
+  u32 *data;
+
+  if (!t->shadow)
+    return true;
+
+  data = linearAlloc(t->tex.size);
+
+  if (!data)
+    return false;
+
+  memcpy(data, t->shadow, t->tex.size);
+  FreeLater(t->tex.data);
+  free(t->shadow);
+  t->shadow = NULL;
+  t->tex.data = data;
+
+  if (t == BoundTexture(0))
+    texture_dirty = true;
+
+  return true;
+}
+
 void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei width,
                   GLsizei height, GLint border, GLenum format, GLenum type,
                   const GLvoid *pixels)
@@ -2942,46 +3009,25 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
   TextureChanging(t);
   FreeTextureData(t);
 
-  // In VRAM while there is room (some kept for the screens' buffers).
-  if (!(vramSpaceFree() >= (u32) (tex_width * tex_height * 4) + VRAM_RESERVE
-        && C3D_TexInitVRAM(&t->tex, tex_width, tex_height, GPU_RGBA8))
-      && !C3D_TexInit(&t->tex, tex_width, tex_height, GPU_RGBA8))
-  {
-    printf("pgl: no memory for a %dx%d texture\n", tex_width, tex_height);
-    SetError(GL_OUT_OF_MEMORY);
-    return;
-  }
-
-  t->has_data = true;
   t->width = width;
   t->height = height;
 
-  if (pixels && IsVRAM(t->tex.data))
+  if (!(pixels && !in_frame && UploadToVRAM(t, tex_width, tex_height, format, pixels)))
   {
-    // Made in main memory, then copied in one go: the CPU writes to VRAM
-    // without its cache, slow one texel at a time.
-    u32 *staging = malloc(t->tex.size);
+    if (!C3D_TexInit(&t->tex, tex_width, tex_height, GPU_RGBA8))
+    {
+      printf("pgl: no memory for a %dx%d texture\n", tex_width, tex_height);
+      SetError(GL_OUT_OF_MEMORY);
+      return;
+    }
 
-    if (staging)
-    {
-      memset(staging, 0, t->tex.size);
-      WriteTexelsTo(staging, t, 0, 0, width, height, format, pixels);
-      memcpy(t->tex.data, staging, t->tex.size);
-      free(staging);
-    }
-    else
-    {
+    if (pixels)
       WriteTexels(t, 0, 0, width, height, format, pixels);
-    }
+    else
+      memset(t->tex.data, 0, t->tex.size);
   }
-  else if (pixels)
-  {
-    WriteTexels(t, 0, 0, width, height, format, pixels);
-  }
-  else
-  {
-    memset(t->tex.data, 0, t->tex.size);
-  }
+
+  t->has_data = true;
 
   ApplySampling(t);
 
@@ -3002,6 +3048,9 @@ void glTexSubImage2D(GLenum target_, GLint level, GLint xoffset, GLint yoffset,
     return;
 
   TextureChanging(t);
+
+  if (!MoveOutOfVRAM(t))
+    return;
 
   // Drawn with in this frame, or in the last one while the GPU may still
   // be drawing it (before this one starts): a copy to change, the GPU
@@ -3059,7 +3108,8 @@ void glGetTexImage(GLenum target_, GLint level, GLenum format, GLenum type, GLvo
     {
       const int tx = x * t->tex.width / t->width;
       const int ty = y * t->tex.height / t->height;
-      const u32 texel = ((u32 *) t->tex.data)[TexelOffset(tx, t->tex.height - 1 - ty, t->tex.width)];
+      const u32 *texels = t->shadow ? t->shadow : t->tex.data;
+      const u32 texel = texels[TexelOffset(tx, t->tex.height - 1 - ty, t->tex.width)];
 
       *out++ = texel >> 24;
       *out++ = texel >> 16;
