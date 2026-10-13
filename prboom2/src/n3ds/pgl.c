@@ -2772,6 +2772,133 @@ static void TestQuad(void)
   glEnd();
 }
 
+static const char *example_steps[] = {
+  "example triangle",
+  "+ no texture",
+  "+ no fog",
+  "+ bool uniform",
+  "+ no depth test",
+  "+ blend one, zero",
+  "+ no alpha test",
+  "+ no stencil test",
+  "+ no culling",
+  "+ depth map",
+  "+ viewport",
+  "+ strip of 4",
+  "+ pgl's vertex buffer",
+  "+ pgl's matrix",
+};
+
+static bool ExampleTriangle(int level)
+{
+  static const float triangle[4][3] = {
+    {100, 40, 0.5f}, {300, 40, 0.5f}, {100, 200, 0.5f}, {300, 200, 0.5f},
+  };
+  static float *buffer;
+  C3D_AttrInfo *attributes;
+  C3D_BufInfo *buffers;
+  C3D_TexEnv *env;
+  C3D_Mtx projection;
+  u64 start;
+
+  if (!buffer)
+  {
+    buffer = linearAlloc(sizeof(triangle));
+    memcpy(buffer, triangle, sizeof(triangle));
+  }
+
+  C3D_FrameSync();
+  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+    svcSleepThread(1000 * 1000);
+  C3D_FrameDrawOn(target);
+  C3D_BindProgram(&test_shaders[0]);
+  attributes = C3D_GetAttrInfo();
+  AttrInfo_Init(attributes);
+  AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
+  buffers = C3D_GetBufInfo();
+  BufInfo_Init(buffers);
+
+  if (level >= 12)
+  {
+    vertex_t *v = vertices;
+    int k;
+
+    for (k = 0; k < 4; ++k)
+    {
+      memset(&v[k], 0, sizeof(v[k]));
+      v[k].x = triangle[k][0];
+      v[k].y = triangle[k][1];
+      v[k].z = triangle[k][2];
+    }
+
+    BufInfo_Add(buffers, vertices, sizeof(vertex_t), 1, 0x0);
+  }
+  else
+  {
+    BufInfo_Add(buffers, buffer, sizeof(triangle[0]), 1, 0x0);
+  }
+
+  env = C3D_GetTexEnv(0);
+  C3D_TexEnvInit(env);
+  C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+  C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+
+  if (level >= 13)
+  {
+    static const matrix_t ortho = {
+      2.0f / 400, 0, 0, 0,  0, 2.0f / 240, 0, 0,  0, 0, -1, 0,  -1, -1, 0, 1,
+    };
+    matrix_t mvp;
+
+    MatrixMultiply(mvp, screen_fix, ortho);
+    UploadMatrix(0, mvp);
+  }
+  else
+  {
+    Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
+  }
+
+  if (level >= 1) C3D_TexBind(0, NULL);
+  if (level >= 2) { C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false); C3D_FogLutBind(NULL); }
+  if (level >= 3) C3D_BoolUnifSet(GPU_VERTEX_SHADER, 0, false);
+  if (level >= 4) C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
+  if (level >= 5) C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+  if (level >= 6) C3D_AlphaTest(false, GPU_ALWAYS, 0);
+  if (level >= 7) C3D_StencilTest(false, GPU_ALWAYS, 0, 0xFF, 0);
+  if (level >= 8) C3D_CullFace(GPU_CULL_NONE);
+  if (level >= 9) C3D_DepthMap(true, -1.0f, 0.0f);
+  if (level >= 10) C3D_SetViewport(0, 0, TOP_HEIGHT, TOP_WIDTH);
+
+  if (level >= 11)
+    C3D_DrawArrays(GPU_TRIANGLE_STRIP, 0, 4);
+  else
+    C3D_DrawArrays(GPU_TRIANGLES, 0, 3);
+
+  target->used = false;
+  C3D_FrameEnd(0);
+
+  start = osGetTime();
+
+  while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
+  {
+    if (osGetTime() - start > 2000)
+    {
+      printf("pgl test: %s: THE GPU HUNG\n", example_steps[level]);
+      return false;
+    }
+
+    svcSleepThread(1000 * 1000);
+  }
+
+  target->used = false;
+  C3D_FrameEnd(0);
+  printf("pgl test: %s: ok\n", example_steps[level]);
+  SetAttributes();
+  DirtyAll();
+  return true;
+}
+
 static void SelfTest(void)
 {
   static const GLfloat q_plane[4] = {0, 0, 1, 0};
@@ -2813,62 +2940,16 @@ static void SelfTest(void)
            (unsigned long) (linearSpaceFree() / 1024));
   }
 
-  // citro3d's simplest example (3ds-examples, graphics/gpu/simple_tri) as
-  // it is: its own buffer and matrix, citro3d's default states.
+  // citro3d's simplest example (3ds-examples, graphics/gpu/simple_tri),
+  // then the same with pgl's settings added one by one: the first that
+  // hangs the GPU is the culprit.
   if (test_shader_count > 0)
   {
-    static const float triangle[3][3] = {{200, 200, 0.5f}, {100, 40, 0.5f}, {300, 40, 0.5f}};
-    float *buffer = linearAlloc(sizeof(triangle));
-    C3D_AttrInfo *attributes;
-    C3D_BufInfo *buffers;
-    C3D_TexEnv *env;
-    C3D_Mtx projection;
-    const u64 start = osGetTime();
-    bool hung = false;
+    int level;
 
-    memcpy(buffer, triangle, sizeof(triangle));
-    printf("pgl test: example triangle, buffer %08lx\n", (unsigned long) osConvertVirtToPhys(buffer));
-
-    C3D_FrameSync();
-    while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
-      svcSleepThread(1000 * 1000);
-    C3D_FrameDrawOn(target);
-    C3D_BindProgram(&test_shaders[0]);
-    attributes = C3D_GetAttrInfo();
-    AttrInfo_Init(attributes);
-    AttrInfo_AddLoader(attributes, 0, GPU_FLOAT, 3);
-    buffers = C3D_GetBufInfo();
-    BufInfo_Init(buffers);
-    BufInfo_Add(buffers, buffer, sizeof(triangle[0]), 1, 0x0);
-    env = C3D_GetTexEnv(0);
-    C3D_TexEnvInit(env);
-    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
-    C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
-    Mtx_OrthoTilt(&projection, 0.0, 400.0, 0.0, 240.0, 0.0, 1.0, true);
-    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, 0, &projection);
-    C3D_DrawArrays(GPU_TRIANGLES, 0, 3);
-    target->used = false;
-    C3D_FrameEnd(0);
-
-    while (!C3D_FrameBegin(C3D_FRAME_NONBLOCK))
-    {
-      if (osGetTime() - start > 2000)
-      {
-        printf("pgl test: example triangle: THE GPU HUNG\n");
-        hung = true;
-        break;
-      }
-      svcSleepThread(1000 * 1000);
-    }
-
-    if (hung)
-      return;
-
-    target->used = false;
-    C3D_FrameEnd(0);
-    printf("pgl test: example triangle: ok\n");
-    SetAttributes();
-    DirtyAll();
+    for (level = 0; level <= 13; ++level)
+      if (!ExampleTriangle(level))
+        return;
   }
 
   // A command list with no draw in it.
