@@ -1427,6 +1427,27 @@ static void AddArgFile(char **args, int *count, const char *file)
   args[(*count)++] = strdup(path);
 }
 
+// The chosen WADs whose patch file was chosen too: their own patches are
+// skipped (as -nodeh would, for them only: a campaign's patch stays).
+static const char *skip_deh_wads[MAX_MODS];
+static int num_skip_deh_wads;
+
+dboolean N3DS_SkipDehLump(const char *wad_path)
+{
+  const char *slash = strrchr(wad_path, '/');
+  const char *name = slash != NULL ? slash + 1 : wad_path;
+  int i;
+
+  for (i = 0; i < num_skip_deh_wads; ++i)
+    if (!strcasecmp(name, skip_deh_wads[i]))
+    {
+      printf("Skipping the DEH lump of %s: its own patch file replaces it\n", name);
+      return true;
+    }
+
+  return false;
+}
+
 // The campaigns for a game (the first item is none), the chosen one
 // selected when it is there.
 static void ListCampaigns(int maps, mod_t *const *all, int count, const mod_t *chosen,
@@ -1651,6 +1672,17 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
   // What is played, in the order it loads.
   num_order = LoadOrder(campaigns[campaign], addons, checked, num_addons, order);
+
+  for (i = 0; i < num_order; ++i)
+    if (IsPatchFile(order[i]->file) && HasTwin(order[i], order, num_order))
+    {
+      const size_t length = strrchr(order[i]->file, '.') - order[i]->file;
+
+      for (int k = 0; k < num_order; ++k)
+        if (!IsPatchFile(order[k]->file) && !strncasecmp(order[k]->file, order[i]->file, length)
+            && strrchr(order[k]->file, '.') - order[k]->file == length)
+          skip_deh_wads[num_skip_deh_wads++] = order[k]->file;
+    }
 
   StartLog();
   printf("N3DS_PickGame: %s", games[game]);

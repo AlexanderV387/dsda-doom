@@ -2187,7 +2187,14 @@ static void D_DoomMainSetup(void)
             || lumpinfo[p].source == source_port_wad
             || lumpinfo[p].source == source_auto_load
             || lumpinfo[p].source == source_pwad_auto_load))
+      {
+#ifdef __3DS__
+        // [3DS] A mod's own patch file replaces the one in its WAD.
+        if (N3DS_SkipDehLump(lumpinfo[p].wadfile->name))
+          continue;
+#endif
         ProcessDehFile(NULL, D_dehout(), p);
+      }
 
   // process .deh files from PWADs autoload directories
   if (autoload)

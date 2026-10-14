@@ -92,6 +92,9 @@ extern int n3ds_show_fps;
 // the top screen when there is a choice, and gives them as the command
 // line. Returns false to quit (START, or no game found).
 dboolean N3DS_PickGame(int *argc, char ***argv);
+// A chosen WAD whose own patch file was chosen too (D4V.wad and D4V.deh):
+// the patch in the WAD is not for this port, and the game skips it.
+dboolean N3DS_SkipDehLump(const char *wad_path);
 
 // Shows a fatal error on the top screen until START.
 void N3DS_ShowError(const char *message);
