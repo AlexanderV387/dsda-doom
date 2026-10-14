@@ -132,9 +132,94 @@ void __system_allocateHeaps(void)
   fake_heap_end = fake_heap_start + __ctru_heap_size;
 }
 
+// ==========================================================================
+// Crashes (a CPU exception: a bad pointer, often mods that do not go
+// together) end on a screen of ours and back in the picker, not on Luma's
+// crash screen with the console to turn off. Nothing is mended: the
+// process ends. The default handler of every thread, on a stack of its own.
+
+static u8 crash_stack[0x4000] __attribute__((aligned(8)));
+
+static void __attribute__((noreturn)) CrashExit(void)
+{
+  // Services closed as at any exit (APT starts the picker again), but the
+  // heap is not given back: the other threads (sound, GPU events) still
+  // run on it until the process ends.
+  extern void __appExit(void);
+
+  __appExit();
+  svcExitProcess();
+  for (;;)
+    ;
+}
+
+static void __attribute__((target("arm"), noreturn)) CrashHandler(ERRF_ExceptionInfo *excep,
+                                                                   CpuRegisters *regs)
+{
+  static volatile int crashing = 0;
+  static const char *const kinds[] = { "prefetch abort", "data abort", "undefined instruction",
+                                       "VFP exception" };
+  const char *kind = excep->type < 4 ? kinds[excep->type] : "exception";
+  char line[200];
+  int length, i;
+
+  // A crash in here, or in another thread meanwhile: just end.
+  if (crashing++)
+    CrashExit();
+
+  // The log, written straight to its file: the C library's buffers may be
+  // what broke.
+  if (log_file != NULL)
+  {
+    length = snprintf(line, sizeof(line),
+                      "%6lu N3DS: crash: %s at %08lX (from %08lX), address %08lX\n",
+                      (unsigned long) (osGetTime() - log_start), kind, (unsigned long) regs->pc,
+                      (unsigned long) regs->lr, (unsigned long) excep->far);
+    write(fileno(log_file), line, length);
+  }
+
+  RestoreBottomBacklight();
+
+  // The GPU's last copies to the screens done first.
+  for (i = 0; i < 3; ++i)
+    gspWaitForVBlank();
+
+  if (gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL) == NULL)
+    gfxInitDefault();
+  consoleInit(GFX_TOP, NULL);
+
+  fprintf(console, "\x1b[2J\n DSDA-DOOM 3DS: the game crashed\n\n"
+                   " Most likely, mods that do not go\n"
+                   " together: the warning before playing\n"
+                   " lists the ones that may not.\n\n"
+                   " (%s at %08lX)\n\n"
+                   " START: back to the picker\n",
+          kind, (unsigned long) regs->pc);
+  fflush(console);
+
+  while (!aptShouldClose())
+  {
+    hidScanInput();
+
+    if ((hidKeysDown() & KEY_START) != 0)
+      break;
+
+    gspWaitForVBlank();
+  }
+
+  // The installed title starts again in the picker (a .3dsx goes back to
+  // the Homebrew Launcher); not when the HOME Menu is closing it.
+  if (!aptShouldClose() && !envIsHomebrew())
+    aptSetChainloaderToSelf();
+
+  CrashExit();
+}
+
 void N3DS_Init(void)
 {
   console = stdout;
+
+  threadOnException(CrashHandler, crash_stack + sizeof(crash_stack), WRITE_DATA_TO_HANDLER_STACK);
 
   // 804 MHz and the extra cache on the New 3DS (nothing on the Old 3DS).
   osSetSpeedupEnable(true);
@@ -1447,8 +1532,15 @@ static int WarnChoice(mod_t *const *order, int count, mod_t *const *all, int num
 
   if (patches >= 2)
   {
-    ConsolePrintf("\n  All change the game itself (DeHackEd);\n"
-                  "  the last one wins where they meet:\n");
+    // Three or more rarely go together: the animations of one end up with
+    // the actions of another (a weapon's frame running a monster's action
+    // crashed the game).
+    if (patches >= 3)
+      ConsolePrintf("\n  All change the game itself (DeHackEd):\n"
+                    "  \x1b[31mso many together can crash the game:\x1b[0m\n");
+    else
+      ConsolePrintf("\n  All change the game itself (DeHackEd);\n"
+                    "  the last one wins where they meet:\n");
 
     for (i = 0, shown = 0; i < count && shown < MAX_WARNED; ++i)
       if (IsLonePatch(order[i], order, count))
