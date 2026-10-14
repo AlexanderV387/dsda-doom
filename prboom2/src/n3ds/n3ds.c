@@ -1213,6 +1213,39 @@ static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *check
   return -2;
 }
 
+// A patch made for another mod is named after it: SD21-BloodPatch.wad
+// for SD21.wad. It loads right after that mod, when that one is chosen too
+// (and both are WADs, or both patch files).
+static mod_t *ParentOf(const mod_t *mod, mod_t *const *chosen, int count)
+{
+  int i;
+
+  for (i = 0; i < count; ++i)
+  {
+    const size_t length = strrchr(chosen[i]->file, '.') - chosen[i]->file;
+
+    if (chosen[i] != mod && length < strlen(mod->file)
+        && !strncasecmp(mod->file, chosen[i]->file, length)
+        && strchr("-_ ", mod->file[length]) != NULL
+        && IsPatchFile(mod->file) == IsPatchFile(chosen[i]->file))
+      return chosen[i];
+  }
+
+  return NULL;
+}
+
+// A mod and, after it, the patches made for it.
+static void AddWithPatches(mod_t *mod, mod_t *const *chosen, int count, mod_t **order, int *num)
+{
+  int i;
+
+  order[(*num)++] = mod;
+
+  for (i = 0; i < count; ++i)
+    if (ParentOf(chosen[i], chosen, count) == mod)
+      AddWithPatches(chosen[i], chosen, count, order, num);
+}
+
 // The order the game loads the chosen mods in. Fixes and looks (sprites,
 // textures, sounds, the interface) before the campaign: what it brings of
 // its own wins, as their authors ask. What is meant to replace (gameplay,
@@ -1221,12 +1254,19 @@ static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *check
 static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *checked,
                      int count, mod_t **order)
 {
-  int num = 0, pass, i;
+  mod_t *chosen[MAX_MODS + 1];
+  int num_chosen = 0, num = 0, pass, i;
+
+  if (campaign != NULL)
+    chosen[num_chosen++] = campaign;
+  for (i = 0; i < count; ++i)
+    if (checked[i])
+      chosen[num_chosen++] = addons[i];
 
   for (pass = 0; pass < 3; ++pass)
   {
     if (pass == 1 && campaign != NULL)
-      order[num++] = campaign;
+      AddWithPatches(campaign, chosen, num_chosen, order, &num);
 
     for (i = 0; i < count; ++i)
     {
@@ -1235,8 +1275,8 @@ static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *chec
                           || kind == MOD_SOUNDS || kind == MOD_INTERFACE;
       const int wanted = IsPatchFile(addons[i]->file) ? 2 : first ? 0 : 1;
 
-      if (checked[i] && wanted == pass)
-        order[num++] = addons[i];
+      if (checked[i] && wanted == pass && ParentOf(addons[i], chosen, num_chosen) == NULL)
+        AddWithPatches(addons[i], chosen, num_chosen, order, &num);
     }
   }
 
@@ -1246,15 +1286,15 @@ static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *chec
 // Two mods changing the game itself (DeHackEd: weapons, monsters, things)
 // step on each other: where both change the same, the last one loaded
 // wins, and together they may not work. A warning, not a block: some go
-// well together (a fix with a campaign, or patches made for each other).
-// 1 to play anyway, -1 to go back, -2 when closed.
+// well together (a fix with a campaign). A patch made for another mod
+// goes with it. 1 to play anyway, -1 to go back, -2 when closed.
 static int WarnPatches(mod_t *const *order, int count)
 {
   dboolean released = false;
   int patches = 0, i;
 
   for (i = 0; i < count; ++i)
-    patches += order[i]->deh;
+    patches += order[i]->deh && ParentOf(order[i], order, count) == NULL;
 
   if (patches < 2)
     return 1;
@@ -1265,7 +1305,7 @@ static int WarnPatches(mod_t *const *order, int count)
                 "  itself (DeHackEd: weapons, monsters...):\n\n");
 
   for (i = 0; i < count; ++i)
-    if (order[i]->deh)
+    if (order[i]->deh && ParentOf(order[i], order, count) == NULL)
       ConsolePrintf("    %-10s %.30s\n", mod_kind_names[order[i]->kind], order[i]->file);
 
   ConsolePrintf("\n  Where they change the same things, the last\n"
