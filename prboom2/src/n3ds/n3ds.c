@@ -924,6 +924,7 @@ typedef struct
   char *file;
   int kind;
   int maps; // a campaign's: MAPS_*
+  int num_maps;
   dboolean deh; // a DeHackEd patch, or one in it: changes the game itself
   char start[5]; // what a file that is not a WAD starts with, for the log
 } mod_t;
@@ -944,7 +945,7 @@ static dboolean StartsWith(const char *name, const char *prefix)
 // A WAD's kind from its lump names (only its directory is read): maps make
 // a campaign; a DeHackEd patch, gameplay; otherwise what most of it is. A campaign's first map tells how its
 // maps are named.
-static int WadKind(const char *path, int *maps, dboolean *deh, char *start)
+static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, char *start)
 {
   typedef struct { int pos, size; char name[8]; } entry_t;
   FILE *file = fopen(path, "rb");
@@ -955,6 +956,7 @@ static int WadKind(const char *path, int *maps, dboolean *deh, char *start)
   entry_t *entries;
 
   *maps = MAPS_UNKNOWN;
+  *num_maps = 0;
   *deh = false;
   memset(&header, 0, sizeof(header));
 
@@ -988,6 +990,8 @@ static int WadKind(const char *path, int *maps, dboolean *deh, char *start)
 
     if (IsMapName(name))
     {
+      ++*num_maps;
+
       if (*maps == MAPS_UNKNOWN)
       {
         int j;
@@ -1070,7 +1074,7 @@ static dboolean IsPatchFile(const char *name)
   return dot != NULL && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"));
 }
 
-static int ModKind(const char *name, int *maps, dboolean *deh, char *start)
+static int ModKind(const char *name, int *maps, int *num_maps, dboolean *deh, char *start)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
@@ -1086,7 +1090,7 @@ static int ModKind(const char *name, int *maps, dboolean *deh, char *start)
     return MOD_CAMPAIGN;
 
   snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
-  return WadKind(path, maps, deh, start);
+  return WadKind(path, maps, num_maps, deh, start);
 }
 
 static int CompareMods(const void *a, const void *b)
@@ -1111,23 +1115,25 @@ static int FindMods(mod_t *mods)
   qsort(mods, count, sizeof(*mods), CompareMods);
 
   for (i = 0; i < count; ++i)
-    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh, mods[i].start);
+    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].num_maps, &mods[i].deh,
+                           mods[i].start);
 
   // A WAD with a patch file of its name (D4V.wad and D4V.deh) is the
   // graphics of a gameplay mod: it loads with gameplay, after the campaign.
+  // A map or two in it are no campaign (D4V.wad has one).
   for (i = 0; i < count; ++i)
   {
     const size_t length = strrchr(mods[i].file, '.') - mods[i].file;
     int j;
 
-    if (mods[i].kind == MOD_CAMPAIGN || mods[i].kind == MOD_BROKEN
+    if ((mods[i].kind == MOD_CAMPAIGN && mods[i].num_maps > 2) || mods[i].kind == MOD_BROKEN
         || IsPatchFile(mods[i].file))
       continue;
 
     for (j = 0; j < count; ++j)
       if (IsPatchFile(mods[j].file) && strrchr(mods[j].file, '.') - mods[j].file == length
           && !strncasecmp(mods[i].file, mods[j].file, length))
-        mods[i].kind = MOD_GAMEPLAY;
+        mods[i].kind = MOD_GAMEPLAY, mods[i].maps = MAPS_UNKNOWN;
   }
 
   return count;
@@ -1331,6 +1337,14 @@ static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *chec
   return num;
 }
 
+// A mod with a patch that is not part of another chosen one: a patch made
+// for it (SD21-BloodPatch), or the patch file of a WAD (D4V.deh of D4V.wad).
+static dboolean IsLonePatch(const mod_t *mod, mod_t *const *chosen, int count)
+{
+  return mod->deh && ParentOf(mod, chosen, count) == NULL
+      && !(IsPatchFile(mod->file) && HasTwin(mod, chosen, count));
+}
+
 // Two mods changing the game itself (DeHackEd: weapons, monsters, things)
 // step on each other: where both change the same, the last one loaded
 // wins, and together they may not work. A warning, not a block: some go
@@ -1342,7 +1356,7 @@ static int WarnPatches(mod_t *const *order, int count)
   int patches = 0, i;
 
   for (i = 0; i < count; ++i)
-    patches += order[i]->deh && ParentOf(order[i], order, count) == NULL;
+    patches += IsLonePatch(order[i], order, count);
 
   if (patches < 2)
     return 1;
@@ -1353,7 +1367,7 @@ static int WarnPatches(mod_t *const *order, int count)
                 "  itself (DeHackEd: weapons, monsters...):\n\n");
 
   for (i = 0; i < count; ++i)
-    if (order[i]->deh && ParentOf(order[i], order, count) == NULL)
+    if (IsLonePatch(order[i], order, count))
       ConsolePrintf("    %-10s %.30s\n", mod_kind_names[order[i]->kind], order[i]->file);
 
   ConsolePrintf("\n  Where they change the same things, the last\n"
