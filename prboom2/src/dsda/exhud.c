@@ -370,6 +370,12 @@ static exhud_component_t* components;
 int dsda_show_render_stats;
 
 int dsda_ExHudVerticalOffset(void) {
+#ifdef __3DS__
+  // [3DS] The status bar is on the bottom screen: nothing to keep clear.
+  if (R_FullView())
+    return 0;
+#endif
+
   if (container && container->status_bar)
     return g_st_height;
 
@@ -575,8 +581,14 @@ static void dsda_LoadHUDConfig(void) {
 }
 
 static dboolean dsda_HideHUD(void) {
+#ifdef __3DS__
+  // [3DS] The full view without the full screen HUD has the status bar on
+  // the bottom screen: what goes with it (the messages...) still shows.
+  return dsda_Flag(dsda_arg_nodraw);
+#else
   return dsda_Flag(dsda_arg_nodraw) ||
          (R_FullView() && !dsda_IntConfig(dsda_config_hud_displayed));
+#endif
 }
 
 static dboolean dsda_HUDActive(void) {
@@ -589,7 +601,11 @@ static void dsda_ResetActiveHUD(void) {
 }
 
 static void dsda_UpdateActiveHUD(void) {
+#ifdef __3DS__
+  container = R_FullView() && dsda_IntConfig(dsda_config_hud_displayed) ? &containers[hud_full] :
+#else
   container = R_FullView() ? &containers[hud_full] :
+#endif
               dsda_IntConfig(dsda_config_exhud) ? &containers[hud_ex] :
               &containers[hud_off];
 
