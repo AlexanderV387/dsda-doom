@@ -35,7 +35,10 @@
 #define TOP_HEIGHT 240
 
 #define COMMAND_BUFFER_SIZE (1024 * 1024)
-#define VERTEX_BUFFER_SIZE (2 * 1024 * 1024)
+// The vertex buffer: twice as big with a big linear heap (see
+// __system_allocateHeaps in n3ds.c): big maps need more than 2 MB.
+#define VERTEX_BUFFER_SIZE (__ctru_linear_heap_size >= (48 << 20) ? 4 * 1024 * 1024 : 2 * 1024 * 1024)
+extern u32 __ctru_linear_heap_size;
 #define MAX_TEXTURE_SIZE 1024
 #define MIN_TEXTURE_SIZE 8
 #define TEXTURE_UNITS 32 // states only: the PICA200 draws with unit 0

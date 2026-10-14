@@ -62,6 +62,58 @@ static aptHookCookie apt_hook;
 static void AptHook(APT_HookType hook, void *param);
 static void RestoreBottomBacklight(void);
 
+// The memory, split between the heap (the game's own) and the linear heap
+// (the GPU's: textures, vertices) before main. libctru gives the linear
+// heap at most 32 MB; with the New 3DS's 178 MB mode (the .cia) there is
+// room for more, and big maps' textures need it. Otherwise as libctru.
+#define LINEAR_DEFAULT (32 << 20)
+#define LINEAR_BIG (64 << 20)
+#define HEAP_SPLIT (24 << 20)
+#define BIG_MEMORY (150 << 20)
+
+extern char *fake_heap_start, *fake_heap_end;
+extern u32 __ctru_heap, __ctru_heap_size, __ctru_linear_heap, __ctru_linear_heap_size;
+
+void __system_allocateHeaps(void)
+{
+  Handle reslimit = 0;
+  ResourceLimitType type = RESLIMIT_COMMIT;
+  s64 max_commit = 0, current_commit = 0;
+  u32 remaining;
+
+  if (R_FAILED(svcGetResourceLimit(&reslimit, CUR_PROCESS_HANDLE)))
+    svcBreak(USERBREAK_PANIC);
+
+  svcGetResourceLimitLimitValues(&max_commit, reslimit, &type, 1);
+  svcGetResourceLimitCurrentValues(&current_commit, reslimit, &type, 1);
+  svcCloseHandle(reslimit);
+
+  remaining = (u32) (max_commit - current_commit) & ~0xFFF;
+
+  if (remaining >= BIG_MEMORY)
+    __ctru_linear_heap_size = LINEAR_BIG;
+  else if (remaining / 2 > HEAP_SPLIT)
+    __ctru_linear_heap_size = remaining - HEAP_SPLIT > LINEAR_DEFAULT
+                            ? LINEAR_DEFAULT : (remaining - HEAP_SPLIT) & ~0xFFF;
+  else
+    __ctru_linear_heap_size = (remaining / 2) & ~0xFFF;
+
+  __ctru_heap_size = remaining - __ctru_linear_heap_size;
+
+  if (R_FAILED(svcControlMemory(&__ctru_heap, OS_HEAP_AREA_BEGIN, 0x0, __ctru_heap_size,
+                                MEMOP_ALLOC, MEMPERM_READ | MEMPERM_WRITE)))
+    svcBreak(USERBREAK_PANIC);
+
+  if (R_FAILED(svcControlMemory(&__ctru_linear_heap, 0x0, 0x0, __ctru_linear_heap_size,
+                                MEMOP_ALLOC_LINEAR, MEMPERM_READ | MEMPERM_WRITE)))
+    svcBreak(USERBREAK_PANIC);
+
+  mappableInit(OS_MAP_AREA_BEGIN, OS_MAP_AREA_END);
+
+  fake_heap_start = (char *) __ctru_heap;
+  fake_heap_end = fake_heap_start + __ctru_heap_size;
+}
+
 void N3DS_Init(void)
 {
   console = stdout;
@@ -115,6 +167,9 @@ static void StartLog(void)
     stdout = stream;
     stderr = stream;
   }
+
+  printf("N3DS: memory: %lu MiB for the game, %lu MiB for the GPU\n",
+         (unsigned long) (__ctru_heap_size >> 20), (unsigned long) (__ctru_linear_heap_size >> 20));
 }
 
 dboolean N3DS_IsNew3DS(void)
