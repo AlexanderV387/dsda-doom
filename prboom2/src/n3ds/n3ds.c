@@ -3,6 +3,7 @@
 // (AlexanderV387/crispy-doom, src/n3ds.c).
 //
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -877,26 +878,170 @@ static dboolean IsModFile(const char *name)
                       || !strcasecmp(dot, ".bex") || !strcasecmp(dot, ".zip"));
 }
 
-static int CompareNames(const void *a, const void *b)
+// A mod's kind, from what is in it: a campaign (maps: one at a time) or
+// an add-on (gameplay, graphics, music...: any number, over the campaign).
+enum
 {
-  return strcasecmp(*(const char *const *) a, *(const char *const *) b);
+  MOD_CAMPAIGN,
+  MOD_GAMEPLAY,
+  MOD_SPRITES,
+  MOD_TEXTURES,
+  MOD_MUSIC,
+  MOD_SOUNDS,
+  MOD_INTERFACE,
+  MOD_OTHER,
+  MOD_KINDS
+};
+
+static const char *const mod_kind_names[MOD_KINDS] =
+{
+  "Campaign", "Gameplay", "Sprites", "Textures", "Music", "Sounds", "Interface", "Other"
+};
+
+typedef struct
+{
+  char *file;
+  int kind;
+} mod_t;
+
+static dboolean IsMapName(const char *name)
+{
+  return (name[0] == 'M' && name[1] == 'A' && name[2] == 'P' && isdigit((unsigned char) name[3])
+          && isdigit((unsigned char) name[4]) && name[5] == '\0')
+      || (name[0] == 'E' && isdigit((unsigned char) name[1]) && name[2] == 'M'
+          && isdigit((unsigned char) name[3]) && name[4] == '\0');
 }
 
-static int FindMods(char **mods)
+static dboolean StartsWith(const char *name, const char *prefix)
+{
+  return strncmp(name, prefix, strlen(prefix)) == 0;
+}
+
+// A WAD's kind from its lump names (only its directory is read): maps or
+// map information make a campaign; otherwise what most of it is, a
+// DeHackEd patch making it gameplay.
+static int WadKind(const char *path)
+{
+  FILE *file = fopen(path, "rb");
+  struct { char id[4]; int count, offset; } header;
+  int counts[MOD_KINDS] = { 0 };
+  int kind = MOD_OTHER, best = 0, i;
+  dboolean in_sprites = false, in_flats = false, in_patches = false;
+
+  if (file == NULL)
+    return MOD_OTHER;
+
+  if (fread(&header, sizeof(header), 1, file) != 1
+      || (memcmp(header.id, "PWAD", 4) && memcmp(header.id, "IWAD", 4))
+      || header.count <= 0 || header.count > 65536
+      || fseek(file, header.offset, SEEK_SET) != 0)
+  {
+    fclose(file);
+    return MOD_OTHER;
+  }
+
+  for (i = 0; i < header.count; ++i)
+  {
+    struct { int pos, size; char name[8]; } entry;
+    char name[9];
+
+    if (fread(&entry, sizeof(entry), 1, file) != 1)
+      break;
+
+    memcpy(name, entry.name, 8);
+    name[8] = '\0';
+
+    if (IsMapName(name) || !strcmp(name, "TEXTMAP") || !strcmp(name, "UMAPINFO")
+        || !strcmp(name, "MAPINFO") || !strcmp(name, "ZMAPINFO"))
+    {
+      fclose(file);
+      return MOD_CAMPAIGN;
+    }
+
+    if (!strcmp(name, "S_START") || !strcmp(name, "SS_START"))
+      in_sprites = true;
+    else if (!strcmp(name, "S_END") || !strcmp(name, "SS_END"))
+      in_sprites = false;
+    else if (!strcmp(name, "F_START") || !strcmp(name, "FF_START"))
+      in_flats = true;
+    else if (!strcmp(name, "F_END") || !strcmp(name, "FF_END"))
+      in_flats = false;
+    else if (!strcmp(name, "P_START") || !strcmp(name, "PP_START"))
+      in_patches = true;
+    else if (!strcmp(name, "P_END") || !strcmp(name, "PP_END"))
+      in_patches = false;
+    else if (!strcmp(name, "DEHACKED"))
+      counts[MOD_GAMEPLAY] += 1000;
+    else if (in_sprites)
+      ++counts[MOD_SPRITES];
+    else if (in_flats || in_patches || !strcmp(name, "TEXTURE1")
+             || !strcmp(name, "TEXTURE2") || !strcmp(name, "PNAMES"))
+      ++counts[MOD_TEXTURES];
+    else if (StartsWith(name, "D_") || StartsWith(name, "MUS_"))
+      ++counts[MOD_MUSIC];
+    else if (StartsWith(name, "DS") || StartsWith(name, "DP"))
+      ++counts[MOD_SOUNDS];
+    else if (StartsWith(name, "ST") || StartsWith(name, "M_") || StartsWith(name, "WI")
+             || StartsWith(name, "FONT") || !strcmp(name, "TITLEPIC")
+             || !strcmp(name, "INTERPIC") || !strcmp(name, "CREDIT")
+             || !strcmp(name, "HELP") || !strcmp(name, "HELP1"))
+      ++counts[MOD_INTERFACE];
+  }
+
+  fclose(file);
+
+  for (i = MOD_GAMEPLAY; i < MOD_OTHER; ++i)
+  {
+    if (counts[i] > best)
+    {
+      best = counts[i];
+      kind = i;
+    }
+  }
+
+  return kind;
+}
+
+static int ModKind(const char *name)
+{
+  const char *dot = strrchr(name, '.');
+  char path[300];
+
+  if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
+    return MOD_GAMEPLAY;
+
+  // A zip is not looked into: a campaign, the safest.
+  if (!strcasecmp(dot, ".zip"))
+    return MOD_CAMPAIGN;
+
+  snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
+  return WadKind(path);
+}
+
+static int CompareMods(const void *a, const void *b)
+{
+  return strcasecmp(((const mod_t *) a)->file, ((const mod_t *) b)->file);
+}
+
+static int FindMods(mod_t *mods)
 {
   DIR *dir = opendir(N3DS_DATA_DIR "/" MODS_FOLDER);
   struct dirent *entry;
-  int count = 0;
+  int count = 0, i;
 
   if (dir == NULL)
     return 0;
 
   while (count < MAX_MODS && (entry = readdir(dir)) != NULL)
     if (entry->d_name[0] != '.' && IsModFile(entry->d_name))
-      mods[count++] = strdup(entry->d_name);
+      mods[count++].file = strdup(entry->d_name);
 
   closedir(dir);
-  qsort(mods, count, sizeof(*mods), CompareNames);
+  qsort(mods, count, sizeof(*mods), CompareMods);
+
+  for (i = 0; i < count; ++i)
+    mods[i].kind = ModKind(mods[i].file);
+
   return count;
 }
 
@@ -964,6 +1109,55 @@ static int ChooseItem(const char *title, const char *const *items, int count,
   return -2;
 }
 
+// The add-ons, any number of them: A marks or unmarks one. Returns 1 to
+// start, -1 for B (back) and -2 to quit (the HOME Menu closing the game).
+static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *checked, int count)
+{
+  dboolean released = false, redraw = true;
+  int selected = 0, first = 0, i;
+
+  while (aptMainLoop())
+  {
+    const u32 down = KeysDown(&released);
+
+    if (down & (KEY_DOWN | KEY_CPAD_DOWN))
+      selected = (selected + 1) % count, redraw = true;
+    if (down & (KEY_UP | KEY_CPAD_UP))
+      selected = (selected + count - 1) % count, redraw = true;
+    if (down & KEY_A)
+      checked[selected] = !checked[selected], redraw = true;
+    if (down & KEY_START)
+      return 1;
+    if (down & KEY_B)
+      return -1;
+
+    if (redraw)
+    {
+      if (selected < first)
+        first = selected;
+      else if (selected >= first + VISIBLE_ITEMS)
+        first = selected - VISIBLE_ITEMS + 1;
+
+      ConsoleClear();
+      ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n  %.44s\n  Add-ons (any number):\n", title);
+      ConsolePrintf("  %s\n", first > 0 ? "  ..." : "");
+
+      for (i = first; i < count && i < first + VISIBLE_ITEMS; ++i)
+        ConsolePrintf(i == selected ? "  \x1b[33m> [%c] %-10s %.27s\x1b[0m\n\n"
+                                    : "    [%c] %-10s %.27s\n\n",
+                      checked[i] ? 'x' : ' ', mod_kind_names[addons[i]->kind], addons[i]->file);
+
+      ConsolePrintf("  %s\n", i < count ? "  ..." : "");
+      ConsolePrintf("\n  A: mark  START: play  B: back\n");
+      redraw = false;
+    }
+
+    gspWaitForVBlank();
+  }
+
+  return -2;
+}
+
 static void ShowNoGame(void)
 {
   dboolean released = false;
@@ -992,16 +1186,28 @@ static void BackToPicker(void)
     aptSetChainloaderToSelf();
 }
 
+static void AddArgFile(char **args, int *count, const char *file)
+{
+  char path[300];
+
+  snprintf(path, sizeof(path), "%s/%s", MODS_FOLDER, file);
+  args[(*count)++] = strdup(path);
+}
+
 dboolean N3DS_PickGame(int *argc, char ***argv)
 {
   enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
-  static char *args[12];
+  static char *args[16 + MAX_MODS];
+  static mod_t mods[MAX_MODS];
   const char *games[num_iwads];
   int game_index[num_iwads];
-  char *mods[MAX_MODS + 1];
-  char last_game[96] = "", last_mod[256] = "";
-  int num_games = 0, num_mods, game = 0, mod = 0, i;
-  dboolean shown = false;
+  const char *campaign_names[MAX_MODS + 1];
+  mod_t *campaigns[MAX_MODS + 1], *addons[MAX_MODS];
+  dboolean checked[MAX_MODS];
+  char last_game[96] = "", last_campaign[256] = "", line[256];
+  int num_games = 0, num_mods, num_campaigns = 1, num_addons = 0;
+  int game = 0, campaign = 0, step = 0, i;
+  dboolean shown = false, any_deh = false;
   FILE *file;
 
   for (i = 0; i < num_iwads; ++i)
@@ -1020,30 +1226,55 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     }
   }
 
-  // The first item is no mod.
-  mods[0] = "No mod";
-  num_mods = 1 + FindMods(mods + 1);
+  // The mods: campaigns (the first item is none) and add-ons.
+  num_mods = FindMods(mods);
+  campaign_names[0] = "No campaign (the game itself)";
+  campaigns[0] = NULL;
 
-  // The last choice comes first.
+  for (i = 0; i < num_mods; ++i)
+  {
+    if (mods[i].kind == MOD_CAMPAIGN)
+    {
+      campaign_names[num_campaigns] = mods[i].file;
+      campaigns[num_campaigns++] = &mods[i];
+    }
+    else
+    {
+      checked[num_addons] = false;
+      addons[num_addons++] = &mods[i];
+    }
+  }
+
+  // The last choice comes first: the game, the campaign, the add-ons.
   file = fopen(LAST_GAME_FILE, "r");
 
   if (file != NULL)
   {
     if (fgets(last_game, sizeof(last_game), file) != NULL)
       last_game[strcspn(last_game, "\r\n")] = '\0';
-    if (fgets(last_mod, sizeof(last_mod), file) != NULL)
-      last_mod[strcspn(last_mod, "\r\n")] = '\0';
+    if (fgets(last_campaign, sizeof(last_campaign), file) != NULL)
+      last_campaign[strcspn(last_campaign, "\r\n")] = '\0';
+
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
+      line[strcspn(line, "\r\n")] = '\0';
+
+      for (i = 0; i < num_addons; ++i)
+        if (!strcasecmp(addons[i]->file, line))
+          checked[i] = true;
+    }
+
     fclose(file);
   }
 
   for (i = 0; i < num_games; ++i)
     if (!strcmp(games[i], last_game))
       game = i;
-  for (i = 1; i < num_mods; ++i)
-    if (!strcasecmp(mods[i], last_mod))
-      mod = i;
+  for (i = 1; i < num_campaigns; ++i)
+    if (!strcasecmp(campaigns[i]->file, last_campaign))
+      campaign = i;
 
-  if (num_games == 0 || num_games > 1 || num_mods > 1)
+  if (num_games != 1 || num_mods > 0)
   {
     gfxInitDefault();
     consoleInit(GFX_TOP, NULL);
@@ -1056,40 +1287,79 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
       return false;
     }
 
+    // Step by step: the game, the campaign, the add-ons. B goes a step
+    // back (where there was a choice).
     for (;;)
     {
-      if (num_games > 1)
+      if (step == 0)
       {
-        game = ChooseItem("Choose a game:", games, num_games, game,
-                          "A: choose  START: exit");
+        if (num_games > 1)
+        {
+          game = ChooseItem("Choose a game:", games, num_games, game, "A: choose  START: exit");
 
-        if (game < 0)
+          if (game < 0)
+          {
+            gfxExit();
+            return false;
+          }
+        }
+
+        step = 1;
+      }
+
+      if (step == 1)
+      {
+        if (num_campaigns > 1)
+        {
+          const int choice = ChooseItem(games[game], campaign_names, num_campaigns, campaign,
+                                        num_addons > 0 ? "A: next  B: back  START: exit"
+                                                       : "A: start  B: back  START: exit");
+
+          if (choice == -2)
+          {
+            gfxExit();
+            return false;
+          }
+
+          if (choice == -1)
+          {
+            if (num_games > 1)
+              step = 0;
+            continue;
+          }
+
+          campaign = choice;
+        }
+
+        step = 2;
+      }
+
+      if (step == 2)
+      {
+        char title[96];
+        int choice;
+
+        if (num_addons == 0)
+          break;
+
+        snprintf(title, sizeof(title), "%s%s%s", games[game], campaign > 0 ? " + " : "",
+                 campaign > 0 ? campaigns[campaign]->file : "");
+        choice = ChooseAddons(title, addons, checked, num_addons);
+
+        if (choice == -2)
         {
           gfxExit();
           return false;
         }
-      }
 
-      if (num_mods == 1)
-      {
-        mod = 0;
+        if (choice == -1)
+        {
+          step = num_campaigns > 1 ? 1 : num_games > 1 ? 0 : 2;
+          continue;
+        }
+
         break;
       }
-
-      mod = ChooseItem(games[game], (const char *const *) mods, num_mods, mod,
-                       num_games > 1 ? "A: start  B: back  START: exit"
-                                     : "A: start  START: exit");
-
-      // B goes back to the games (or stays here, with only one).
-      if (mod == -2)
-      {
-        gfxExit();
-        return false;
-      }
-      if (mod >= 0)
-        break;
-
-      mod = 0;
     }
 
     gfxExit(); // SDL sets the screens up again
@@ -1099,15 +1369,27 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
   if (file != NULL)
   {
-    fprintf(file, "%s\n%s\n", games[game], mod > 0 ? mods[mod] : "");
+    fprintf(file, "%s\n%s\n", games[game], campaign > 0 ? campaigns[campaign]->file : "");
+
+    for (i = 0; i < num_addons; ++i)
+      if (checked[i])
+        fprintf(file, "%s\n", addons[i]->file);
+
     N3DS_CloseRewrite(file);
   }
 
   StartLog();
-  printf("N3DS_PickGame: %s%s%s\n", games[game], mod > 0 ? " + " : "",
-         mod > 0 ? mods[mod] : "");
+  printf("N3DS_PickGame: %s", games[game]);
+  if (campaign > 0)
+    printf(" + %s", campaigns[campaign]->file);
+  for (i = 0; i < num_addons; ++i)
+    if (checked[i])
+      printf(" + %s (%s)", addons[i]->file, mod_kind_names[addons[i]->kind]);
+  printf("\n");
 
-  // The program's name, the game, its expansion and the mod.
+  // The program's name, the game, its expansion, the campaign and the
+  // add-ons (the campaign first: the add-ons go over it). DeHackEd
+  // patches go apart, after -deh.
   {
     const int entry = game_index[game];
 
@@ -1116,26 +1398,42 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     args[i++] = (*argc > 0 && *argv != NULL && (*argv)[0] != NULL) ? (*argv)[0] : "dsda-doom";
     args[i++] = "-iwad";
     args[i++] = (char *) iwad_names[entry].file;
+    args[i++] = "-file";
 
-    if (iwad_names[entry].extra != NULL || mod > 0)
+    if (iwad_names[entry].extra != NULL)
+      args[i++] = (char *) iwad_names[entry].extra;
+
+    if (campaign > 0)
+      AddArgFile(args, &i, campaigns[campaign]->file);
+
+    for (int k = 0; k < num_addons; ++k)
     {
-      args[i++] = "-file";
+      const char *dot = strrchr(addons[k]->file, '.');
 
-      if (iwad_names[entry].extra != NULL)
-        args[i++] = (char *) iwad_names[entry].extra;
-    }
-
-    if (mod > 0)
-    {
-      const char *dot = strrchr(mods[mod], '.');
-      static char mod_path[300];
-
-      snprintf(mod_path, sizeof(mod_path), "%s/%s", MODS_FOLDER, mods[mod]);
+      if (!checked[k])
+        continue;
 
       if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
-        args[i++] = "-deh";
+        any_deh = true;
+      else
+        AddArgFile(args, &i, addons[k]->file);
+    }
 
-      args[i++] = mod_path;
+    // Nothing after -file: it goes.
+    if (!strcmp(args[i - 1], "-file"))
+      --i;
+
+    if (any_deh)
+    {
+      args[i++] = "-deh";
+
+      for (int k = 0; k < num_addons; ++k)
+      {
+        const char *dot = strrchr(addons[k]->file, '.');
+
+        if (checked[k] && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex")))
+          AddArgFile(args, &i, addons[k]->file);
+      }
     }
   }
 
