@@ -1103,6 +1103,23 @@ static int FindMods(mod_t *mods)
   for (i = 0; i < count; ++i)
     mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh, mods[i].start);
 
+  // A WAD with a patch file of its name (D4V.wad and D4V.deh) is the
+  // graphics of a gameplay mod: it loads with gameplay, after the campaign.
+  for (i = 0; i < count; ++i)
+  {
+    const size_t length = strrchr(mods[i].file, '.') - mods[i].file;
+    int j;
+
+    if (mods[i].kind == MOD_CAMPAIGN || mods[i].kind == MOD_BROKEN
+        || IsPatchFile(mods[i].file))
+      continue;
+
+    for (j = 0; j < count; ++j)
+      if (IsPatchFile(mods[j].file) && strrchr(mods[j].file, '.') - mods[j].file == length
+          && !strncasecmp(mods[i].file, mods[j].file, length))
+        mods[i].kind = MOD_GAMEPLAY;
+  }
+
   return count;
 }
 
@@ -1256,7 +1273,21 @@ static void AddWithPatches(mod_t *mod, mod_t *const *chosen, int count, mod_t **
 // textures, sounds, the interface) before the campaign: what it brings of
 // its own wins, as their authors ask. What is meant to replace (gameplay,
 // music, the rest) after it. DeHackEd patch files last: the game reads
-// them after the patches in WADs.
+// them after the patches in WADs. First of them, the ones of a chosen WAD
+// of their name (D4V.deh of D4V.wad): the others (extra weapons) go over.
+static dboolean HasTwin(const mod_t *patch, mod_t *const *chosen, int count)
+{
+  const size_t length = strrchr(patch->file, '.') - patch->file;
+  int i;
+
+  for (i = 0; i < count; ++i)
+    if (!IsPatchFile(chosen[i]->file) && strrchr(chosen[i]->file, '.') - chosen[i]->file == length
+        && !strncasecmp(chosen[i]->file, patch->file, length))
+      return true;
+
+  return false;
+}
+
 static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *checked,
                      int count, mod_t **order)
 {
@@ -1269,7 +1300,7 @@ static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *chec
     if (checked[i])
       chosen[num_chosen++] = addons[i];
 
-  for (pass = 0; pass < 3; ++pass)
+  for (pass = 0; pass < 4; ++pass)
   {
     if (pass == 1 && campaign != NULL)
       AddWithPatches(campaign, chosen, num_chosen, order, &num);
@@ -1279,7 +1310,8 @@ static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *chec
       const int kind = addons[i]->kind;
       const dboolean first = kind == MOD_SPRITES || kind == MOD_TEXTURES
                           || kind == MOD_SOUNDS || kind == MOD_INTERFACE;
-      const int wanted = IsPatchFile(addons[i]->file) ? 2 : first ? 0 : 1;
+      const int wanted = !IsPatchFile(addons[i]->file) ? (first ? 0 : 1)
+                       : HasTwin(addons[i], chosen, num_chosen) ? 2 : 3;
 
       if (checked[i] && wanted == pass && ParentOf(addons[i], chosen, num_chosen) == NULL)
         AddWithPatches(addons[i], chosen, num_chosen, order, &num);
