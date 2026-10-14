@@ -833,25 +833,35 @@ void N3DS_ShowError(const char *message)
 // patches and zips) in its "mods" folder. Nothing to choose: straight into
 // the game.
 
-static const struct { const char *file, *name, *extra; } iwad_names[] =
+// How a game or a campaign names its maps: a campaign is shown only for
+// the games naming theirs the same way (or always, when that is unknown).
+enum
 {
-  { "doom.wad",      "The Ultimate Doom" },
-  { "doom1.wad",     "Doom (shareware)" },
-  { "doom2.wad",     "Doom II" },
-  { "doom2f.wad",    "Doom II (French)" },
-  { "plutonia.wad",  "Final Doom: The Plutonia Experiment" },
-  { "tnt.wad",       "Final Doom: TNT: Evilution" },
-  { "freedoom1.wad", "Freedoom: Phase 1" },
-  { "freedoom2.wad", "Freedoom: Phase 2" },
-  { "freedm.wad",    "FreeDM" },
-  { "chex.wad",      "Chex Quest" },
-  { "hacx.wad",      "HACX" },
-  { "rekkrsa.wad",   "REKKR" },
-  { "heretic.wad",   "Heretic" },
-  { "heretic1.wad",  "Heretic (shareware)" },
-  { "hexen.wad",     "Hexen" },
+  MAPS_UNKNOWN,
+  MAPS_EXMY,  // E1M1: Doom, Heretic
+  MAPS_MAPXX, // MAP01: Doom II
+  MAPS_HEXEN, // MAP01 with scripts (BEHAVIOR): Hexen
+};
+
+static const struct { const char *file, *name; int maps; const char *extra; } iwad_names[] =
+{
+  { "doom.wad",      "The Ultimate Doom",                   MAPS_EXMY },
+  { "doom1.wad",     "Doom (shareware)",                    MAPS_EXMY },
+  { "doom2.wad",     "Doom II",                             MAPS_MAPXX },
+  { "doom2f.wad",    "Doom II (French)",                    MAPS_MAPXX },
+  { "plutonia.wad",  "Final Doom: The Plutonia Experiment", MAPS_MAPXX },
+  { "tnt.wad",       "Final Doom: TNT: Evilution",          MAPS_MAPXX },
+  { "freedoom1.wad", "Freedoom: Phase 1",                   MAPS_EXMY },
+  { "freedoom2.wad", "Freedoom: Phase 2",                   MAPS_MAPXX },
+  { "freedm.wad",    "FreeDM",                              MAPS_MAPXX },
+  { "chex.wad",      "Chex Quest",                          MAPS_EXMY },
+  { "hacx.wad",      "HACX",                                MAPS_MAPXX },
+  { "rekkrsa.wad",   "REKKR",                               MAPS_EXMY },
+  { "heretic.wad",   "Heretic",                             MAPS_EXMY },
+  { "heretic1.wad",  "Heretic (shareware)",                 MAPS_EXMY },
+  { "hexen.wad",     "Hexen",                               MAPS_HEXEN },
   // The expansion is a PWAD on top of Hexen.
-  { "hexen.wad",     "Hexen: Deathkings of the Dark Citadel", "hexdd.wad" },
+  { "hexen.wad",     "Hexen: Deathkings of the Dark Citadel", MAPS_HEXEN, "hexdd.wad" },
 };
 
 #define MODS_FOLDER "mods"
@@ -902,6 +912,7 @@ typedef struct
 {
   char *file;
   int kind;
+  int maps; // a campaign's: MAPS_*
 } mod_t;
 
 static dboolean IsMapName(const char *name)
@@ -919,14 +930,17 @@ static dboolean StartsWith(const char *name, const char *prefix)
 
 // A WAD's kind from its lump names (only its directory is read): maps or
 // map information make a campaign; otherwise what most of it is, a
-// DeHackEd patch making it gameplay.
-static int WadKind(const char *path)
+// DeHackEd patch making it gameplay. A campaign's first map tells how its
+// maps are named.
+static int WadKind(const char *path, int *maps)
 {
   FILE *file = fopen(path, "rb");
   struct { char id[4]; int count, offset; } header;
   int counts[MOD_KINDS] = { 0 };
   int kind = MOD_OTHER, best = 0, i;
-  dboolean in_sprites = false, in_flats = false, in_patches = false;
+  dboolean in_sprites = false, in_flats = false, in_patches = false, map_info = false;
+
+  *maps = MAPS_UNKNOWN;
 
   if (file == NULL)
     return MOD_OTHER;
@@ -951,14 +965,33 @@ static int WadKind(const char *path)
     memcpy(name, entry.name, 8);
     name[8] = '\0';
 
-    if (IsMapName(name) || !strcmp(name, "TEXTMAP") || !strcmp(name, "UMAPINFO")
-        || !strcmp(name, "MAPINFO") || !strcmp(name, "ZMAPINFO"))
+    if (IsMapName(name))
     {
+      int j;
+
+      *maps = name[0] == 'E' ? MAPS_EXMY : MAPS_MAPXX;
+
+      // A map's lumps follow its marker: scripts make it Hexen's, a text
+      // map (UDMF) could be any game's.
+      for (j = 0; j < 12 && fread(&entry, sizeof(entry), 1, file) == 1; ++j)
+      {
+        if (!strncmp(entry.name, "BEHAVIOR", 8))
+          *maps = MAPS_HEXEN;
+        else if (!strncmp(entry.name, "TEXTMAP", 8))
+          *maps = MAPS_UNKNOWN;
+        else
+          continue;
+        break;
+      }
+
       fclose(file);
       return MOD_CAMPAIGN;
     }
 
-    if (!strcmp(name, "S_START") || !strcmp(name, "SS_START"))
+    if (!strcmp(name, "TEXTMAP") || !strcmp(name, "UMAPINFO")
+        || !strcmp(name, "MAPINFO") || !strcmp(name, "ZMAPINFO"))
+      map_info = true;
+    else if (!strcmp(name, "S_START") || !strcmp(name, "SS_START"))
       in_sprites = true;
     else if (!strcmp(name, "S_END") || !strcmp(name, "SS_END"))
       in_sprites = false;
@@ -990,6 +1023,9 @@ static int WadKind(const char *path)
 
   fclose(file);
 
+  if (map_info)
+    return MOD_CAMPAIGN;
+
   for (i = MOD_GAMEPLAY; i < MOD_OTHER; ++i)
   {
     if (counts[i] > best)
@@ -1002,10 +1038,12 @@ static int WadKind(const char *path)
   return kind;
 }
 
-static int ModKind(const char *name)
+static int ModKind(const char *name, int *maps)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
+
+  *maps = MAPS_UNKNOWN;
 
   if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
     return MOD_GAMEPLAY;
@@ -1015,7 +1053,7 @@ static int ModKind(const char *name)
     return MOD_CAMPAIGN;
 
   snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
-  return WadKind(path);
+  return WadKind(path, maps);
 }
 
 static int CompareMods(const void *a, const void *b)
@@ -1040,7 +1078,7 @@ static int FindMods(mod_t *mods)
   qsort(mods, count, sizeof(*mods), CompareMods);
 
   for (i = 0; i < count; ++i)
-    mods[i].kind = ModKind(mods[i].file);
+    mods[i].kind = ModKind(mods[i].file, &mods[i].maps);
 
   return count;
 }
@@ -1194,6 +1232,31 @@ static void AddArgFile(char **args, int *count, const char *file)
   args[(*count)++] = strdup(path);
 }
 
+// The campaigns for a game (the first item is none), the chosen one
+// selected when it is there.
+static void ListCampaigns(int maps, mod_t *const *all, int count, const mod_t *chosen,
+                          mod_t **campaigns, const char **names, int *num, int *selected)
+{
+  int i;
+
+  names[0] = "No campaign (the game itself)";
+  campaigns[0] = NULL;
+  *num = 1;
+  *selected = 0;
+
+  for (i = 0; i < count; ++i)
+  {
+    if (all[i]->maps != MAPS_UNKNOWN && all[i]->maps != maps)
+      continue;
+
+    if (all[i] == chosen)
+      *selected = *num;
+
+    names[*num] = all[i]->file;
+    campaigns[(*num)++] = all[i];
+  }
+}
+
 dboolean N3DS_PickGame(int *argc, char ***argv)
 {
   enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
@@ -1202,10 +1265,11 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   const char *games[num_iwads];
   int game_index[num_iwads];
   const char *campaign_names[MAX_MODS + 1];
-  mod_t *campaigns[MAX_MODS + 1], *addons[MAX_MODS];
+  mod_t *all_campaigns[MAX_MODS], *campaigns[MAX_MODS + 1], *addons[MAX_MODS];
+  const mod_t *chosen = NULL;
   dboolean checked[MAX_MODS];
   char last_game[96] = "", last_campaign[256] = "", line[256];
-  int num_games = 0, num_mods, num_campaigns = 1, num_addons = 0;
+  int num_games = 0, num_mods, num_all_campaigns = 0, num_campaigns = 1, num_addons = 0;
   int game = 0, campaign = 0, step = 0, i;
   dboolean shown = false, any_deh = false;
   FILE *file;
@@ -1226,18 +1290,13 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     }
   }
 
-  // The mods: campaigns (the first item is none) and add-ons.
+  // The mods: campaigns and add-ons.
   num_mods = FindMods(mods);
-  campaign_names[0] = "No campaign (the game itself)";
-  campaigns[0] = NULL;
 
   for (i = 0; i < num_mods; ++i)
   {
     if (mods[i].kind == MOD_CAMPAIGN)
-    {
-      campaign_names[num_campaigns] = mods[i].file;
-      campaigns[num_campaigns++] = &mods[i];
-    }
+      all_campaigns[num_all_campaigns++] = &mods[i];
     else
     {
       checked[num_addons] = false;
@@ -1270,9 +1329,12 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   for (i = 0; i < num_games; ++i)
     if (!strcmp(games[i], last_game))
       game = i;
-  for (i = 1; i < num_campaigns; ++i)
-    if (!strcasecmp(campaigns[i]->file, last_campaign))
-      campaign = i;
+  for (i = 0; i < num_all_campaigns; ++i)
+    if (!strcasecmp(all_campaigns[i]->file, last_campaign))
+      chosen = all_campaigns[i];
+
+  ListCampaigns(iwad_names[game_index[game]].maps, all_campaigns, num_all_campaigns,
+                chosen, campaigns, campaign_names, &num_campaigns, &campaign);
 
   if (num_games != 1 || num_mods > 0)
   {
@@ -1302,6 +1364,9 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
             gfxExit();
             return false;
           }
+
+          ListCampaigns(iwad_names[game_index[game]].maps, all_campaigns, num_all_campaigns,
+                        chosen, campaigns, campaign_names, &num_campaigns, &campaign);
         }
 
         step = 1;
@@ -1329,6 +1394,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
           }
 
           campaign = choice;
+          chosen = campaigns[campaign];
         }
 
         step = 2;
