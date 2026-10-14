@@ -808,8 +808,15 @@ void N3DS_PresentBottom(const SDL_Color *palette, dboolean palette_changed,
 
 void N3DS_ShowError(const char *message)
 {
+  u16 width, height;
+  // The error may come before SDL starts the screens. Started twice, the
+  // GPU's service would stay open at exit, and its event thread would run
+  // on in freed memory: a crash when closed from the HOME Menu.
+  const dboolean own_screens = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, &width, &height) == NULL;
+
   N3DS_StopPresenting();
-  gfxInitDefault(); // the error may come before SDL starts the screens
+  if (own_screens)
+    gfxInitDefault();
   consoleInit(GFX_TOP, NULL);
 
   fprintf(console, "\x1b[2J\n DSDA-DOOM 3DS: error\n\n%s\n\n START: exit\n",
@@ -825,6 +832,9 @@ void N3DS_ShowError(const char *message)
 
     gspWaitForVBlank();
   }
+
+  if (own_screens)
+    gfxExit();
 }
 
 // ==========================================================================
