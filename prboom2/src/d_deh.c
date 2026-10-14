@@ -1829,6 +1829,8 @@ void ProcessDehFile(const char *filename, const char *outfilename, int lumpnum)
 
 #ifdef __3DS__
   Z_Free(text);
+  lprintf(LO_INFO, "  DEH done: %d states, %d sprites, %d things, %d sounds\n",
+          num_states, num_sprites, num_mobj_types, num_sfx);
 #else
   if (!infile.lump)
     fclose(infile.f);                         // Close real file

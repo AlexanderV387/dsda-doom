@@ -2222,11 +2222,13 @@ static void D_DoomMainSetup(void)
     }
   }
 
+  N3DS_STARTUP_STEP("PostProcessDeh");
   PostProcessDeh();
   dsda_AppendZDoomMobjInfo();
   dsda_ApplyBinaryMapFormat();
 
   lprintf(LO_DEBUG, "dsda_InitWadStats: Setting up wad stats.\n");
+  N3DS_STARTUP_STEP("dsda_InitWadStats");
   dsda_InitWadStats();
 
   lprintf(LO_INFO, "\n"); // Separator after file loading

@@ -900,12 +900,13 @@ enum
   MOD_SOUNDS,
   MOD_INTERFACE,
   MOD_OTHER,
+  MOD_BROKEN, // not a WAD (only named like one): it cannot load
   MOD_KINDS
 };
 
 static const char *const mod_kind_names[MOD_KINDS] =
 {
-  "Campaign", "Gameplay", "Sprites", "Textures", "Music", "Sounds", "Interface", "Other"
+  "Campaign", "Gameplay", "Sprites", "Textures", "Music", "Sounds", "Interface", "Other", "Not a WAD"
 };
 
 typedef struct
@@ -930,8 +931,8 @@ static dboolean StartsWith(const char *name, const char *prefix)
 }
 
 // A WAD's kind from its lump names (only its directory is read): maps or
-// map information make a campaign; otherwise what most of it is, a
-// DeHackEd patch making it gameplay. A campaign's first map tells how its
+// map information make a campaign; a DeHackEd patch, gameplay; otherwise
+// what most of it is. A campaign's first map tells how its
 // maps are named.
 static int WadKind(const char *path, int *maps, dboolean *deh)
 {
@@ -947,7 +948,7 @@ static int WadKind(const char *path, int *maps, dboolean *deh)
   *deh = false;
 
   if (file == NULL)
-    return MOD_OTHER;
+    return MOD_BROKEN;
 
   if (fread(&header, sizeof(header), 1, file) != 1
       || (memcmp(header.id, "PWAD", 4) && memcmp(header.id, "IWAD", 4))
@@ -956,7 +957,7 @@ static int WadKind(const char *path, int *maps, dboolean *deh)
       || (entries = malloc(header.count * sizeof(*entries))) == NULL)
   {
     fclose(file);
-    return MOD_OTHER;
+    return MOD_BROKEN;
   }
 
   // The directory in one read: an entry at a time is slow on the SD card.
@@ -1010,10 +1011,7 @@ static int WadKind(const char *path, int *maps, dboolean *deh)
     else if (!strcmp(name, "P_END") || !strcmp(name, "PP_END"))
       in_patches = false;
     else if (!strcmp(name, "DEHACKED"))
-    {
       *deh = true;
-      counts[MOD_GAMEPLAY] += 1000;
-    }
     else if (in_sprites)
       ++counts[MOD_SPRITES];
     else if (in_flats || in_patches || !strcmp(name, "TEXTURE1")
@@ -1034,6 +1032,8 @@ static int WadKind(const char *path, int *maps, dboolean *deh)
 
   if (campaign)
     return MOD_CAMPAIGN;
+  if (*deh)
+    return MOD_GAMEPLAY;
 
   for (i = MOD_GAMEPLAY; i < MOD_OTHER; ++i)
   {
@@ -1179,7 +1179,7 @@ static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *check
       selected = (selected + 1) % count, redraw = true;
     if (down & (KEY_UP | KEY_CPAD_UP))
       selected = (selected + count - 1) % count, redraw = true;
-    if (down & KEY_A)
+    if ((down & KEY_A) && addons[selected]->kind != MOD_BROKEN)
       checked[selected] = !checked[selected], redraw = true;
     if (down & KEY_START)
       return 1;
@@ -1200,7 +1200,7 @@ static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *check
       for (i = first; i < count && i < first + VISIBLE_ITEMS; ++i)
         ConsolePrintf(i == selected ? "  \x1b[33m> [%c] %-10s %.27s\x1b[0m\n\n"
                                     : "    [%c] %-10s %.27s\n\n",
-                      checked[i] ? 'x' : ' ', mod_kind_names[addons[i]->kind], addons[i]->file);
+                      addons[i]->kind == MOD_BROKEN ? '-' : checked[i] ? 'x' : ' ', mod_kind_names[addons[i]->kind], addons[i]->file);
 
       ConsolePrintf("  %s\n", i < count ? "  ..." : "");
       ConsolePrintf("\n  A: mark  START: play  B: back\n");
@@ -1453,7 +1453,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
       line[strcspn(line, "\r\n")] = '\0';
 
       for (i = 0; i < num_addons; ++i)
-        if (!strcasecmp(addons[i]->file, line))
+        if (!strcasecmp(addons[i]->file, line) && addons[i]->kind != MOD_BROKEN)
           checked[i] = true;
     }
 
