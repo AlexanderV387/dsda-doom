@@ -78,40 +78,42 @@ void N3DS_Init(void)
 
   // There is no /tmp.
   setenv("TMPDIR", N3DS_DATA_DIR, 1);
+}
 
-  // Everything the game prints goes to a log: the 3DS has no terminal. The
-  // old log is written over (creating a file on the SD card takes seconds).
+// Everything the game prints goes to a log: the 3DS has no terminal. The
+// old log is written over (creating a file on the SD card takes seconds),
+// and only once a game is chosen: quitting goes back to the picker (a new
+// start of this title), and the log of what went wrong must still be
+// there.
+static void StartLog(void)
+{
+  const char *path = N3DS_DATA_DIR "/dsda-doom-log.txt";
+  FILE *log = N3DS_OpenRewrite(path);
+  FILE *stream;
+  long size;
+
+  if (log == NULL)
+    return;
+
+  // The old text is blanked: the new log may be shorter.
+  fseek(log, 0, SEEK_END);
+  size = ftell(log);
+  rewind(log);
+
+  while (size-- > 0)
+    fputc(size % 64 == 0 ? '\n' : ' ', log);
+
+  rewind(log);
+
+  log_file = log;
+  log_start = osGetTime();
+  stream = funopen(NULL, NULL, LogWrite, NULL, NULL);
+
+  if (stream != NULL)
   {
-    const char *path = N3DS_DATA_DIR "/dsda-doom-log.txt";
-    FILE *log = N3DS_OpenRewrite(path);
-
-    if (log != NULL)
-    {
-      FILE *stream;
-
-      // The old text is blanked: the new log may be shorter.
-      long size;
-
-      fseek(log, 0, SEEK_END);
-      size = ftell(log);
-      rewind(log);
-
-      while (size-- > 0)
-        fputc(size % 64 == 0 ? '\n' : ' ', log);
-
-      rewind(log);
-
-      log_file = log;
-      log_start = osGetTime();
-      stream = funopen(NULL, NULL, LogWrite, NULL, NULL);
-
-      if (stream != NULL)
-      {
-        setvbuf(stream, NULL, _IOLBF, 1024);
-        stdout = stream;
-        stderr = stream;
-      }
-    }
+    setvbuf(stream, NULL, _IOLBF, 1024);
+    stdout = stream;
+    stderr = stream;
   }
 }
 
@@ -1029,6 +1031,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     N3DS_CloseRewrite(file);
   }
 
+  StartLog();
   printf("N3DS_PickGame: %s%s%s\n", games[game], mod > 0 ? " + " : "",
          mod > 0 ? mods[mod] : "");
 
