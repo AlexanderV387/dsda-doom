@@ -2289,8 +2289,8 @@ static void D_DoomMainSetup(void)
   N3DS_STARTUP_STEP("dsda_InitFont");
   dsda_InitFont();
 
+  N3DS_STARTUP_STEP("I_InitGraphics");
   if (!(dsda_Flag(dsda_arg_nodraw) && dsda_Flag(dsda_arg_nosound)))
-    N3DS_STARTUP_STEP("I_InitGraphics");
     I_InitGraphics();
 
   // NSM
