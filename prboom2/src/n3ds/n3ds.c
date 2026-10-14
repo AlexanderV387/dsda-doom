@@ -926,6 +926,7 @@ typedef struct
   int maps; // a campaign's: MAPS_*
   int num_maps;
   dboolean deh; // a DeHackEd patch, or one in it: changes the game itself
+  dboolean gzdoom; // things in GZDoom's languages only, no patch: not here
   char start[5]; // what a file that is not a WAD starts with, for the log
 } mod_t;
 
@@ -945,7 +946,8 @@ static dboolean StartsWith(const char *name, const char *prefix)
 // A WAD's kind from its lump names (only its directory is read): maps make
 // a campaign; a DeHackEd patch, gameplay; otherwise what most of it is. A campaign's first map tells how its
 // maps are named.
-static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, char *start)
+static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, dboolean *gzdoom,
+                   char *start)
 {
   typedef struct { int pos, size; char name[8]; } entry_t;
   FILE *file = fopen(path, "rb");
@@ -958,6 +960,7 @@ static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, ch
   *maps = MAPS_UNKNOWN;
   *num_maps = 0;
   *deh = false;
+  *gzdoom = false;
   memset(&header, 0, sizeof(header));
 
   if (file == NULL)
@@ -1032,6 +1035,8 @@ static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, ch
       in_patches = false;
     else if (!strcmp(name, "DEHACKED"))
       *deh = true;
+    else if (!strcmp(name, "DECORATE") || !strcmp(name, "ZSCRIPT"))
+      *gzdoom = true;
     else if (in_sprites)
       ++counts[MOD_SPRITES];
     else if (in_flats || in_patches || !strcmp(name, "TEXTURE1")
@@ -1049,6 +1054,10 @@ static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, ch
   }
 
   free(entries);
+
+  // With a patch too, it is made for both kinds of ports.
+  if (*deh)
+    *gzdoom = false;
 
   if (campaign)
     return MOD_CAMPAIGN;
@@ -1074,7 +1083,8 @@ static dboolean IsPatchFile(const char *name)
   return dot != NULL && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"));
 }
 
-static int ModKind(const char *name, int *maps, int *num_maps, dboolean *deh, char *start)
+static int ModKind(const char *name, int *maps, int *num_maps, dboolean *deh, dboolean *gzdoom,
+                   char *start)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
@@ -1090,7 +1100,7 @@ static int ModKind(const char *name, int *maps, int *num_maps, dboolean *deh, ch
     return MOD_CAMPAIGN;
 
   snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
-  return WadKind(path, maps, num_maps, deh, start);
+  return WadKind(path, maps, num_maps, deh, gzdoom, start);
 }
 
 static int CompareMods(const void *a, const void *b)
@@ -1116,7 +1126,7 @@ static int FindMods(mod_t *mods)
 
   for (i = 0; i < count; ++i)
     mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].num_maps, &mods[i].deh,
-                           mods[i].start);
+                           &mods[i].gzdoom, mods[i].start);
 
   // A WAD with a patch file of its name (D4V.wad and D4V.deh) is the
   // graphics of a gameplay mod: it loads with gameplay, after the campaign.
@@ -1133,7 +1143,7 @@ static int FindMods(mod_t *mods)
     for (j = 0; j < count; ++j)
       if (IsPatchFile(mods[j].file) && strrchr(mods[j].file, '.') - mods[j].file == length
           && !strncasecmp(mods[i].file, mods[j].file, length))
-        mods[i].kind = MOD_GAMEPLAY, mods[i].maps = MAPS_UNKNOWN;
+        mods[i].kind = MOD_GAMEPLAY, mods[i].maps = MAPS_UNKNOWN, mods[i].gzdoom = false;
   }
 
   return count;
@@ -1291,17 +1301,25 @@ static void AddWithPatches(mod_t *mod, mod_t *const *chosen, int count, mod_t **
 // music, the rest) after it. DeHackEd patch files last: the game reads
 // them after the patches in WADs. First of them, the ones of a chosen WAD
 // of their name (D4V.deh of D4V.wad): the others (extra weapons) go over.
-static dboolean HasTwin(const mod_t *patch, mod_t *const *chosen, int count)
+// A mod's twin: the WAD of a patch file of its name, or the other way.
+static mod_t *FindTwin(const mod_t *mod, mod_t *const *list, int count)
 {
-  const size_t length = strrchr(patch->file, '.') - patch->file;
+  const size_t length = strrchr(mod->file, '.') - mod->file;
   int i;
 
   for (i = 0; i < count; ++i)
-    if (!IsPatchFile(chosen[i]->file) && strrchr(chosen[i]->file, '.') - chosen[i]->file == length
-        && !strncasecmp(chosen[i]->file, patch->file, length))
-      return true;
+    if (IsPatchFile(list[i]->file) != IsPatchFile(mod->file)
+        && list[i]->kind != MOD_BROKEN
+        && strrchr(list[i]->file, '.') - list[i]->file == length
+        && !strncasecmp(list[i]->file, mod->file, length))
+      return list[i];
 
-  return false;
+  return NULL;
+}
+
+static dboolean HasTwin(const mod_t *patch, mod_t *const *chosen, int count)
+{
+  return FindTwin(patch, chosen, count) != NULL;
 }
 
 static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *checked,
@@ -1345,36 +1363,97 @@ static dboolean IsLonePatch(const mod_t *mod, mod_t *const *chosen, int count)
       && !(IsPatchFile(mod->file) && HasTwin(mod, chosen, count));
 }
 
-// Two mods changing the game itself (DeHackEd: weapons, monsters, things)
-// step on each other: where both change the same, the last one loaded
-// wins, and together they may not work. A warning, not a block: some go
-// well together (a fix with a campaign). A patch made for another mod
-// goes with it. 1 to play anyway, -1 to go back, -2 when closed.
-static int WarnPatches(mod_t *const *order, int count)
+static dboolean IsIn(const mod_t *mod, mod_t *const *list, int count)
 {
-  dboolean released = false;
-  int patches = 0, i;
+  int i;
 
   for (i = 0; i < count; ++i)
-    patches += IsLonePatch(order[i], order, count);
+    if (list[i] == mod)
+      return true;
 
-  if (patches < 2)
+  return false;
+}
+
+#define MAX_WARNED 4
+
+// What may not work in the chosen mods, on one screen. A warning, not a
+// block: the picker only guesses from the names inside the files.
+// - Mods changing the game itself (DeHackEd: weapons, monsters) step on
+//   each other: where both change the same, the last one loaded wins.
+//   Some go well together (a fix with a campaign); a patch made for
+//   another mod goes with it.
+// - A piece without the rest of its mod (D4V.deh without D4V.wad: its
+//   graphics are missing, the game stops at the first of them).
+// - Mods for GZDoom only (DECORATE, ZSCRIPT, no patch): their new things
+//   do not show here.
+// 1 to play anyway, -1 to go back, -2 when closed.
+static int WarnChoice(mod_t *const *order, int count, mod_t *const *all, int num_all)
+{
+  dboolean released = false;
+  int patches = 0, missing = 0, gzdoom = 0, shown, i;
+
+  for (i = 0; i < count; ++i)
+  {
+    const mod_t *twin = FindTwin(order[i], all, num_all);
+    const mod_t *parent = ParentOf(order[i], all, num_all);
+
+    patches += IsLonePatch(order[i], order, count);
+    missing += (twin != NULL && !IsIn(twin, order, count))
+            || (parent != NULL && !IsIn(parent, order, count));
+    gzdoom += order[i]->gzdoom;
+  }
+
+  if (patches < 2 && missing == 0 && gzdoom == 0)
     return 1;
 
   ConsoleClear();
-  ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n"
-                "  \x1b[33mWarning:\x1b[0m these mods all change the game\n"
-                "  itself (DeHackEd: weapons, monsters...):\n\n");
+  ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n  \x1b[33mWarning:\x1b[0m these mods may not work.\n");
 
-  for (i = 0; i < count; ++i)
-    if (IsLonePatch(order[i], order, count))
-      ConsolePrintf("    %-10s %.30s\n", mod_kind_names[order[i]->kind], order[i]->file);
+  if (missing > 0)
+  {
+    ConsolePrintf("\n  Part of a mod, without the rest of it:\n");
 
-  ConsolePrintf("\n  Where they change the same things, the last\n"
-                "  one wins (the order above), and together\n"
-                "  they may not work. Better one at a time,\n"
-                "  unless they are made to go together.\n\n"
-                "  A: play anyway  B: back\n");
+    for (i = 0, shown = 0; i < count && shown < MAX_WARNED; ++i)
+    {
+      const mod_t *twin = FindTwin(order[i], all, num_all);
+      const mod_t *parent = ParentOf(order[i], all, num_all);
+      const mod_t *needed = twin != NULL && !IsIn(twin, order, count) ? twin
+                          : parent != NULL && !IsIn(parent, order, count) ? parent : NULL;
+
+      if (needed != NULL)
+      {
+        ConsolePrintf("    %.20s: mark %.20s\n", order[i]->file, needed->file);
+        ++shown;
+      }
+    }
+  }
+
+  if (gzdoom > 0)
+  {
+    ConsolePrintf("\n  For GZDoom: their new things won't show:\n");
+
+    for (i = 0, shown = 0; i < count && shown < MAX_WARNED; ++i)
+      if (order[i]->gzdoom)
+      {
+        ConsolePrintf("    %.44s\n", order[i]->file);
+        ++shown;
+      }
+  }
+
+  if (patches >= 2)
+  {
+    ConsolePrintf("\n  All change the game itself (DeHackEd);\n"
+                  "  the last one wins where they meet:\n");
+
+    for (i = 0, shown = 0; i < count && shown < MAX_WARNED; ++i)
+      if (IsLonePatch(order[i], order, count))
+      {
+        ConsolePrintf("    %-10s %.32s\n", mod_kind_names[order[i]->kind], order[i]->file);
+        ++shown;
+      }
+  }
+
+  ConsolePrintf("\n  A: play anyway  B: back\n");
 
   while (aptMainLoop())
   {
@@ -1478,7 +1557,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
   static char *args[16 + MAX_MODS];
   static mod_t mods[MAX_MODS];
-  mod_t *order[MAX_MODS + 1];
+  mod_t *order[MAX_MODS + 1], *all_mods[MAX_MODS];
   const char *games[num_iwads];
   int game_index[num_iwads];
   const char *campaign_names[MAX_MODS + 1];
@@ -1509,6 +1588,9 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
   // The mods: campaigns and add-ons.
   num_mods = FindMods(mods);
+
+  for (i = 0; i < num_mods; ++i)
+    all_mods[i] = &mods[i];
 
   for (i = 0; i < num_mods; ++i)
   {
@@ -1631,8 +1713,9 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
         if (choice == 1)
         {
-          choice = WarnPatches(order, LoadOrder(campaigns[campaign], addons, checked,
-                                                num_addons, order));
+          choice = WarnChoice(order, LoadOrder(campaigns[campaign], addons, checked,
+                                               num_addons, order),
+                              all_mods, num_mods);
 
           if (choice == -1)
             continue; // back to the add-ons
