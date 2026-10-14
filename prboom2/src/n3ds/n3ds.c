@@ -924,7 +924,6 @@ typedef struct
   char *file;
   int kind;
   int maps; // a campaign's: MAPS_*
-  int num_maps;
   dboolean deh; // a DeHackEd patch, or one in it: changes the game itself
   dboolean gzdoom; // things in GZDoom's languages only, no patch: not here
   char start[5]; // what a file that is not a WAD starts with, for the log
@@ -946,8 +945,7 @@ static dboolean StartsWith(const char *name, const char *prefix)
 // A WAD's kind from its lump names (only its directory is read): maps make
 // a campaign; a DeHackEd patch, gameplay; otherwise what most of it is. A campaign's first map tells how its
 // maps are named.
-static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, dboolean *gzdoom,
-                   char *start)
+static int WadKind(const char *path, int *maps, dboolean *deh, dboolean *gzdoom, char *start)
 {
   typedef struct { int pos, size; char name[8]; } entry_t;
   FILE *file = fopen(path, "rb");
@@ -955,10 +953,10 @@ static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, db
   int counts[MOD_KINDS] = { 0 };
   int kind = MOD_OTHER, best = 0, i;
   dboolean in_sprites = false, in_flats = false, in_patches = false, campaign = false;
+  dboolean exmy = false, mapxx = false;
   entry_t *entries;
 
   *maps = MAPS_UNKNOWN;
-  *num_maps = 0;
   *deh = false;
   *gzdoom = false;
   memset(&header, 0, sizeof(header));
@@ -993,7 +991,10 @@ static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, db
 
     if (IsMapName(name))
     {
-      ++*num_maps;
+      if (name[0] == 'E')
+        exmy = true;
+      else
+        mapxx = true;
 
       if (*maps == MAPS_UNKNOWN)
       {
@@ -1059,6 +1060,11 @@ static int WadKind(const char *path, int *maps, int *num_maps, dboolean *deh, db
   if (*deh)
     *gzdoom = false;
 
+  // Maps of both namings (E1M8 and MAP07): for every game (Doom 4 Vanilla
+  // fixes the boss maps of each).
+  if (exmy && mapxx)
+    *maps = MAPS_UNKNOWN;
+
   if (campaign)
     return MOD_CAMPAIGN;
   if (*deh)
@@ -1083,8 +1089,7 @@ static dboolean IsPatchFile(const char *name)
   return dot != NULL && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"));
 }
 
-static int ModKind(const char *name, int *maps, int *num_maps, dboolean *deh, dboolean *gzdoom,
-                   char *start)
+static int ModKind(const char *name, int *maps, dboolean *deh, dboolean *gzdoom, char *start)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
@@ -1100,7 +1105,7 @@ static int ModKind(const char *name, int *maps, int *num_maps, dboolean *deh, db
     return MOD_CAMPAIGN;
 
   snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
-  return WadKind(path, maps, num_maps, deh, gzdoom, start);
+  return WadKind(path, maps, deh, gzdoom, start);
 }
 
 static int CompareMods(const void *a, const void *b)
@@ -1125,19 +1130,19 @@ static int FindMods(mod_t *mods)
   qsort(mods, count, sizeof(*mods), CompareMods);
 
   for (i = 0; i < count; ++i)
-    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].num_maps, &mods[i].deh,
-                           &mods[i].gzdoom, mods[i].start);
+    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh, &mods[i].gzdoom,
+                           mods[i].start);
 
   // A WAD with a patch file of its name (D4V.wad and D4V.deh) is the
   // graphics of a gameplay mod: it loads with gameplay, after the campaign.
-  // A map or two in it are no campaign (D4V.wad has one).
+  // Maps in it are fixes of the game's own (D4V.wad's boss maps), no
+  // campaign.
   for (i = 0; i < count; ++i)
   {
     const size_t length = strrchr(mods[i].file, '.') - mods[i].file;
     int j;
 
-    if ((mods[i].kind == MOD_CAMPAIGN && mods[i].num_maps > 2) || mods[i].kind == MOD_BROKEN
-        || IsPatchFile(mods[i].file))
+    if (mods[i].kind == MOD_BROKEN || IsPatchFile(mods[i].file))
       continue;
 
     for (j = 0; j < count; ++j)
