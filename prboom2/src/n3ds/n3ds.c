@@ -65,11 +65,13 @@ static void RestoreBottomBacklight(void);
 // The memory, split between the heap (the game's own) and the linear heap
 // (the GPU's: textures, vertices) before main. libctru gives the linear
 // heap at most 32 MB; with the New 3DS's 178 MB mode (the .cia) there is
-// room for more, and big maps' textures need it. Otherwise as libctru.
+// room for more, and big maps' textures need it: the heap takes what its
+// addresses allow (96 MB), the linear heap the rest. Otherwise as libctru.
 #define LINEAR_DEFAULT (32 << 20)
 #define LINEAR_BIG (64 << 20)
 #define HEAP_SPLIT (24 << 20)
 #define BIG_MEMORY (150 << 20)
+#define HEAP_MAX (OS_HEAP_AREA_END - OS_HEAP_AREA_BEGIN)
 
 extern char *fake_heap_start, *fake_heap_end;
 extern u32 __ctru_heap, __ctru_heap_size, __ctru_linear_heap, __ctru_linear_heap_size;
@@ -99,6 +101,14 @@ void __system_allocateHeaps(void)
     __ctru_linear_heap_size = (remaining / 2) & ~0xFFF;
 
   __ctru_heap_size = remaining - __ctru_linear_heap_size;
+
+  // The heap's addresses end at 96 MB (OS_HEAP_AREA_END): the rest goes to
+  // the linear heap.
+  if (__ctru_heap_size > HEAP_MAX)
+  {
+    __ctru_heap_size = HEAP_MAX;
+    __ctru_linear_heap_size = remaining - HEAP_MAX;
+  }
 
   if (R_FAILED(svcControlMemory(&__ctru_heap, OS_HEAP_AREA_BEGIN, 0x0, __ctru_heap_size,
                                 MEMOP_ALLOC, MEMPERM_READ | MEMPERM_WRITE)))
