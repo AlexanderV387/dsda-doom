@@ -1388,8 +1388,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   printf("\n");
 
   // The program's name, the game, its expansion, the campaign and the
-  // add-ons (the campaign first: the add-ons go over it). DeHackEd
-  // patches go apart, after -deh.
+  // add-ons. DeHackEd patches go apart, after -deh.
   {
     const int entry = game_index[game];
 
@@ -1403,20 +1402,29 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     if (iwad_names[entry].extra != NULL)
       args[i++] = (char *) iwad_names[entry].extra;
 
-    if (campaign > 0)
-      AddArgFile(args, &i, campaigns[campaign]->file);
-
-    for (int k = 0; k < num_addons; ++k)
+    // Fixes and looks (sprites, textures, sounds, the interface) before the
+    // campaign: what it brings of its own wins, as their authors ask. What
+    // is meant to replace (gameplay, music, the rest) after it.
+    for (int pass = 0; pass < 2; ++pass)
     {
-      const char *dot = strrchr(addons[k]->file, '.');
+      if (pass == 1 && campaign > 0)
+        AddArgFile(args, &i, campaigns[campaign]->file);
 
-      if (!checked[k])
-        continue;
+      for (int k = 0; k < num_addons; ++k)
+      {
+        const char *dot = strrchr(addons[k]->file, '.');
+        const int kind = addons[k]->kind;
+        const dboolean first = kind == MOD_SPRITES || kind == MOD_TEXTURES
+                            || kind == MOD_SOUNDS || kind == MOD_INTERFACE;
 
-      if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
-        any_deh = true;
-      else
-        AddArgFile(args, &i, addons[k]->file);
+        if (!checked[k] || first != (pass == 0))
+          continue;
+
+        if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
+          any_deh = true;
+        else
+          AddArgFile(args, &i, addons[k]->file);
+      }
     }
 
     // Nothing after -file: it goes.
