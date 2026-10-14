@@ -1686,6 +1686,9 @@ void ProcessDehFile(const char *filename, const char *outfilename, int lumpnum)
   DEHFILE infile, *filein = &infile;    // killough 10/98
   char inbuffer[DEH_BUFFERMAX];  // Place to put the primary infostring
   const char *file_or_lump;
+#ifdef __3DS__
+  char *text = NULL;
+#endif
   static unsigned last_block;
   static long filepos;
 
@@ -1709,12 +1712,26 @@ void ProcessDehFile(const char *filename, const char *outfilename, int lumpnum)
 
   if (filename)
   {
+#ifdef __3DS__
+    // From memory, as a lump: on the SD card every line's tell and seek
+    // throws the file's buffer away and reads it again (seconds).
+    const int length = M_ReadFileToString(filename, &text);
+
+    if (length < 0)
+    {
+      lprintf(LO_WARN, "-deh file %s not found\n", filename);
+      return;
+    }
+    infile.inp = infile.lump = (const byte *) text;
+    infile.size = length;
+#else
     if (!(infile.f = M_OpenFile(filename, "rt")))
     {
       lprintf(LO_WARN, "-deh file %s not found\n", filename);
       return;  // should be checked up front anyway
     }
     infile.lump = NULL;
+#endif
     file_or_lump = "file";
   }
   else  // DEH file comes from lump indicated by third argument
@@ -1810,8 +1827,12 @@ void ProcessDehFile(const char *filename, const char *outfilename, int lumpnum)
     filepos = dehftell(filein);
   }
 
+#ifdef __3DS__
+  Z_Free(text);
+#else
   if (!infile.lump)
     fclose(infile.f);                         // Close real file
+#endif
 
   if (outfilename)   // killough 10/98: only at top recursion level
   {
