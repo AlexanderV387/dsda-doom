@@ -913,6 +913,7 @@ typedef struct
   char *file;
   int kind;
   int maps; // a campaign's: MAPS_*
+  dboolean deh; // a DeHackEd patch, or one in it: changes the game itself
 } mod_t;
 
 static dboolean IsMapName(const char *name)
@@ -932,15 +933,18 @@ static dboolean StartsWith(const char *name, const char *prefix)
 // map information make a campaign; otherwise what most of it is, a
 // DeHackEd patch making it gameplay. A campaign's first map tells how its
 // maps are named.
-static int WadKind(const char *path, int *maps)
+static int WadKind(const char *path, int *maps, dboolean *deh)
 {
+  typedef struct { int pos, size; char name[8]; } entry_t;
   FILE *file = fopen(path, "rb");
   struct { char id[4]; int count, offset; } header;
   int counts[MOD_KINDS] = { 0 };
   int kind = MOD_OTHER, best = 0, i;
-  dboolean in_sprites = false, in_flats = false, in_patches = false, map_info = false;
+  dboolean in_sprites = false, in_flats = false, in_patches = false, campaign = false;
+  entry_t *entries;
 
   *maps = MAPS_UNKNOWN;
+  *deh = false;
 
   if (file == NULL)
     return MOD_OTHER;
@@ -948,49 +952,51 @@ static int WadKind(const char *path, int *maps)
   if (fread(&header, sizeof(header), 1, file) != 1
       || (memcmp(header.id, "PWAD", 4) && memcmp(header.id, "IWAD", 4))
       || header.count <= 0 || header.count > 65536
-      || fseek(file, header.offset, SEEK_SET) != 0)
+      || fseek(file, header.offset, SEEK_SET) != 0
+      || (entries = malloc(header.count * sizeof(*entries))) == NULL)
   {
     fclose(file);
     return MOD_OTHER;
   }
 
+  // The directory in one read: an entry at a time is slow on the SD card.
+  header.count = fread(entries, sizeof(*entries), header.count, file);
+  fclose(file);
+
   for (i = 0; i < header.count; ++i)
   {
-    struct { int pos, size; char name[8]; } entry;
     char name[9];
 
-    if (fread(&entry, sizeof(entry), 1, file) != 1)
-      break;
-
-    memcpy(name, entry.name, 8);
+    memcpy(name, entries[i].name, 8);
     name[8] = '\0';
 
     if (IsMapName(name))
     {
-      int j;
-
-      *maps = name[0] == 'E' ? MAPS_EXMY : MAPS_MAPXX;
-
-      // A map's lumps follow its marker: scripts make it Hexen's, a text
-      // map (UDMF) could be any game's.
-      for (j = 0; j < 12 && fread(&entry, sizeof(entry), 1, file) == 1; ++j)
+      if (*maps == MAPS_UNKNOWN)
       {
-        if (!strncmp(entry.name, "BEHAVIOR", 8))
-          *maps = MAPS_HEXEN;
-        else if (!strncmp(entry.name, "TEXTMAP", 8))
-          *maps = MAPS_UNKNOWN;
-        else
-          continue;
-        break;
+        int j;
+
+        *maps = name[0] == 'E' ? MAPS_EXMY : MAPS_MAPXX;
+
+        // A map's lumps follow its marker: scripts make it Hexen's, a
+        // text map (UDMF) could be any game's.
+        for (j = i + 1; j < header.count && j <= i + 12; ++j)
+        {
+          if (!strncmp(entries[j].name, "BEHAVIOR", 8))
+            *maps = MAPS_HEXEN;
+          else if (!strncmp(entries[j].name, "TEXTMAP", 8))
+            *maps = MAPS_UNKNOWN;
+          else
+            continue;
+          break;
+        }
       }
 
-      fclose(file);
-      return MOD_CAMPAIGN;
+      campaign = true;
     }
-
-    if (!strcmp(name, "TEXTMAP") || !strcmp(name, "UMAPINFO")
-        || !strcmp(name, "MAPINFO") || !strcmp(name, "ZMAPINFO"))
-      map_info = true;
+    else if (!strcmp(name, "TEXTMAP") || !strcmp(name, "UMAPINFO")
+             || !strcmp(name, "MAPINFO") || !strcmp(name, "ZMAPINFO"))
+      campaign = true;
     else if (!strcmp(name, "S_START") || !strcmp(name, "SS_START"))
       in_sprites = true;
     else if (!strcmp(name, "S_END") || !strcmp(name, "SS_END"))
@@ -1004,7 +1010,10 @@ static int WadKind(const char *path, int *maps)
     else if (!strcmp(name, "P_END") || !strcmp(name, "PP_END"))
       in_patches = false;
     else if (!strcmp(name, "DEHACKED"))
+    {
+      *deh = true;
       counts[MOD_GAMEPLAY] += 1000;
+    }
     else if (in_sprites)
       ++counts[MOD_SPRITES];
     else if (in_flats || in_patches || !strcmp(name, "TEXTURE1")
@@ -1021,9 +1030,9 @@ static int WadKind(const char *path, int *maps)
       ++counts[MOD_INTERFACE];
   }
 
-  fclose(file);
+  free(entries);
 
-  if (map_info)
+  if (campaign)
     return MOD_CAMPAIGN;
 
   for (i = MOD_GAMEPLAY; i < MOD_OTHER; ++i)
@@ -1038,14 +1047,22 @@ static int WadKind(const char *path, int *maps)
   return kind;
 }
 
-static int ModKind(const char *name, int *maps)
+static dboolean IsPatchFile(const char *name)
+{
+  const char *dot = strrchr(name, '.');
+
+  return dot != NULL && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"));
+}
+
+static int ModKind(const char *name, int *maps, dboolean *deh)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
 
   *maps = MAPS_UNKNOWN;
+  *deh = IsPatchFile(name);
 
-  if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
+  if (*deh)
     return MOD_GAMEPLAY;
 
   // A zip is not looked into: a campaign, the safest.
@@ -1053,7 +1070,7 @@ static int ModKind(const char *name, int *maps)
     return MOD_CAMPAIGN;
 
   snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
-  return WadKind(path, maps);
+  return WadKind(path, maps, deh);
 }
 
 static int CompareMods(const void *a, const void *b)
@@ -1078,7 +1095,7 @@ static int FindMods(mod_t *mods)
   qsort(mods, count, sizeof(*mods), CompareMods);
 
   for (i = 0; i < count; ++i)
-    mods[i].kind = ModKind(mods[i].file, &mods[i].maps);
+    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh);
 
   return count;
 }
@@ -1196,6 +1213,82 @@ static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *check
   return -2;
 }
 
+// The order the game loads the chosen mods in. Fixes and looks (sprites,
+// textures, sounds, the interface) before the campaign: what it brings of
+// its own wins, as their authors ask. What is meant to replace (gameplay,
+// music, the rest) after it. DeHackEd patch files last: the game reads
+// them after the patches in WADs.
+static int LoadOrder(mod_t *campaign, mod_t *const *addons, const dboolean *checked,
+                     int count, mod_t **order)
+{
+  int num = 0, pass, i;
+
+  for (pass = 0; pass < 3; ++pass)
+  {
+    if (pass == 1 && campaign != NULL)
+      order[num++] = campaign;
+
+    for (i = 0; i < count; ++i)
+    {
+      const int kind = addons[i]->kind;
+      const dboolean first = kind == MOD_SPRITES || kind == MOD_TEXTURES
+                          || kind == MOD_SOUNDS || kind == MOD_INTERFACE;
+      const int wanted = IsPatchFile(addons[i]->file) ? 2 : first ? 0 : 1;
+
+      if (checked[i] && wanted == pass)
+        order[num++] = addons[i];
+    }
+  }
+
+  return num;
+}
+
+// Two mods changing the game itself (DeHackEd: weapons, monsters, things)
+// step on each other: where both change the same, the last one loaded
+// wins, and together they may not work. A warning, not a block: some go
+// well together (a fix with a campaign, or patches made for each other).
+// 1 to play anyway, -1 to go back, -2 when closed.
+static int WarnPatches(mod_t *const *order, int count)
+{
+  dboolean released = false;
+  int patches = 0, i;
+
+  for (i = 0; i < count; ++i)
+    patches += order[i]->deh;
+
+  if (patches < 2)
+    return 1;
+
+  ConsoleClear();
+  ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n"
+                "  \x1b[33mWarning:\x1b[0m these mods all change the game\n"
+                "  itself (DeHackEd: weapons, monsters...):\n\n");
+
+  for (i = 0; i < count; ++i)
+    if (order[i]->deh)
+      ConsolePrintf("    %-10s %.30s\n", mod_kind_names[order[i]->kind], order[i]->file);
+
+  ConsolePrintf("\n  Where they change the same things, the last\n"
+                "  one wins (the order above), and together\n"
+                "  they may not work. Better one at a time,\n"
+                "  unless they are made to go together.\n\n"
+                "  A: play anyway  B: back\n");
+
+  while (aptMainLoop())
+  {
+    const u32 down = KeysDown(&released);
+
+    if (down & KEY_A)
+      return 1;
+    if (down & KEY_B)
+      return -1;
+
+    gspWaitForVBlank();
+  }
+
+  return -2;
+}
+
 static void ShowNoGame(void)
 {
   dboolean released = false;
@@ -1262,6 +1355,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
   static char *args[16 + MAX_MODS];
   static mod_t mods[MAX_MODS];
+  mod_t *order[MAX_MODS + 1];
   const char *games[num_iwads];
   int game_index[num_iwads];
   const char *campaign_names[MAX_MODS + 1];
@@ -1270,8 +1364,8 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   dboolean checked[MAX_MODS];
   char last_game[96] = "", last_campaign[256] = "", line[256];
   int num_games = 0, num_mods, num_all_campaigns = 0, num_campaigns = 1, num_addons = 0;
-  int game = 0, campaign = 0, step = 0, i;
-  dboolean shown = false, any_deh = false;
+  int game = 0, campaign = 0, step = 0, num_order, i;
+  dboolean shown = false;
   FILE *file;
 
   for (i = 0; i < num_iwads; ++i)
@@ -1412,6 +1506,15 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
                  campaign > 0 ? campaigns[campaign]->file : "");
         choice = ChooseAddons(title, addons, checked, num_addons);
 
+        if (choice == 1)
+        {
+          choice = WarnPatches(order, LoadOrder(campaigns[campaign], addons, checked,
+                                                num_addons, order));
+
+          if (choice == -1)
+            continue; // back to the add-ons
+        }
+
         if (choice == -2)
         {
           gfxExit();
@@ -1444,17 +1547,17 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     N3DS_CloseRewrite(file);
   }
 
+  // What is played, in the order it loads.
+  num_order = LoadOrder(campaigns[campaign], addons, checked, num_addons, order);
+
   StartLog();
   printf("N3DS_PickGame: %s", games[game]);
-  if (campaign > 0)
-    printf(" + %s", campaigns[campaign]->file);
-  for (i = 0; i < num_addons; ++i)
-    if (checked[i])
-      printf(" + %s (%s)", addons[i]->file, mod_kind_names[addons[i]->kind]);
+  for (i = 0; i < num_order; ++i)
+    printf(" + %s (%s)", order[i]->file, mod_kind_names[order[i]->kind]);
   printf("\n");
 
-  // The program's name, the game, its expansion, the campaign and the
-  // add-ons. DeHackEd patches go apart, after -deh.
+  // The program's name, the game, its expansion and the mods in their
+  // order.
   {
     const int entry = game_index[game];
 
@@ -1468,47 +1571,21 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     if (iwad_names[entry].extra != NULL)
       args[i++] = (char *) iwad_names[entry].extra;
 
-    // Fixes and looks (sprites, textures, sounds, the interface) before the
-    // campaign: what it brings of its own wins, as their authors ask. What
-    // is meant to replace (gameplay, music, the rest) after it.
-    for (int pass = 0; pass < 2; ++pass)
+    for (int k = 0; k < num_order; ++k)
     {
-      if (pass == 1 && campaign > 0)
-        AddArgFile(args, &i, campaigns[campaign]->file);
-
-      for (int k = 0; k < num_addons; ++k)
+      // The patch files are last, after -deh. Nothing after -file: it goes.
+      if (IsPatchFile(order[k]->file) && !IsPatchFile(args[i - 1]))
       {
-        const char *dot = strrchr(addons[k]->file, '.');
-        const int kind = addons[k]->kind;
-        const dboolean first = kind == MOD_SPRITES || kind == MOD_TEXTURES
-                            || kind == MOD_SOUNDS || kind == MOD_INTERFACE;
-
-        if (!checked[k] || first != (pass == 0))
-          continue;
-
-        if (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"))
-          any_deh = true;
-        else
-          AddArgFile(args, &i, addons[k]->file);
+        if (!strcmp(args[i - 1], "-file"))
+          --i;
+        args[i++] = "-deh";
       }
+
+      AddArgFile(args, &i, order[k]->file);
     }
 
-    // Nothing after -file: it goes.
     if (!strcmp(args[i - 1], "-file"))
       --i;
-
-    if (any_deh)
-    {
-      args[i++] = "-deh";
-
-      for (int k = 0; k < num_addons; ++k)
-      {
-        const char *dot = strrchr(addons[k]->file, '.');
-
-        if (checked[k] && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex")))
-          AddArgFile(args, &i, addons[k]->file);
-      }
-    }
   }
 
   args[i] = NULL;
