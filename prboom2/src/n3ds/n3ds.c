@@ -34,6 +34,9 @@ static u64 log_start;
 // there (fatal errors).
 static FILE *console;
 
+// On the text screens: this title's name.
+static const char *picker_title = "DSDA-DOOM 3DS";
+
 static int LogWrite(void *cookie, const char *buffer, _READ_WRITE_BUFSIZE_TYPE size)
 {
   static dboolean at_line_start = true;
@@ -188,13 +191,13 @@ static void __attribute__((target("arm"), noreturn)) CrashHandler(ERRF_Exception
     gfxInitDefault();
   consoleInit(GFX_TOP, NULL);
 
-  fprintf(console, "\x1b[2J\n DSDA-DOOM 3DS: the game crashed\n\n"
+  fprintf(console, "\x1b[2J\n %s: the game crashed\n\n"
                    " Most likely, mods that do not go\n"
                    " together: the warning before playing\n"
                    " lists the ones that may not.\n\n"
                    " (%s at %08lX)\n\n"
                    " START: back to the picker\n",
-          kind, (unsigned long) regs->pc);
+          picker_title, kind, (unsigned long) regs->pc);
   fflush(console);
 
   while (!aptShouldClose())
@@ -904,7 +907,7 @@ void N3DS_ShowError(const char *message)
     gfxInitDefault();
   consoleInit(GFX_TOP, NULL);
 
-  fprintf(console, "\x1b[2J\n DSDA-DOOM 3DS: error\n\n%s\n\n START: exit\n",
+  fprintf(console, "\x1b[2J\n %s: error\n\n%s\n\n START: exit\n", picker_title,
           message != NULL ? message : "");
   fflush(console);
 
@@ -959,11 +962,20 @@ static const struct { const char *file, *name; int maps; const char *extra; } iw
   { "hexen.wad",     "Hexen: Deathkings of the Dark Citadel", MAPS_HEXEN, "hexdd.wad" },
 };
 
+// The mods of each game in a folder of their own: Doom's in "mods",
+// Heretic's in "mods/heretic", Hexen's in "mods/hexen".
 #define MODS_FOLDER "mods"
 #define MAX_MODS 128
 #define LAST_GAME_FILE N3DS_DATA_DIR "/last-game.txt"
 #define VISIBLE_ITEMS 9
-#define TITLE "DSDA-DOOM 3DS"
+#define HERETIC_LAST_GAME_FILE N3DS_DATA_DIR "/last-heretic.txt"
+
+// The Heretic title, its own .cia (the same program): only Heretic, with
+// its own name, mods and last choice. Known by its unique ID.
+#define HERETIC_UNIQUE_ID 0xF3D59
+
+static dboolean heretic_title;
+static const char *last_game_file = LAST_GAME_FILE;
 
 #define ConsolePrintf(...) (fprintf(console, __VA_ARGS__), fflush(console))
 #define ConsoleClear() ConsolePrintf("\x1b[2J")
@@ -998,6 +1010,13 @@ enum
   MOD_BROKEN, // not a WAD (only named like one): it cannot load
   MOD_KINDS
 };
+
+static const char *ModsFolder(const char *iwad)
+{
+  return !strncasecmp(iwad, "heretic", 7) ? MODS_FOLDER "/heretic"
+       : !strncasecmp(iwad, "hexen", 5) ? MODS_FOLDER "/hexen"
+       : MODS_FOLDER;
+}
 
 static const char *const mod_kind_names[MOD_KINDS] =
 {
@@ -1174,7 +1193,8 @@ static dboolean IsPatchFile(const char *name)
   return dot != NULL && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"));
 }
 
-static int ModKind(const char *name, int *maps, dboolean *deh, dboolean *gzdoom, char *start)
+static int ModKind(const char *folder, const char *name, int *maps, dboolean *deh,
+                   dboolean *gzdoom, char *start)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
@@ -1189,7 +1209,7 @@ static int ModKind(const char *name, int *maps, dboolean *deh, dboolean *gzdoom,
   if (!strcasecmp(dot, ".zip"))
     return MOD_CAMPAIGN;
 
-  snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
+  snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, folder, name);
   return WadKind(path, maps, deh, gzdoom, start);
 }
 
@@ -1198,24 +1218,31 @@ static int CompareMods(const void *a, const void *b)
   return strcasecmp(((const mod_t *) a)->file, ((const mod_t *) b)->file);
 }
 
-static int FindMods(mod_t *mods)
+static int FindMods(mod_t *mods, const char *folder)
 {
-  DIR *dir = opendir(N3DS_DATA_DIR "/" MODS_FOLDER);
+  char path[128];
+  DIR *dir;
   struct dirent *entry;
   int count = 0, i;
+
+  snprintf(path, sizeof(path), "%s/%s", N3DS_DATA_DIR, folder);
+  dir = opendir(path);
 
   if (dir == NULL)
     return 0;
 
   while (count < MAX_MODS && (entry = readdir(dir)) != NULL)
     if (entry->d_name[0] != '.' && IsModFile(entry->d_name))
+    {
+      memset(&mods[count], 0, sizeof(mods[count]));
       mods[count++].file = strdup(entry->d_name);
+    }
 
   closedir(dir);
   qsort(mods, count, sizeof(*mods), CompareMods);
 
   for (i = 0; i < count; ++i)
-    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh, &mods[i].gzdoom,
+    mods[i].kind = ModKind(folder, mods[i].file, &mods[i].maps, &mods[i].deh, &mods[i].gzdoom,
                            mods[i].start);
 
   // A WAD with a patch file of its name (D4V.wad and D4V.deh) is the
@@ -1285,7 +1312,7 @@ static int ChooseItem(const char *title, const char *const *items, int count,
         first = selected - VISIBLE_ITEMS + 1;
 
       ConsoleClear();
-      ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n  %s\n\n", title);
+      ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n  %s\n\n", picker_title, title);
       ConsolePrintf("  %s\n", first > 0 ? "  ..." : "");
 
       for (i = first; i < count && i < first + VISIBLE_ITEMS; ++i)
@@ -1333,7 +1360,8 @@ static int ChooseAddons(const char *title, mod_t *const *addons, dboolean *check
         first = selected - VISIBLE_ITEMS + 1;
 
       ConsoleClear();
-      ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n  %.44s\n  Add-ons (any number):\n", title);
+      ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n  %.44s\n  Add-ons (any number):\n",
+                    picker_title, title);
       ConsolePrintf("  %s\n", first > 0 ? "  ..." : "");
 
       for (i = first; i < count && i < first + VISIBLE_ITEMS; ++i)
@@ -1497,7 +1525,8 @@ static int WarnChoice(mod_t *const *order, int count, mod_t *const *all, int num
     return 1;
 
   ConsoleClear();
-  ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n  \x1b[33mWarning:\x1b[0m these mods may not work.\n");
+  ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n  \x1b[33mWarning:\x1b[0m these mods may not work.\n",
+                picker_title);
 
   if (missing > 0)
   {
@@ -1572,7 +1601,25 @@ static void ShowNoGame(void)
   dboolean released = false;
 
   ConsoleClear();
-  ConsolePrintf("\n  \x1b[31m" TITLE "\x1b[0m\n\n"
+
+  if (heretic_title)
+  {
+    ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
+                  "  No game data found. Copy Heretic to\n"
+                  "  " N3DS_DATA_DIR "/\n\n"
+                  "  heretic.wad (or heretic1.wad, the\n"
+                  "  shareware), and dsda-doom.wad (it comes\n"
+                  "  with the game).\n\n"
+                  "  Mods (.wad, .zip) go in\n"
+                  "  " N3DS_DATA_DIR "/" MODS_FOLDER "/heretic/\n\n"
+                  "  START: exit\n", picker_title);
+
+    while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
+      gspWaitForVBlank();
+    return;
+  }
+
+  ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
                 "  No game data found. Copy an IWAD to\n"
                 "  " N3DS_DATA_DIR "/\n\n"
                 "  doom.wad, doom1.wad (shareware), doom2.wad,\n"
@@ -1580,8 +1627,9 @@ static void ShowNoGame(void)
                 "  heretic.wad, hexen.wad...\n\n"
                 "  Also dsda-doom.wad (it comes with the game).\n\n"
                 "  Mods (.wad, .deh, .zip) go in\n"
-                "  " N3DS_DATA_DIR "/" MODS_FOLDER "/\n\n"
-                "  START: exit\n");
+                "  " N3DS_DATA_DIR "/" MODS_FOLDER "/ (Heretic's\n"
+                "  in heretic/ there, Hexen's in hexen/)\n\n"
+                "  START: exit\n", picker_title);
 
   while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
     gspWaitForVBlank();
@@ -1595,11 +1643,11 @@ static void BackToPicker(void)
     aptSetChainloaderToSelf();
 }
 
-static void AddArgFile(char **args, int *count, const char *file)
+static void AddArgFile(char **args, int *count, const char *folder, const char *file)
 {
   char path[300];
 
-  snprintf(path, sizeof(path), "%s/%s", MODS_FOLDER, file);
+  snprintf(path, sizeof(path), "%s/%s", folder, file);
   args[(*count)++] = strdup(path);
 }
 
@@ -1626,7 +1674,7 @@ dboolean N3DS_SkipDehLump(const char *wad_path)
 
 // The campaigns for a game (the first item is none), the chosen one
 // selected when it is there.
-static void ListCampaigns(int maps, mod_t *const *all, int count, const mod_t *chosen,
+static void ListCampaigns(int maps, mod_t *const *all, int count, const char *chosen,
                           mod_t **campaigns, const char **names, int *num, int *selected)
 {
   int i;
@@ -1641,7 +1689,7 @@ static void ListCampaigns(int maps, mod_t *const *all, int count, const mod_t *c
     if (all[i]->maps != MAPS_UNKNOWN && all[i]->maps != maps)
       continue;
 
-    if (all[i] == chosen)
+    if (!strcasecmp(all[i]->file, chosen))
       *selected = *num;
 
     names[*num] = all[i]->file;
@@ -1649,23 +1697,73 @@ static void ListCampaigns(int maps, mod_t *const *all, int count, const mod_t *c
   }
 }
 
+// The picker's mods: those of the chosen game's folder, loaded again when
+// the game changes to one with another folder. The add-ons marked last
+// time stay marked.
+static mod_t mods[MAX_MODS];
+static mod_t *all_mods[MAX_MODS], *all_campaigns[MAX_MODS], *addons[MAX_MODS];
+static dboolean checked[MAX_MODS];
+static int num_mods, num_all_campaigns, num_addons;
+static const char *mods_folder;
+static char last_addons[MAX_MODS][256];
+static int num_last_addons;
+
+static void LoadMods(const char *folder)
+{
+  int i, k;
+
+  if (mods_folder != NULL && !strcmp(mods_folder, folder))
+    return;
+
+  for (i = 0; i < num_mods; ++i)
+    free(mods[i].file);
+
+  mods_folder = folder;
+  num_mods = FindMods(mods, folder);
+  num_all_campaigns = num_addons = 0;
+
+  for (i = 0; i < num_mods; ++i)
+  {
+    all_mods[i] = &mods[i];
+
+    if (mods[i].kind == MOD_CAMPAIGN)
+      all_campaigns[num_all_campaigns++] = &mods[i];
+    else
+    {
+      checked[num_addons] = false;
+
+      for (k = 0; k < num_last_addons; ++k)
+        if (!strcasecmp(mods[i].file, last_addons[k]) && mods[i].kind != MOD_BROKEN)
+          checked[num_addons] = true;
+
+      addons[num_addons++] = &mods[i];
+    }
+  }
+}
+
 dboolean N3DS_PickGame(int *argc, char ***argv)
 {
   enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
   static char *args[16 + MAX_MODS];
-  static mod_t mods[MAX_MODS];
-  mod_t *order[MAX_MODS + 1], *all_mods[MAX_MODS];
+  mod_t *order[MAX_MODS + 1];
   const char *games[num_iwads];
   int game_index[num_iwads];
   const char *campaign_names[MAX_MODS + 1];
-  mod_t *all_campaigns[MAX_MODS], *campaigns[MAX_MODS + 1], *addons[MAX_MODS];
-  const mod_t *chosen = NULL;
-  dboolean checked[MAX_MODS];
-  char last_game[96] = "", last_campaign[256] = "", line[256];
-  int num_games = 0, num_mods, num_all_campaigns = 0, num_campaigns = 1, num_addons = 0;
+  mod_t *campaigns[MAX_MODS + 1];
+  char last_game[96] = "", chosen[256] = "", line[256];
+  int num_games = 0, num_campaigns = 1;
   int game = 0, campaign = 0, step = 0, num_order, i;
   dboolean shown = false;
+  u64 program_id = 0;
   FILE *file;
+
+  if (R_SUCCEEDED(APT_GetProgramID(&program_id))
+      && ((program_id >> 8) & 0xFFFFF) == HERETIC_UNIQUE_ID)
+  {
+    heretic_title = true;
+    picker_title = "HERETIC 3DS";
+    last_game_file = HERETIC_LAST_GAME_FILE;
+  }
 
   for (i = 0; i < num_iwads; ++i)
   {
@@ -1673,6 +1771,9 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
     snprintf(path, sizeof(path), "%s/%s", N3DS_DATA_DIR,
              iwad_names[i].extra != NULL ? iwad_names[i].extra : iwad_names[i].file);
+
+    if (heretic_title && strncasecmp(iwad_names[i].file, "heretic", 7))
+      continue;
 
     if (FileExists(path)
         && (iwad_names[i].extra == NULL
@@ -1683,40 +1784,20 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     }
   }
 
-  // The mods: campaigns and add-ons.
-  num_mods = FindMods(mods);
-
-  for (i = 0; i < num_mods; ++i)
-    all_mods[i] = &mods[i];
-
-  for (i = 0; i < num_mods; ++i)
-  {
-    if (mods[i].kind == MOD_CAMPAIGN)
-      all_campaigns[num_all_campaigns++] = &mods[i];
-    else
-    {
-      checked[num_addons] = false;
-      addons[num_addons++] = &mods[i];
-    }
-  }
-
   // The last choice comes first: the game, the campaign, the add-ons.
-  file = fopen(LAST_GAME_FILE, "r");
+  file = fopen(last_game_file, "r");
 
   if (file != NULL)
   {
     if (fgets(last_game, sizeof(last_game), file) != NULL)
       last_game[strcspn(last_game, "\r\n")] = '\0';
-    if (fgets(last_campaign, sizeof(last_campaign), file) != NULL)
-      last_campaign[strcspn(last_campaign, "\r\n")] = '\0';
+    if (fgets(chosen, sizeof(chosen), file) != NULL)
+      chosen[strcspn(chosen, "\r\n")] = '\0';
 
-    while (fgets(line, sizeof(line), file) != NULL)
+    while (num_last_addons < MAX_MODS && fgets(line, sizeof(line), file) != NULL)
     {
       line[strcspn(line, "\r\n")] = '\0';
-
-      for (i = 0; i < num_addons; ++i)
-        if (!strcasecmp(addons[i]->file, line) && addons[i]->kind != MOD_BROKEN)
-          checked[i] = true;
+      snprintf(last_addons[num_last_addons++], sizeof(last_addons[0]), "%s", line);
     }
 
     fclose(file);
@@ -1725,9 +1806,9 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   for (i = 0; i < num_games; ++i)
     if (!strcmp(games[i], last_game))
       game = i;
-  for (i = 0; i < num_all_campaigns; ++i)
-    if (!strcasecmp(all_campaigns[i]->file, last_campaign))
-      chosen = all_campaigns[i];
+
+  // The mods of that game: campaigns and add-ons.
+  LoadMods(ModsFolder(num_games > 0 ? iwad_names[game_index[game]].file : ""));
 
   ListCampaigns(iwad_names[game_index[game]].maps, all_campaigns, num_all_campaigns,
                 chosen, campaigns, campaign_names, &num_campaigns, &campaign);
@@ -1761,6 +1842,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
             return false;
           }
 
+          LoadMods(ModsFolder(iwad_names[game_index[game]].file));
           ListCampaigns(iwad_names[game_index[game]].maps, all_campaigns, num_all_campaigns,
                         chosen, campaigns, campaign_names, &num_campaigns, &campaign);
         }
@@ -1790,7 +1872,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
           }
 
           campaign = choice;
-          chosen = campaigns[campaign];
+          snprintf(chosen, sizeof(chosen), "%s", campaign > 0 ? campaigns[campaign]->file : "");
         }
 
         step = 2;
@@ -1837,7 +1919,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     gfxExit(); // SDL sets the screens up again
   }
 
-  file = N3DS_OpenRewrite(LAST_GAME_FILE);
+  file = N3DS_OpenRewrite(last_game_file);
 
   if (file != NULL)
   {
@@ -1905,7 +1987,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
         args[i++] = "-deh";
       }
 
-      AddArgFile(args, &i, order[k]->file);
+      AddArgFile(args, &i, mods_folder, order[k]->file);
     }
 
     if (!strcmp(args[i - 1], "-file"))
