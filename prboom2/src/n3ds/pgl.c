@@ -34,10 +34,11 @@
 #define TOP_WIDTH 400
 #define TOP_HEIGHT 240
 
-#define COMMAND_BUFFER_SIZE (1024 * 1024)
-// The vertex buffer: twice as big with a big linear heap (see
-// __system_allocateHeaps in n3ds.c): big maps need more than 2 MB.
-#define VERTEX_BUFFER_SIZE (__ctru_linear_heap_size >= (48 << 20) ? 4 * 1024 * 1024 : 2 * 1024 * 1024)
+#define COMMAND_BUFFER_SIZE (BIG_LINEAR ? 2 * 1024 * 1024 : 1024 * 1024)
+// The vertex buffer and the command list: twice as big with a bigger
+// linear heap (see __system_allocateHeaps in n3ds.c): big maps need more.
+#define BIG_LINEAR (__ctru_linear_heap_size >= (40 << 20))
+#define VERTEX_BUFFER_SIZE (BIG_LINEAR ? 4 * 1024 * 1024 : 2 * 1024 * 1024)
 extern u32 __ctru_linear_heap_size;
 #define MAX_TEXTURE_SIZE 1024
 #define MIN_TEXTURE_SIZE 8

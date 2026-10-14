@@ -64,12 +64,17 @@ static void RestoreBottomBacklight(void);
 
 // The memory, split between the heap (the game's own) and the linear heap
 // (the GPU's: textures, vertices) before main. libctru gives the linear
-// heap at most 32 MB; with the New 3DS's 178 MB mode (the .cia) there is
-// room for more, and big maps' textures need it: the heap takes what its
-// addresses allow (96 MB), the linear heap the rest. Otherwise as libctru.
+// heap at most 32 MB; here 40 MB once there are 100 MB (the .cia's 124 MB
+// mode on the New 3DS: the heap keeps about 78 MB, more than mods need
+// since the lumps are not all read at start). With more memory (the 178
+// MB mode, not asked for: the HOME Menu gets slow with it) the heap takes
+// what its addresses allow (96 MB), the linear heap the rest. With less,
+// as libctru.
 #define LINEAR_DEFAULT (32 << 20)
+#define LINEAR_MORE (40 << 20)
 #define LINEAR_BIG (64 << 20)
 #define HEAP_SPLIT (24 << 20)
+#define MORE_MEMORY (100 << 20)
 #define BIG_MEMORY (150 << 20)
 #define HEAP_MAX (OS_HEAP_AREA_END - OS_HEAP_AREA_BEGIN)
 
@@ -94,6 +99,8 @@ void __system_allocateHeaps(void)
 
   if (remaining >= BIG_MEMORY)
     __ctru_linear_heap_size = LINEAR_BIG;
+  else if (remaining >= MORE_MEMORY)
+    __ctru_linear_heap_size = LINEAR_MORE;
   else if (remaining / 2 > HEAP_SPLIT)
     __ctru_linear_heap_size = remaining - HEAP_SPLIT > LINEAR_DEFAULT
                             ? LINEAR_DEFAULT : (remaining - HEAP_SPLIT) & ~0xFFF;
