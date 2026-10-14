@@ -941,9 +941,8 @@ static dboolean StartsWith(const char *name, const char *prefix)
   return strncmp(name, prefix, strlen(prefix)) == 0;
 }
 
-// A WAD's kind from its lump names (only its directory is read): maps or
-// map information make a campaign; a DeHackEd patch, gameplay; otherwise
-// what most of it is. A campaign's first map tells how its
+// A WAD's kind from its lump names (only its directory is read): maps make
+// a campaign; a DeHackEd patch, gameplay; otherwise what most of it is. A campaign's first map tells how its
 // maps are named.
 static int WadKind(const char *path, int *maps, dboolean *deh, char *start)
 {
@@ -1011,8 +1010,9 @@ static int WadKind(const char *path, int *maps, dboolean *deh, char *start)
 
       campaign = true;
     }
-    else if (!strcmp(name, "TEXTMAP") || !strcmp(name, "UMAPINFO")
-             || !strcmp(name, "MAPINFO") || !strcmp(name, "ZMAPINFO"))
+    // Map information alone is no campaign: gameplay mods bring it for
+    // other ports (Doom 4 Vanilla), with no maps.
+    else if (!strcmp(name, "TEXTMAP"))
       campaign = true;
     else if (!strcmp(name, "S_START") || !strcmp(name, "SS_START"))
       in_sprites = true;
@@ -1643,6 +1643,12 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   for (i = 0; i < num_order; ++i)
     printf(" + %s (%s)", order[i]->file, mod_kind_names[order[i]->kind]);
   printf("\n");
+  if (num_mods > 0)
+  {
+    printf("N3DS_PickGame: mods found:");
+    for (i = 0; i < num_mods; ++i)
+      printf(" %s (%s)%s", mods[i].file, mod_kind_names[mods[i].kind], i + 1 < num_mods ? "," : "\n");
+  }
   for (i = 0; i < num_addons; ++i)
     if (addons[i]->kind == MOD_BROKEN)
       printf("N3DS_PickGame: %s is not a WAD: it starts with \"%s\", not \"PWAD\"\n",
