@@ -121,11 +121,33 @@ static void dsda_InitWadDataDir(void) {
 
   dsda_InitString(&str, dsda_base_data_dir);
 
+#ifdef __3DS__
+  // One folder for the PWADs together (doom2/eviternity+sd21), not one in
+  // the other: making a folder on the SD card takes seconds (8 each).
+  {
+    dboolean first_pwad = true;
+
+    for (i = 0; i < DATA_DIR_LIMIT; ++i)
+      if (dsda_data_dir_strings[i]) {
+        if (i == iwad_index) {
+          dsda_StringCatF(&str, "/%s", dsda_data_dir_strings[i]);
+          M_MakeDir(str.string, false);
+        }
+        else {
+          dsda_StringCatF(&str, "%s%s", first_pwad ? "/" : "+", dsda_data_dir_strings[i]);
+          first_pwad = false;
+        }
+      }
+
+    M_MakeDir(str.string, false);
+  }
+#else
   for (i = 0; i < DATA_DIR_LIMIT; ++i)
     if (dsda_data_dir_strings[i]) {
       dsda_StringCatF(&str, "/%s", dsda_data_dir_strings[i]);
       M_MakeDir(str.string, false);
     }
+#endif
 
   dsda_wad_data_dir = str.string;
 

@@ -915,6 +915,7 @@ typedef struct
   int kind;
   int maps; // a campaign's: MAPS_*
   dboolean deh; // a DeHackEd patch, or one in it: changes the game itself
+  char start[5]; // what a file that is not a WAD starts with, for the log
 } mod_t;
 
 static dboolean IsMapName(const char *name)
@@ -934,7 +935,7 @@ static dboolean StartsWith(const char *name, const char *prefix)
 // map information make a campaign; a DeHackEd patch, gameplay; otherwise
 // what most of it is. A campaign's first map tells how its
 // maps are named.
-static int WadKind(const char *path, int *maps, dboolean *deh)
+static int WadKind(const char *path, int *maps, dboolean *deh, char *start)
 {
   typedef struct { int pos, size; char name[8]; } entry_t;
   FILE *file = fopen(path, "rb");
@@ -946,6 +947,7 @@ static int WadKind(const char *path, int *maps, dboolean *deh)
 
   *maps = MAPS_UNKNOWN;
   *deh = false;
+  memset(&header, 0, sizeof(header));
 
   if (file == NULL)
     return MOD_BROKEN;
@@ -956,6 +958,10 @@ static int WadKind(const char *path, int *maps, dboolean *deh)
       || fseek(file, header.offset, SEEK_SET) != 0
       || (entries = malloc(header.count * sizeof(*entries))) == NULL)
   {
+    for (i = 0; i < 4; ++i)
+      start[i] = isprint((unsigned char) header.id[i]) ? header.id[i] : '.';
+    start[4] = '\0';
+
     fclose(file);
     return MOD_BROKEN;
   }
@@ -1054,7 +1060,7 @@ static dboolean IsPatchFile(const char *name)
   return dot != NULL && (!strcasecmp(dot, ".deh") || !strcasecmp(dot, ".bex"));
 }
 
-static int ModKind(const char *name, int *maps, dboolean *deh)
+static int ModKind(const char *name, int *maps, dboolean *deh, char *start)
 {
   const char *dot = strrchr(name, '.');
   char path[300];
@@ -1070,7 +1076,7 @@ static int ModKind(const char *name, int *maps, dboolean *deh)
     return MOD_CAMPAIGN;
 
   snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, MODS_FOLDER, name);
-  return WadKind(path, maps, deh);
+  return WadKind(path, maps, deh, start);
 }
 
 static int CompareMods(const void *a, const void *b)
@@ -1095,7 +1101,7 @@ static int FindMods(mod_t *mods)
   qsort(mods, count, sizeof(*mods), CompareMods);
 
   for (i = 0; i < count; ++i)
-    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh);
+    mods[i].kind = ModKind(mods[i].file, &mods[i].maps, &mods[i].deh, mods[i].start);
 
   return count;
 }
@@ -1595,6 +1601,10 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   for (i = 0; i < num_order; ++i)
     printf(" + %s (%s)", order[i]->file, mod_kind_names[order[i]->kind]);
   printf("\n");
+  for (i = 0; i < num_addons; ++i)
+    if (addons[i]->kind == MOD_BROKEN)
+      printf("N3DS_PickGame: %s is not a WAD: it starts with \"%s\", not \"PWAD\"\n",
+             addons[i]->file, addons[i]->start);
 
   // The program's name, the game, its expansion and the mods in their
   // order.
