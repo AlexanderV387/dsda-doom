@@ -37,6 +37,20 @@ static FILE *console;
 // On the text screens: this title's name.
 static const char *picker_title = "DSDA-DOOM 3DS";
 
+// The Heretic title, its own .cia (the same program), known by its unique
+// ID: only Heretic, with its own name and folder (sdmc:/3ds/heretic: the
+// game, its mods, configuration, saves and log), nothing of Doom's.
+#define HERETIC_UNIQUE_ID 0xF3D59
+#define HERETIC_DATA_DIR "sdmc:/3ds/heretic"
+
+static dboolean heretic_title;
+static const char *data_dir = N3DS_DATA_DIR;
+
+const char *N3DS_DataDir(void)
+{
+  return data_dir;
+}
+
 static int LogWrite(void *cookie, const char *buffer, _READ_WRITE_BUFSIZE_TYPE size)
 {
   static dboolean at_line_start = true;
@@ -227,15 +241,30 @@ void N3DS_Init(void)
   // 804 MHz and the extra cache on the New 3DS (nothing on the Old 3DS).
   osSetSpeedupEnable(true);
 
+  {
+    u64 program_id = 0;
+
+    if (R_SUCCEEDED(APT_GetProgramID(&program_id))
+        && ((program_id >> 8) & 0xFFFFF) == HERETIC_UNIQUE_ID)
+    {
+      heretic_title = true;
+      picker_title = "HERETIC 3DS";
+      data_dir = HERETIC_DATA_DIR;
+    }
+  }
+
+  // The data is the SD card's; dsda-doom.wad is in the title itself.
+  romfsInit();
+
   mkdir("sdmc:/3ds", 0777);
-  mkdir(N3DS_DATA_DIR, 0777);
-  chdir(N3DS_DATA_DIR);
+  mkdir(data_dir, 0777);
+  chdir(data_dir);
 
   aptHook(&apt_hook, AptHook, NULL);
   atexit(RestoreBottomBacklight);
 
   // There is no /tmp.
-  setenv("TMPDIR", N3DS_DATA_DIR, 1);
+  setenv("TMPDIR", data_dir, 1);
 }
 
 // Everything the game prints goes to a log: the 3DS has no terminal. The
@@ -245,10 +274,13 @@ void N3DS_Init(void)
 // there.
 static void StartLog(void)
 {
-  const char *path = N3DS_DATA_DIR "/dsda-doom-log.txt";
-  FILE *log = N3DS_OpenRewrite(path);
+  char path[64];
+  FILE *log;
   FILE *stream;
   long size;
+
+  snprintf(path, sizeof(path), "%s/%s-log.txt", data_dir, heretic_title ? "heretic" : "dsda-doom");
+  log = N3DS_OpenRewrite(path);
 
   if (log == NULL)
     return;
@@ -963,19 +995,12 @@ static const struct { const char *file, *name; int maps; const char *extra; } iw
 };
 
 // The mods of each game in a folder of their own: Doom's in "mods",
-// Heretic's in "mods/heretic", Hexen's in "mods/hexen".
+// Heretic's in "mods/heretic", Hexen's in "mods/hexen" (the Heretic
+// title's, in its own folder's "mods").
 #define MODS_FOLDER "mods"
 #define MAX_MODS 128
-#define LAST_GAME_FILE N3DS_DATA_DIR "/last-game.txt"
+#define LAST_GAME_FILE "last-game.txt"
 #define VISIBLE_ITEMS 9
-#define HERETIC_LAST_GAME_FILE N3DS_DATA_DIR "/last-heretic.txt"
-
-// The Heretic title, its own .cia (the same program): only Heretic, with
-// its own name, mods and last choice. Known by its unique ID.
-#define HERETIC_UNIQUE_ID 0xF3D59
-
-static dboolean heretic_title;
-static const char *last_game_file = LAST_GAME_FILE;
 
 #define ConsolePrintf(...) (fprintf(console, __VA_ARGS__), fflush(console))
 #define ConsoleClear() ConsolePrintf("\x1b[2J")
@@ -1013,7 +1038,8 @@ enum
 
 static const char *ModsFolder(const char *iwad)
 {
-  return !strncasecmp(iwad, "heretic", 7) ? MODS_FOLDER "/heretic"
+  return heretic_title ? MODS_FOLDER
+       : !strncasecmp(iwad, "heretic", 7) ? MODS_FOLDER "/heretic"
        : !strncasecmp(iwad, "hexen", 5) ? MODS_FOLDER "/hexen"
        : MODS_FOLDER;
 }
@@ -1209,7 +1235,7 @@ static int ModKind(const char *folder, const char *name, int *maps, dboolean *de
   if (!strcasecmp(dot, ".zip"))
     return MOD_CAMPAIGN;
 
-  snprintf(path, sizeof(path), "%s/%s/%s", N3DS_DATA_DIR, folder, name);
+  snprintf(path, sizeof(path), "%s/%s/%s", data_dir, folder, name);
   return WadKind(path, maps, deh, gzdoom, start);
 }
 
@@ -1225,7 +1251,7 @@ static int FindMods(mod_t *mods, const char *folder)
   struct dirent *entry;
   int count = 0, i;
 
-  snprintf(path, sizeof(path), "%s/%s", N3DS_DATA_DIR, folder);
+  snprintf(path, sizeof(path), "%s/%s", data_dir, folder);
   dir = opendir(path);
 
   if (dir == NULL)
@@ -1597,12 +1623,15 @@ static int WarnChoice(mod_t *const *order, int count, mod_t *const *all, int num
 }
 
 // A game's IWAD left in a folder of the data folder (heretic/, mods/...)
-// instead of in it: where, for the screen.
+// instead of in it, or for the Heretic title in DSDA-Doom's folder: where,
+// for the screen.
 static dboolean FindMisplacedIwad(char *found, size_t size)
 {
   static const char *const folders[] = { "heretic", "hexen", "doom", "doom2", "wads", "iwads",
                                          MODS_FOLDER, MODS_FOLDER "/heretic",
-                                         MODS_FOLDER "/hexen" };
+                                         MODS_FOLDER "/hexen", N3DS_DATA_DIR,
+                                         N3DS_DATA_DIR "/heretic",
+                                         N3DS_DATA_DIR "/" MODS_FOLDER "/heretic" };
   enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
   int f, i;
 
@@ -1612,7 +1641,15 @@ static dboolean FindMisplacedIwad(char *found, size_t size)
       if (heretic_title && strncasecmp(iwad_names[i].file, "heretic", 7))
         continue;
 
-      snprintf(found, size, "%s/%s/%s", N3DS_DATA_DIR, folders[f], iwad_names[i].file);
+      // Absolute (another title's folder) or in this one's.
+      if (!strncmp(folders[f], "sdmc:", 5))
+      {
+        if (!heretic_title)
+          continue;
+        snprintf(found, size, "%s/%s", folders[f], iwad_names[i].file);
+      }
+      else
+        snprintf(found, size, "%s/%s/%s", data_dir, folders[f], iwad_names[i].file);
 
       if (FileExists(found))
         return true;
@@ -1632,13 +1669,12 @@ static void ShowNoGame(void)
   if (FindMisplacedIwad(misplaced, sizeof(misplaced)))
   {
     ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
-                  "  The game is in a folder of its own:\n\n"
+                  "  The game is in another folder:\n\n"
                   "  \x1b[33m%.88s\x1b[0m\n\n"
                   "  Move it directly to\n"
-                  "  " N3DS_DATA_DIR "/\n"
-                  "  (next to dsda-doom.wad). Only mods go in\n"
-                  "  folders.\n\n"
-                  "  START: exit\n", picker_title, misplaced);
+                  "  %s/\n"
+                  "  Only mods go in a folder there (mods/).\n\n"
+                  "  START: exit\n", picker_title, misplaced, data_dir);
 
     while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
       gspWaitForVBlank();
@@ -1649,13 +1685,12 @@ static void ShowNoGame(void)
   {
     ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
                   "  No game data found. Copy Heretic directly\n"
-                  "  to " N3DS_DATA_DIR "/\n\n"
+                  "  to %s/\n\n"
                   "  heretic.wad (or heretic1.wad, the\n"
-                  "  shareware), and dsda-doom.wad (it comes\n"
-                  "  with the game).\n\n"
+                  "  shareware).\n\n"
                   "  Mods (.wad, .zip) go in\n"
-                  "  " N3DS_DATA_DIR "/" MODS_FOLDER "/heretic/\n\n"
-                  "  START: exit\n", picker_title);
+                  "  %s/" MODS_FOLDER "/\n\n"
+                  "  START: exit\n", picker_title, data_dir, data_dir);
 
     while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
       gspWaitForVBlank();
@@ -1664,15 +1699,14 @@ static void ShowNoGame(void)
 
   ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
                 "  No game data found. Copy an IWAD directly\n"
-                "  to " N3DS_DATA_DIR "/\n\n"
+                "  to %s/\n\n"
                 "  doom.wad, doom1.wad (shareware), doom2.wad,\n"
                 "  plutonia.wad, tnt.wad, freedoom1.wad,\n"
                 "  heretic.wad, hexen.wad...\n\n"
-                "  Also dsda-doom.wad (it comes with the game).\n\n"
                 "  Mods (.wad, .deh, .zip) go in\n"
-                "  " N3DS_DATA_DIR "/" MODS_FOLDER "/ (Heretic's\n"
+                "  %s/" MODS_FOLDER "/ (Heretic's\n"
                 "  in heretic/ there, Hexen's in hexen/)\n\n"
-                "  START: exit\n", picker_title);
+                "  START: exit\n", picker_title, data_dir, data_dir);
 
   while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
     gspWaitForVBlank();
@@ -1797,22 +1831,13 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   int num_games = 0, num_campaigns = 1;
   int game = 0, campaign = 0, step = 0, num_order, i;
   dboolean shown = false;
-  u64 program_id = 0;
   FILE *file;
-
-  if (R_SUCCEEDED(APT_GetProgramID(&program_id))
-      && ((program_id >> 8) & 0xFFFFF) == HERETIC_UNIQUE_ID)
-  {
-    heretic_title = true;
-    picker_title = "HERETIC 3DS";
-    last_game_file = HERETIC_LAST_GAME_FILE;
-  }
 
   for (i = 0; i < num_iwads; ++i)
   {
     char path[128];
 
-    snprintf(path, sizeof(path), "%s/%s", N3DS_DATA_DIR,
+    snprintf(path, sizeof(path), "%s/%s", data_dir,
              iwad_names[i].extra != NULL ? iwad_names[i].extra : iwad_names[i].file);
 
     if (heretic_title && strncasecmp(iwad_names[i].file, "heretic", 7))
@@ -1820,7 +1845,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
     if (FileExists(path)
         && (iwad_names[i].extra == NULL
-            || FileExists(N3DS_DATA_DIR "/hexen.wad")))
+            || FileExists("hexen.wad")))
     {
       games[num_games] = iwad_names[i].name;
       game_index[num_games++] = i;
@@ -1828,7 +1853,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
   }
 
   // The last choice comes first: the game, the campaign, the add-ons.
-  file = fopen(last_game_file, "r");
+  file = fopen(LAST_GAME_FILE, "r");
 
   if (file != NULL)
   {
@@ -1962,7 +1987,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
     gfxExit(); // SDL sets the screens up again
   }
 
-  file = N3DS_OpenRewrite(last_game_file);
+  file = N3DS_OpenRewrite(LAST_GAME_FILE);
 
   if (file != NULL)
   {

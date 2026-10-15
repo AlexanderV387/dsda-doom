@@ -92,6 +92,9 @@ extern int n3ds_show_fps;
 // the top screen when there is a choice, and gives them as the command
 // line. Returns false to quit (START, or no game found).
 dboolean N3DS_PickGame(int *argc, char ***argv);
+// The title's own folder on the SD card: sdmc:/3ds/dsda-doom, or
+// sdmc:/3ds/heretic for the Heretic title.
+const char *N3DS_DataDir(void);
 // A chosen WAD whose own patch file was chosen too (D4V.wad and D4V.deh):
 // the patch in the WAD is not for this port, and the game skips it.
 dboolean N3DS_SkipDehLump(const char *wad_path);

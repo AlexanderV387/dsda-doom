@@ -616,7 +616,14 @@ function(AddGameExecutable TARGET SOURCES)
             AUTHOR "AlexanderV387, kraflab"
             ICON "${PROJECT_SOURCE_DIR}/../tools/3ds/icon.png"
         )
-        ctr_create_3dsx(${TARGET} SMDH "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.smdh")
+        # dsda-doom.wad in the title's romfs (the .cia's too: make-cia.sh's
+        # last argument): nothing to copy to the SD card but the games.
+        set(N3DS_ROMFS "${CMAKE_BINARY_DIR}/romfs")
+        file(MAKE_DIRECTORY "${N3DS_ROMFS}")
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${WAD_DATA_PATH} "${N3DS_ROMFS}/${WAD_DATA}"
+        )
+        ctr_create_3dsx(${TARGET} SMDH "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.smdh" ROMFS "${N3DS_ROMFS}")
     endif()
 
     set_target_properties(${TARGET} PROPERTIES

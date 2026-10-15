@@ -310,21 +310,24 @@ const char* I_GetTempDir(void)
 
 #elif defined(__3DS__)
 
-// [3DS] Everything in one folder on the SD card: the IWADs, dsda-doom.wad,
-// the configuration and the saves.
+#include "n3ds/n3ds.h"
+
+// [3DS] Everything in one folder on the SD card, the title's own: the
+// IWADs, the configuration and the saves (dsda-doom.wad is in the title's
+// romfs).
 const char *I_ConfigDir(void)
 {
-  return N3DS_DATA_DIR;
+  return N3DS_DataDir();
 }
 
 const char *I_ExeDir(void)
 {
-  return N3DS_DATA_DIR;
+  return N3DS_DataDir();
 }
 
 const char* I_GetTempDir(void)
 {
-  return N3DS_DATA_DIR;
+  return N3DS_DataDir();
 }
 
 #else /* not Windows, not Amiga */
@@ -496,6 +499,9 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
     const char *env; // environment variable
     const char *(*func)(void); // for functions that return the directory
   } search0[] = {
+#ifdef __3DS__
+    {"romfs:"}, // [3DS] dsda-doom.wad, in the title itself: before any old copy on the SD card
+#endif
     {NULL, NULL, NULL, I_ExeDir}, // executable directory
 #if !defined(_WIN32) && !defined(AMIGA) && !defined(__3DS__)
     {NULL, NULL, NULL, I_ConfigDir}, // config and autoload directory. on windows/amiga, this is the same as I_ExeDir
