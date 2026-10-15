@@ -67,6 +67,9 @@
 byte *save_p;
 byte *savebuffer;
 static int savegamesize;
+#ifdef __3DS__
+static int last_savegamesize;
+#endif
 
 // Check for overrun and realloc if necessary -- Lee Killough 1/22/98
 void CheckSaveGame(size_t size)
@@ -85,11 +88,20 @@ void CheckSaveGame(size_t size)
 
   savebuffer = Z_Realloc(savebuffer, savegamesize);
   save_p = savebuffer + offset;
+#ifdef __3DS__
+  last_savegamesize = savegamesize;
+#endif
 }
 
 void P_InitSaveBuffer(void)
 {
   savegamesize = SAVEGAMESIZE;
+#ifdef __3DS__
+  // The size the last save needed, at once: not three times bigger and
+  // bigger blocks for each key frame, each leaving a hole behind.
+  if (savegamesize < last_savegamesize)
+    savegamesize = last_savegamesize;
+#endif
   save_p = savebuffer = Z_Malloc(savegamesize);
 }
 

@@ -73,9 +73,21 @@ static int autoKeyFrameTimeout(void) {
   return dsda_StartInBuildMode() ? 0 : dsda_auto_key_frame_timeout;
 }
 
+// On the 3DS, at most 10 seconds to rewind: a key frame is a whole save
+// (in Hexen with the hub's other maps, half a MB), one a second; 60 of
+// them took a third of the memory and cut the rest into pieces.
+#ifdef __3DS__
+#define MAX_AUTO_KEY_FRAMES 10
+#endif
+
 static int autoKeyFrameDepth(void) {
   if (dsda_StartInBuildMode() && dsda_auto_key_frame_depth < 60)
     return 60;
+
+#ifdef MAX_AUTO_KEY_FRAMES
+  if (dsda_auto_key_frame_depth > MAX_AUTO_KEY_FRAMES)
+    return MAX_AUTO_KEY_FRAMES;
+#endif
 
   return dsda_auto_key_frame_depth;
 }
