@@ -1596,17 +1596,60 @@ static int WarnChoice(mod_t *const *order, int count, mod_t *const *all, int num
   return -2;
 }
 
+// A game's IWAD left in a folder of the data folder (heretic/, mods/...)
+// instead of in it: where, for the screen.
+static dboolean FindMisplacedIwad(char *found, size_t size)
+{
+  static const char *const folders[] = { "heretic", "hexen", "doom", "doom2", "wads", "iwads",
+                                         MODS_FOLDER, MODS_FOLDER "/heretic",
+                                         MODS_FOLDER "/hexen" };
+  enum { num_iwads = sizeof(iwad_names) / sizeof(iwad_names[0]) };
+  int f, i;
+
+  for (f = 0; f < (int) (sizeof(folders) / sizeof(folders[0])); ++f)
+    for (i = 0; i < num_iwads; ++i)
+    {
+      if (heretic_title && strncasecmp(iwad_names[i].file, "heretic", 7))
+        continue;
+
+      snprintf(found, size, "%s/%s/%s", N3DS_DATA_DIR, folders[f], iwad_names[i].file);
+
+      if (FileExists(found))
+        return true;
+    }
+
+  return false;
+}
+
 static void ShowNoGame(void)
 {
   dboolean released = false;
+  char misplaced[160];
 
   ConsoleClear();
+
+  // Found, in the wrong place: the most likely mistake, said first.
+  if (FindMisplacedIwad(misplaced, sizeof(misplaced)))
+  {
+    ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
+                  "  The game is in a folder of its own:\n\n"
+                  "  \x1b[33m%.88s\x1b[0m\n\n"
+                  "  Move it directly to\n"
+                  "  " N3DS_DATA_DIR "/\n"
+                  "  (next to dsda-doom.wad). Only mods go in\n"
+                  "  folders.\n\n"
+                  "  START: exit\n", picker_title, misplaced);
+
+    while (aptMainLoop() && (KeysDown(&released) & KEY_START) == 0)
+      gspWaitForVBlank();
+    return;
+  }
 
   if (heretic_title)
   {
     ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
-                  "  No game data found. Copy Heretic to\n"
-                  "  " N3DS_DATA_DIR "/\n\n"
+                  "  No game data found. Copy Heretic directly\n"
+                  "  to " N3DS_DATA_DIR "/\n\n"
                   "  heretic.wad (or heretic1.wad, the\n"
                   "  shareware), and dsda-doom.wad (it comes\n"
                   "  with the game).\n\n"
@@ -1620,8 +1663,8 @@ static void ShowNoGame(void)
   }
 
   ConsolePrintf("\n  \x1b[31m%s\x1b[0m\n\n"
-                "  No game data found. Copy an IWAD to\n"
-                "  " N3DS_DATA_DIR "/\n\n"
+                "  No game data found. Copy an IWAD directly\n"
+                "  to " N3DS_DATA_DIR "/\n\n"
                 "  doom.wad, doom1.wad (shareware), doom2.wad,\n"
                 "  plutonia.wad, tnt.wad, freedoom1.wad,\n"
                 "  heretic.wad, hexen.wad...\n\n"
