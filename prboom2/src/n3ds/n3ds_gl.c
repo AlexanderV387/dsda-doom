@@ -265,9 +265,11 @@ void N3DS_GLSwap(void)
         extern unsigned int __ctru_heap_size;
         const struct mallinfo info = mallinfo();
 
-        printf("memory: heap %u of %u KiB used, %u KiB free for the GPU\n",
+        printf("memory: heap %u of %u KiB used (%u taken, %u free in %u pieces), "
+               "%u KiB free for the GPU\n",
                (unsigned) (info.uordblks / 1024), __ctru_heap_size / 1024,
-               (unsigned) (N3DS_LinearFree() / 1024));
+               (unsigned) (info.arena / 1024), (unsigned) (info.fordblks / 1024),
+               (unsigned) info.ordblks, (unsigned) (N3DS_LinearFree() / 1024));
       }
 
       printf("perf: %d frames; per frame: logic %.1f ms (%d tics), drawing %.1f ms "

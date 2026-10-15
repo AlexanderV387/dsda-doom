@@ -46,6 +46,41 @@
 
 static void **lump_data;
 
+#ifdef __3DS__
+// The lumps read stay until the end. On the 3DS the small ones go side by
+// side in big blocks of their own, not one by one all over the heap
+// between what comes and goes (a level's data, the textures' copies): the
+// holes those leave would be cut into pieces too small for what comes
+// after (Hexen, a few maps in: 30 MB free, no 512 KB in one piece).
+#define LUMP_BLOCK_SIZE (1 << 20)
+#define LUMP_IN_BLOCK_MAX (64 << 10)
+
+static void *LumpAlloc(size_t size)
+{
+  static byte *block;
+  static size_t block_left;
+  void *p;
+
+  if (size == 0 || size > LUMP_IN_BLOCK_MAX)
+    return Z_Malloc(size);
+
+  size = (size + 7) & ~(size_t) 7;
+
+  if (size > block_left)
+  {
+    block = Z_Malloc(LUMP_BLOCK_SIZE);
+    block_left = LUMP_BLOCK_SIZE;
+  }
+
+  p = block;
+  block += size;
+  block_left -= size;
+  return p;
+}
+#else
+#define LumpAlloc Z_Malloc
+#endif
+
 /* W_InitCache
  *
  * cph 2001/07/07 - split from W_Init
@@ -77,7 +112,7 @@ const void *W_LumpByNum(int lump)
 
   // read the lump in
   if (!lump_data[lump]) {
-    lump_data[lump] = Z_Malloc(W_LumpLength(lump));
+    lump_data[lump] = LumpAlloc(W_LumpLength(lump));
     W_ReadLump(lump, lump_data[lump]);
   }
 

@@ -55,6 +55,10 @@
 #include "g_game.h"
 #include "lprintf.h"
 
+#ifdef __3DS__
+#include <malloc.h>
+#endif
+
 #ifdef DJGPP
 #include <dpmi.h>
 #endif
@@ -88,6 +92,43 @@ static memblock_t *blockbytag[ZONE_MAX];
  * free all the stuff we just pass on the way.
  */
 
+#ifdef __3DS__
+// Out of memory on the 3DS: how the heap was, in the log (all of it used,
+// or free but in pieces too small), and who asked (for addr2line).
+static void LogHeap(size_t size, void *caller)
+{
+  const struct mallinfo info = mallinfo();
+  size_t low = 0, high = size;
+
+  // The largest block there is, to the KiB.
+  while (high - low > 1024)
+  {
+    const size_t mid = low + (high - low) / 2;
+    void *p = malloc(mid);
+
+    if (p)
+    {
+      free(p);
+      low = mid;
+    }
+    else
+      high = mid;
+  }
+
+  lprintf(LO_ERROR, "Z_Malloc: %lu bytes for %p: heap %u KiB taken from the system, %u KiB used, "
+          "%u KiB free in %u pieces (the largest about %u KiB)\n",
+          (unsigned long) size, caller, (unsigned) (info.arena / 1024),
+          (unsigned) (info.uordblks / 1024), (unsigned) (info.fordblks / 1024),
+          (unsigned) info.ordblks, (unsigned) (low / 1024));
+}
+
+#define CALLER __builtin_return_address(0)
+static void *alloc_caller;
+#define SET_CALLER() (alloc_caller = CALLER)
+#else
+#define SET_CALLER() ((void) 0)
+#endif
+
 static void *Z_MallocTag(size_t size, int tag)
 {
   memblock_t *block = NULL;
@@ -97,6 +138,9 @@ static void *Z_MallocTag(size_t size, int tag)
 
   if (!(block = malloc(size + HEADER_SIZE)))
   {
+#ifdef __3DS__
+    LogHeap(size + HEADER_SIZE, alloc_caller);
+#endif
     I_Error ("Z_Malloc: Failure trying to allocate %lu bytes", (unsigned long) size);
   }
 
@@ -189,21 +233,25 @@ static char *Z_StrdupTag(const char *s, int tag)
 
 void *Z_Malloc(size_t size)
 {
+  SET_CALLER();
   return Z_MallocTag(size, ZONE_STATIC);
 }
 
 void *Z_Calloc(size_t n, size_t n2)
 {
+  SET_CALLER();
   return Z_CallocTag(n, n2, ZONE_STATIC);
 }
 
 void *Z_Realloc(void *p, size_t n)
 {
+  SET_CALLER();
   return Z_ReallocTag(p, n, ZONE_STATIC);
 }
 
 char *Z_Strdup(const char *s)
 {
+  SET_CALLER();
   return Z_StrdupTag(s, ZONE_STATIC);
 }
 
@@ -214,20 +262,24 @@ void Z_FreeLevel(void)
 
 void *Z_MallocLevel(size_t size)
 {
+  SET_CALLER();
   return Z_MallocTag(size, ZONE_LEVEL);
 }
 
 void *Z_CallocLevel(size_t n, size_t n2)
 {
+  SET_CALLER();
   return Z_CallocTag(n, n2, ZONE_LEVEL);
 }
 
 void *Z_ReallocLevel(void *p, size_t n)
 {
+  SET_CALLER();
   return Z_ReallocTag(p, n, ZONE_LEVEL);
 }
 
 char *Z_StrdupLevel(const char *s)
 {
+  SET_CALLER();
   return Z_StrdupTag(s, ZONE_LEVEL);
 }
