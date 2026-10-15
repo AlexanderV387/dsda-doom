@@ -34,6 +34,9 @@ dboolean n3ds_force_statusbar;
 // The keyboard on the bottom screen is open.
 static dboolean keyboard_open;
 
+static dboolean InGame(void);
+static void DrawText(byte *screen, int x, int y, const char *text, int scale, int color);
+
 // The bottom screen shows something (it stays on).
 static dboolean bottom_showing;
 
@@ -211,6 +214,105 @@ static dboolean UpdateMapButtons(int x, int y, dboolean touching, dboolean press
     }
 
     ++held;
+  }
+
+  return true;
+}
+
+// ==========================================================================
+// The weapon buttons, a row at the bottom: a tap chooses the weapon of that
+// number, as the PC's number keys (pressed for a tic). The weapons held are
+// white, the one in hand on gray, the others dark.
+
+#define WEAPON_BAR_HEIGHT 24
+#define MAX_SLOTS 7
+
+static int weapon_bar_y; // where the row was last drawn (0: none)
+
+// The weapons of each number: Doom's, Heretic's (with the same numbers),
+// Hexen's four.
+static const int slot_weapons[2][MAX_SLOTS][2] =
+{
+  { { wp_fist, wp_chainsaw }, { wp_pistol, -1 }, { wp_shotgun, wp_supershotgun },
+    { wp_chaingun, -1 }, { wp_missile, -1 }, { wp_plasma, -1 }, { wp_bfg, -1 } },
+  { { wp_staff, wp_gauntlets }, { wp_goldwand, -1 }, { wp_crossbow, -1 },
+    { wp_blaster, -1 }, { wp_skullrod, -1 }, { wp_phoenixrod, -1 }, { wp_mace, -1 } },
+};
+
+static int WeaponSlots(void)
+{
+  return hexen ? 4 : MAX_SLOTS;
+}
+
+static dboolean SlotHas(int slot, int weapon)
+{
+  if (hexen)
+    return weapon == slot;
+
+  return slot_weapons[heretic][slot][0] == weapon || slot_weapons[heretic][slot][1] == weapon;
+}
+
+static dboolean SlotOwned(const player_t *player, int slot)
+{
+  int w;
+
+  for (w = 0; w < NUMWEAPONS; ++w)
+    if (player->weaponowned[w] && SlotHas(slot, w))
+      return true;
+
+  return false;
+}
+
+static void DrawWeaponBar(byte *screen, int y)
+{
+  const player_t *player = &players[displayplayer];
+  const int slots = WeaponSlots();
+  const int pitch = BOTTOM_WIDTH / slots;
+  int slot;
+
+  weapon_bar_y = y;
+
+  for (slot = 0; slot < slots; ++slot)
+  {
+    const int x = slot * pitch + 2;
+    const int w = pitch - 4;
+    const dboolean in_hand = SlotHas(slot, player->readyweapon);
+    char digit[2] = { (char) ('1' + slot), 0 };
+
+    FillRect(screen, x, y + 2, w, WEAPON_BAR_HEIGHT - 4, ui_gray);
+    FillRect(screen, x + 2, y + 4, w - 4, WEAPON_BAR_HEIGHT - 8,
+             in_hand ? ui_gray : ui_black);
+    DrawText(screen, x + (w - 10) / 2, y + (WEAPON_BAR_HEIGHT - 14) / 2, digit, 2,
+             in_hand ? ui_black : SlotOwned(player, slot) ? ui_white : ui_dark);
+  }
+}
+
+// Every tic. Returns whether the touch is on the row.
+static dboolean UpdateWeaponBar(int x, int y, dboolean touching, dboolean pressed)
+{
+  static int key_down;
+  event_t ev;
+
+  memset(&ev, 0, sizeof(ev));
+
+  // Held for one tic, to be seen by the game.
+  if (key_down)
+  {
+    ev.type = ev_keyup;
+    ev.data1.i = key_down;
+    D_PostEvent(&ev);
+    key_down = 0;
+  }
+
+  if (weapon_bar_y == 0 || !touching || y < weapon_bar_y)
+    return false;
+
+  if (pressed && InGame())
+  {
+    key_down = '1' + BETWEEN(0, WeaponSlots() - 1, x * WeaponSlots() / BOTTOM_WIDTH);
+    ev.type = ev_keydown;
+    ev.data1.i = key_down;
+    D_PostEvent(&ev);
   }
 
   return true;
@@ -531,25 +633,53 @@ static dboolean DrawBottomContents(byte *bottom)
 
   memset(bottom, 0, BOTTOM_WIDTH * BOTTOM_HEIGHT);
   map_height = 0;
+  weapon_bar_y = 0;
 
-  // The status bar in the full screen view (otherwise it is on the top
-  // screen), and the map with it.
-  if (!in_level || !R_FullView() || status_height > BOTTOM_HEIGHT)
+  if (!in_level)
     return false;
 
-  if (dsda_IntConfig(dsda_config_n3ds_bottom_map))
+  // From the bottom up: the weapon buttons, the status bar (in the full
+  // screen view: otherwise it is on the top screen) above or below the
+  // map, the map in the rest.
   {
+    const dboolean weapon_bar = dsda_IntConfig(dsda_config_n3ds_weapon_bar);
+    const dboolean status = R_FullView() && status_height <= BOTTOM_HEIGHT;
     const dboolean below = dsda_IntConfig(dsda_config_n3ds_status_below);
+    int top = 0, end = BOTTOM_HEIGHT;
 
-    status_y = below ? BOTTOM_HEIGHT - status_height : 0;
-    map_top = below ? 0 : status_height;
-    map_height = BOTTOM_HEIGHT - status_height;
-    DrawMap(bottom, map_top, map_height);
-    DrawMapButtons(bottom);
+    if (weapon_bar)
+    {
+      end -= WEAPON_BAR_HEIGHT;
+      DrawWeaponBar(bottom, end);
+    }
+
+    if (status)
+    {
+      if (below)
+      {
+        end -= status_height;
+        status_y = end;
+      }
+      else
+      {
+        status_y = 0;
+        top = status_height;
+      }
+    }
+
+    if (dsda_IntConfig(dsda_config_n3ds_bottom_map) && end - top >= 3 * BUTTON_SIZE + 16)
+    {
+      map_top = top;
+      map_height = end - top;
+      DrawMap(bottom, map_top, map_height);
+      DrawMapButtons(bottom);
+    }
+
+    if (status)
+      DrawStatusBar(bottom, status_y);
+
+    return weapon_bar || status || map_height > 0;
   }
-
-  DrawStatusBar(bottom, status_y);
-  return true;
 }
 
 // The status bar on the top screen: the view a size smaller (screenblocks
@@ -587,6 +717,10 @@ void N3DS_StartTic(void)
   if (keyboard_open)
   {
     UpdateKeyboard(x, y, touching, pressed);
+    used = true;
+  }
+  else if (UpdateWeaponBar(x, y, touching, pressed))
+  {
     used = true;
   }
   else if (UpdateMapButtons(x, y, touching, pressed))

@@ -3473,6 +3473,7 @@ setup_menu_t n3ds_main_settings[] =
   { "Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_bottom_map },
   { "Status Bar Below the Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_status_below },
   { "Status Bar on the Top Screen", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_status_top },
+  { "Weapon Buttons", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_weapon_bar },
   { "Frame Counter", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_show_fps },
   EMPTY_LINE,
   { "Camera", S_SKIP | S_TITLE, m_null, N3DS_X },

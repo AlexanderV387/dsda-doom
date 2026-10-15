@@ -1101,6 +1101,11 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "n3ds_status_top", dsda_config_n3ds_status_top,
     CONF_BOOL(0), NULL, NOT_STRICT, N3DS_StatusTopChanged
   },
+  // A row of weapon buttons at the bottom, as the PC's number keys.
+  [dsda_config_n3ds_weapon_bar] = {
+    "n3ds_weapon_bar", dsda_config_n3ds_weapon_bar,
+    CONF_BOOL(0)
+  },
   // The small frame counter on the bottom screen.
   [dsda_config_n3ds_show_fps] = {
     "n3ds_show_fps", dsda_config_n3ds_show_fps,

@@ -1140,6 +1140,30 @@ static void R_DrawPSprite (pspdef_t *psp)
 
     width = patch->width;
     topoffset = patch->topoffset<<FRACBITS;
+
+#ifdef __3DS__
+    // [3DS] Heretic's and Hexen's weapons were drawn for a 4:3 screen,
+    // some coming in from its corners (the Fighter's fists, punching): on
+    // the 3DS's wider screen their cut edges showed. A weapon moves out
+    // towards the screen's edge as far as it is towards the 4:3 one's: one
+    // at that edge goes to the screen's, a centered one stays.
+    if (raven)
+    {
+      const int extra = viewwidth / 2 - (FixedMul(160 << FRACBITS, pspritexscale) >> FRACBITS);
+      const int half_free = 160 - width / 2;
+
+      if (extra > 0 && half_free > 0)
+      {
+        // At rest (no bobbing), in the 320 wide screen.
+        const int center = 1 - patch->leftoffset + width / 2;
+        const int shift = BETWEEN(-extra, extra, extra * (center - 160) / half_free);
+
+        x1 += shift;
+        x2 += shift;
+        gx1 += shift;
+      }
+    }
+#endif
   }
 
   // off the side
