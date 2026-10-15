@@ -421,8 +421,11 @@ static void cheat_fa()
     plyr->armortype = idfa_armor_class;  // Ty 03/09/98 - deh
 
     // You can't own weapons that aren't in the game // phares 02/27/98
+    // [3DS] Heretic's shareware has no Hellstaff either (its number is the
+    // rocket launcher's, which Doom's has): drawn, it crashed the game.
     for (i=0;i<NUMWEAPONS;i++)
       if (!(((i == wp_plasma || i == wp_bfg) && gamemode == shareware) ||
+            (heretic && i == wp_skullrod && gamemode == shareware) ||
             (i == wp_supershotgun && gamemode != commercial)))
         plyr->weaponowned[i] = true;
 

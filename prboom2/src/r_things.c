@@ -1061,6 +1061,15 @@ static void R_DrawPSprite (pspdef_t *psp)
              psp->state->sprite, psp->state->frame);
 #endif
 
+#ifdef __3DS__
+  // [3DS] A weapon with no pictures (not in the game, a broken mod): not
+  // drawn, rather than read from nowhere (a crash).
+  if ((unsigned) psp->state->sprite >= (unsigned) num_sprites
+      || (psp->state->frame & FF_FRAMEMASK) >= sprdef->numframes
+      || sprdef->spriteframes == NULL)
+    return;
+#endif
+
   sprframe = &sprdef->spriteframes[psp->state->frame & FF_FRAMEMASK];
 
   lump = sprframe->lump[0];
