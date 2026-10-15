@@ -1321,6 +1321,7 @@ static int ChooseItem(const char *title, const char *const *items, int count,
 
       ConsolePrintf("  %s\n", i < count ? "  ..." : "");
       ConsolePrintf("\n  %s\n", help);
+      ConsolePrintf("\n  \x1b[36m3DS port: AlexanderV387; code with Claude (AI)\x1b[0m\n");
       drawn = selected;
     }
 

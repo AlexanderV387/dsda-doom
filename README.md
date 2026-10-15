@@ -85,3 +85,11 @@ There is a dedicated launcher for this port available [dsda-launcher](https://gi
 
 ### Credits
 - The DSDA-Doom icon was designed by Mal (129thVisplane). Thanks!
+
+## Nintendo 3DS port
+
+This fork (branch `n3ds`) runs DSDA-Doom on the New 3DS: OpenGL on the 3DS's GPU, the status bar and map on the bottom screen, and a picker for games and mods. Part of [n3ds-ports](https://github.com/AlexanderV387/n3ds-ports).
+
+- 3DS port: direction, design and hardware testing by AlexanderV387; code written with Claude (AI).
+- Original engine: DSDA-Doom (Ryan Krafnick (kraflab) and contributors), based on PrBoom+.
+- Heretic icon and banner: AlexanderV387, made with AI tools.
