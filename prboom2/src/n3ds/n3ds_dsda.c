@@ -552,6 +552,14 @@ static dboolean DrawBottomContents(byte *bottom)
   return true;
 }
 
+// The status bar on the top screen: the view a size smaller (screenblocks
+// 10); off, the full view again, the status bar on the bottom screen.
+void N3DS_StatusTopChanged(void)
+{
+  dsda_UpdateIntConfig(dsda_config_screenblocks,
+                       dsda_IntConfig(dsda_config_n3ds_status_top) ? 10 : 11, true);
+}
+
 void N3DS_StartTic(void)
 {
   static dboolean was_touching;

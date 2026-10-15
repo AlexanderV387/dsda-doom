@@ -135,6 +135,9 @@ void M_ChangeVideoMode(void);
 void M_ChangeUncappedFrameRate(void);
 void M_ChangeFullScreen(void);
 void R_SetViewSize(void);
+#ifdef __3DS__
+void N3DS_StatusTopChanged(void);
+#endif
 void M_ChangeApplyPalette(void);
 void M_ChangeStretch(void);
 void M_ChangeAspectRatio(void);
@@ -1091,6 +1094,12 @@ dsda_config_t dsda_config[dsda_config_count] = {
   [dsda_config_n3ds_status_below] = {
     "n3ds_status_below", dsda_config_n3ds_status_below,
     CONF_BOOL(0)
+  },
+  // The status bar on the top screen, under a smaller view (as the
+  // original games: their weapons were drawn for it to hide their bottom).
+  [dsda_config_n3ds_status_top] = {
+    "n3ds_status_top", dsda_config_n3ds_status_top,
+    CONF_BOOL(0), NULL, NOT_STRICT, N3DS_StatusTopChanged
   },
   // The small frame counter on the bottom screen.
   [dsda_config_n3ds_show_fps] = {
