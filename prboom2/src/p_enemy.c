@@ -4030,6 +4030,195 @@ void A_MummyFX1Seek(mobj_t * actor)
     P_SeekerMissile(actor, &actor->special1.m, ANG1_X * 10, ANG1_X * 20, false);
 }
 
+// ---------------------------------------------------------------------------
+// Faith Renewed (Heretic + Hexen, 2025): its monsters and the Firemace's
+// spawner. After the community's patches for ZDoom (heretic-hexen-zdpatches),
+// themselves after the remaster's definitions.
+
+// Degrees to an angle; negative ones too.
+#define FR_DEGREES(d) ((angle_t) (int64_t) ((d) * 11930464.711))
+
+// A random number of degrees between low and high.
+static angle_t FR_RandomDegrees(double low, double high)
+{
+    return FR_DEGREES(low + (high - low) * P_Random(pr_heretic) / 255.0);
+}
+
+// A missile from height above the actor's feet, aimed at its target and
+// turned by offset (as ZDoom's A_CustomMissile).
+static void FR_SpawnMissile(mobj_t *actor, mobjtype_t type, int height, angle_t offset)
+{
+    mobj_t *dest = actor->target;
+    mobj_t *mo;
+    fixed_t z;
+    angle_t an;
+    int dist;
+
+    if (dest == NULL)
+        return;
+
+    z = actor->z + height * FRACUNIT;
+    if (actor->flags2 & MF2_FEETARECLIPPED)
+        z -= FOOTCLIPSIZE;
+
+    mo = P_SpawnMobj(actor->x, actor->y, z, type);
+    if (mo->info->seesound)
+        S_StartMobjSound(mo, mo->info->seesound);
+
+    P_SetTarget(&mo->target, actor);
+    an = R_PointToAngle2(actor->x, actor->y, dest->x, dest->y) + offset;
+    if (dest->flags & MF_SHADOW)
+        an += P_SubRandom() << 21;
+
+    mo->angle = an;
+    an >>= ANGLETOFINESHIFT;
+    mo->momx = FixedMul(mo->info->speed, finecosine[an]);
+    mo->momy = FixedMul(mo->info->speed, finesine[an]);
+    dist = P_AproxDistance(dest->x - actor->x, dest->y - actor->y) / mo->info->speed;
+    if (dist < 1)
+        dist = 1;
+    mo->momz = (dest->z - actor->z) / dist;
+    P_CheckMissileSpawn(mo);
+}
+
+// A melee hit within range for low to high damage, with a sound if it hits.
+static void FR_MeleeHit(mobj_t *actor, fixed_t range, int damage, int sound)
+{
+    mobj_t *target = actor->target;
+
+    if (target == NULL)
+        return;
+
+    A_FaceTarget(actor);
+    if (P_AproxDistance(target->x - actor->x, target->y - actor->y)
+        < range + target->info->radius - 20 * FRACUNIT
+        && P_CheckSight(actor, target))
+    {
+        if (sound)
+            S_StartMobjSound(actor, sound);
+        P_DamageMobj(target, actor, actor, damage);
+    }
+}
+
+// The Draugr throws a burning skull.
+void A_DraugrAttack(mobj_t * actor)
+{
+    if (actor->target)
+        P_SpawnMissile(actor, actor->target, HERETIC_MT_DRAUGRFX1);
+}
+
+// The Troll charges, like a Lost Soul, for 35 tics or until it hits.
+void A_TrollChargeStart(mobj_t * actor)
+{
+    angle_t an;
+
+    if (!actor->target)
+        return;
+
+    S_StartMobjSound(actor, heretic_sfx_trochg);
+    actor->flags |= MF_SKULLFLY;
+    A_FaceTarget(actor);
+    an = actor->angle >> ANGLETOFINESHIFT;
+    actor->momx = FixedMul(20 * FRACUNIT, finecosine[an]);
+    actor->momy = FixedMul(20 * FRACUNIT, finesine[an]);
+    actor->special1.i = 35;
+}
+
+void A_TrollCharge(mobj_t * actor)
+{
+    if (!actor->target || !(actor->flags & MF_SKULLFLY))
+    {
+        actor->flags &= ~MF_SKULLFLY;
+        P_SetMobjState(actor, actor->info->seestate);
+        return;
+    }
+
+    if (actor->special1.i > 0)
+    {
+        actor->special1.i--;
+    }
+    else
+    {
+        actor->flags &= ~MF_SKULLFLY;
+        P_SetMobjState(actor, actor->info->seestate);
+    }
+}
+
+// Before its swing, the Troll lunges at its target.
+void A_TrollRush(mobj_t * actor)
+{
+    angle_t an;
+
+    if (!actor->target)
+        return;
+
+    A_FaceTarget(actor);
+    an = actor->angle >> ANGLETOFINESHIFT;
+    actor->momx = FixedMul(12 * FRACUNIT, finecosine[an]);
+    actor->momy = FixedMul(12 * FRACUNIT, finesine[an]);
+}
+
+void A_TrollAttack(mobj_t * actor)
+{
+    S_StartMobjSound(actor, heretic_sfx_troswg);
+    FR_MeleeHit(actor, 96 * FRACUNIT, 10 + P_Random(pr_heretic) % 11, heretic_sfx_trohit);
+}
+
+void A_SuperDemonBite(mobj_t * actor)
+{
+    FR_MeleeHit(actor, 96 * FRACUNIT, (P_Random(pr_heretic) % 8 + 1) * 8, heretic_sfx_bitey);
+}
+
+// 144 times in 256 the long attack (three pairs of fireballs), else the
+// short one (three at once).
+void A_SuperDemonChoose(mobj_t * actor)
+{
+    if (P_Random(pr_heretic) < 144)
+        P_SetMobjState(actor, HERETIC_S_SUPERDEMON_MISB1);
+}
+
+void A_SuperDemonAttack1(mobj_t * actor)
+{
+    if (!actor->target)
+        return;
+
+    S_StartMobjSound(actor, heretic_sfx_bstat2);
+    FR_SpawnMissile(actor, HERETIC_MT_SUPERDEMONFX1, 62, 0);
+    FR_SpawnMissile(actor, HERETIC_MT_SUPERDEMONFX1, 62, FR_DEGREES(-4.5));
+    FR_SpawnMissile(actor, HERETIC_MT_SUPERDEMONFX1, 62, FR_DEGREES(4.5));
+}
+
+// Each of the long attack's three volleys: the first straight and to the
+// left, the second straight and to the right, the last to both sides.
+void A_SuperDemonAttack2(mobj_t * actor)
+{
+    static const double spread[3][4] =
+    {
+        { 0, 0, -21, -9 }, { 0, 0, 9, 21 }, { -10, -4.5, 4.5, 10 },
+    };
+    const double *a;
+    int volley;
+
+    if (!actor->target)
+        return;
+
+    volley = actor->state == &states[HERETIC_S_SUPERDEMON_MISB3] ? 0
+           : actor->state == &states[HERETIC_S_SUPERDEMON_MISB6] ? 1 : 2;
+    a = spread[volley];
+
+    S_StartMobjSound(actor, heretic_sfx_bstat2);
+    FR_SpawnMissile(actor, HERETIC_MT_SUPERDEMONFX1, 62, FR_RandomDegrees(a[0], a[1]));
+    FR_SpawnMissile(actor, HERETIC_MT_SUPERDEMONFX1, 62, FR_RandomDegrees(a[2], a[3]));
+}
+
+void A_SpawnFiremace(mobj_t * actor)
+{
+    if (gamemode == shareware)
+        return;
+
+    P_SpawnMobj(actor->x, actor->y, actor->z, HERETIC_MT_WMACE);
+}
+
 void A_MummySoul(mobj_t * mummy)
 {
     mobj_t *mo;
@@ -4670,6 +4859,10 @@ void A_NoBlocking(mobj_t * actor)
             break;
         case HERETIC_MT_SNAKE:
             P_DropItem(actor, HERETIC_MT_AMPHRDWIMPY, 5, 84);
+            break;
+        case HERETIC_MT_SUPERDEMON:     // Faith Renewed
+            P_DropItem(actor, HERETIC_MT_MISC0, 0, 51);       // crystal vial
+            P_DropItem(actor, HERETIC_MT_MISC1, 0, 8);        // bag of holding
             break;
         case HERETIC_MT_MINOTAUR:
             P_DropItem(actor, HERETIC_MT_ARTISUPERHEAL, 0, 51);

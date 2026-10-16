@@ -775,6 +775,21 @@ typedef enum {
   heretic_sfx_intnet, // pldeth
   heretic_sfx_intdms, // slop
 
+  // Faith Renewed (Heretic + Hexen, 2025)
+  heretic_sfx_mum2sit,
+  heretic_sfx_mum2pai,
+  heretic_sfx_mum2dth,
+  heretic_sfx_mum2atk,
+  heretic_sfx_maghit,
+  heretic_sfx_trosit,
+  heretic_sfx_tropai,
+  heretic_sfx_trodth,
+  heretic_sfx_trochg,
+  heretic_sfx_troswg,
+  heretic_sfx_trohit,
+  heretic_sfx_bstat2,
+  heretic_sfx_bitey,
+
   HERETIC_NUMSFX,
 
   // hexen

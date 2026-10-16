@@ -32,6 +32,8 @@ const char *heretic_sprnames[HERETIC_NUMSPRITES + 1] = {
     "WZRD","FX11","FX10","KNIG","SPAX","RAXE","SRCR","FX14","SOR2","SDTH",
     "FX16","MNTR","FX12","FX13","AKYY","BKYY","CKYY","AMG2","AMM1","AMM2",
     "AMC1","AMC2","AMS1","AMS2","AMP1","AMP2","AMB1","AMB2",
+    // Faith Renewed
+    "MUM2","PSKL","TROL","DEMN",
     NULL
 };
 
@@ -1243,7 +1245,92 @@ state_t heretic_states[HERETIC_NUMSTATES] = {
     {HERETIC_SPR_AMB2, 1, 4, NULL, HERETIC_S_AMB2_3, 0, 0},     // HERETIC_S_AMB2_2
     {HERETIC_SPR_AMB2, 2, 4, NULL, HERETIC_S_AMB2_1, 0, 0},     // HERETIC_S_AMB2_3
     {HERETIC_SPR_AMG1, 0, 100, A_ESound, HERETIC_S_SND_WIND, 0, 0},     // HERETIC_S_SND_WIND
-    {HERETIC_SPR_AMG1, 0, 85, A_ESound, HERETIC_S_SND_WATERFALL, 0, 0}  // HERETIC_S_SND_WATERFALL
+    {HERETIC_SPR_AMG1, 0, 85, A_ESound, HERETIC_S_SND_WATERFALL, 0, 0}, // HERETIC_S_SND_WATERFALL
+
+    // Faith Renewed (Heretic + Hexen, 2025)
+    {HERETIC_SPR_MUM2, 0, 10, A_Look, HERETIC_S_DRAUGR_LOOK2, 0, 0},  // HERETIC_S_DRAUGR_LOOK1
+    {HERETIC_SPR_MUM2, 1, 10, A_Look, HERETIC_S_DRAUGR_LOOK1, 0, 0},  // HERETIC_S_DRAUGR_LOOK2
+    {HERETIC_SPR_MUM2, 0, 2, A_Chase, HERETIC_S_DRAUGR_WALK2, 0, 0},  // HERETIC_S_DRAUGR_WALK1
+    {HERETIC_SPR_MUM2, 0, 2, A_Chase, HERETIC_S_DRAUGR_WALK3, 0, 0},  // HERETIC_S_DRAUGR_WALK2
+    {HERETIC_SPR_MUM2, 1, 2, A_Chase, HERETIC_S_DRAUGR_WALK4, 0, 0},  // HERETIC_S_DRAUGR_WALK3
+    {HERETIC_SPR_MUM2, 1, 2, A_Chase, HERETIC_S_DRAUGR_WALK5, 0, 0},  // HERETIC_S_DRAUGR_WALK4
+    {HERETIC_SPR_MUM2, 2, 2, A_Chase, HERETIC_S_DRAUGR_WALK6, 0, 0},  // HERETIC_S_DRAUGR_WALK5
+    {HERETIC_SPR_MUM2, 2, 2, A_Chase, HERETIC_S_DRAUGR_WALK7, 0, 0},  // HERETIC_S_DRAUGR_WALK6
+    {HERETIC_SPR_MUM2, 3, 2, A_Chase, HERETIC_S_DRAUGR_WALK8, 0, 0},  // HERETIC_S_DRAUGR_WALK7
+    {HERETIC_SPR_MUM2, 3, 2, A_Chase, HERETIC_S_DRAUGR_WALK1, 0, 0},  // HERETIC_S_DRAUGR_WALK8
+    {HERETIC_SPR_MUM2, 4, 5, A_FaceTarget, HERETIC_S_DRAUGR_ATK2, 0, 0},  // HERETIC_S_DRAUGR_ATK1
+    {HERETIC_SPR_MUM2, 32773, 5, A_FaceTarget, HERETIC_S_DRAUGR_ATK3, 0, 0},  // HERETIC_S_DRAUGR_ATK2
+    {HERETIC_SPR_MUM2, 32774, 10, A_DraugrAttack, HERETIC_S_DRAUGR_WALK1, 0, 0},  // HERETIC_S_DRAUGR_ATK3
+    {HERETIC_SPR_MUM2, 4, 2, NULL, HERETIC_S_DRAUGR_PAIN2, 0, 0},  // HERETIC_S_DRAUGR_PAIN1
+    {HERETIC_SPR_MUM2, 4, 2, A_Pain, HERETIC_S_DRAUGR_WALK1, 0, 0},  // HERETIC_S_DRAUGR_PAIN2
+    {HERETIC_SPR_MUM2, 7, 6, NULL, HERETIC_S_DRAUGR_DIE2, 0, 0},  // HERETIC_S_DRAUGR_DIE1
+    {HERETIC_SPR_MUM2, 8, 6, A_Scream, HERETIC_S_DRAUGR_DIE3, 0, 0},  // HERETIC_S_DRAUGR_DIE2
+    {HERETIC_SPR_MUM2, 9, 6, NULL, HERETIC_S_DRAUGR_DIE4, 0, 0},  // HERETIC_S_DRAUGR_DIE3
+    {HERETIC_SPR_MUM2, 10, 6, NULL, HERETIC_S_DRAUGR_DIE5, 0, 0},  // HERETIC_S_DRAUGR_DIE4
+    {HERETIC_SPR_MUM2, 11, 6, A_NoBlocking, HERETIC_S_DRAUGR_DIE6, 0, 0},  // HERETIC_S_DRAUGR_DIE5
+    {HERETIC_SPR_MUM2, 12, 6, NULL, HERETIC_S_DRAUGR_DIE7, 0, 0},  // HERETIC_S_DRAUGR_DIE6
+    {HERETIC_SPR_MUM2, 13, -1, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_DRAUGR_DIE7
+    {HERETIC_SPR_PSKL, 32768, 5, NULL, HERETIC_S_DRAUGRFX1_2, 0, 0},  // HERETIC_S_DRAUGRFX1_1
+    {HERETIC_SPR_PSKL, 32769, 5, NULL, HERETIC_S_DRAUGRFX1_3, 0, 0},  // HERETIC_S_DRAUGRFX1_2
+    {HERETIC_SPR_PSKL, 32770, 5, NULL, HERETIC_S_DRAUGRFX1_4, 0, 0},  // HERETIC_S_DRAUGRFX1_3
+    {HERETIC_SPR_PSKL, 32769, 5, NULL, HERETIC_S_DRAUGRFX1_1, 0, 0},  // HERETIC_S_DRAUGRFX1_4
+    {HERETIC_SPR_PSKL, 32771, 5, NULL, HERETIC_S_DRAUGRFXI1_2, 0, 0},  // HERETIC_S_DRAUGRFXI1_1
+    {HERETIC_SPR_PSKL, 32772, 5, NULL, HERETIC_S_DRAUGRFXI1_3, 0, 0},  // HERETIC_S_DRAUGRFXI1_2
+    {HERETIC_SPR_PSKL, 32773, 5, NULL, HERETIC_S_DRAUGRFXI1_4, 0, 0},  // HERETIC_S_DRAUGRFXI1_3
+    {HERETIC_SPR_PSKL, 32774, 5, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_DRAUGRFXI1_4
+    {HERETIC_SPR_TROL, 0, 10, A_Look, HERETIC_S_TROLL_LOOK2, 0, 0},  // HERETIC_S_TROLL_LOOK1
+    {HERETIC_SPR_TROL, 1, 10, A_Look, HERETIC_S_TROLL_LOOK1, 0, 0},  // HERETIC_S_TROLL_LOOK2
+    {HERETIC_SPR_TROL, 0, 6, A_Chase, HERETIC_S_TROLL_WALK2, 0, 0},  // HERETIC_S_TROLL_WALK1
+    {HERETIC_SPR_TROL, 1, 6, A_Chase, HERETIC_S_TROLL_WALK3, 0, 0},  // HERETIC_S_TROLL_WALK2
+    {HERETIC_SPR_TROL, 2, 6, A_Chase, HERETIC_S_TROLL_WALK4, 0, 0},  // HERETIC_S_TROLL_WALK3
+    {HERETIC_SPR_TROL, 3, 6, A_Chase, HERETIC_S_TROLL_WALK1, 0, 0},  // HERETIC_S_TROLL_WALK4
+    {HERETIC_SPR_TROL, 4, 1, A_TrollChargeStart, HERETIC_S_TROLL_CHARGE2, 0, 0},  // HERETIC_S_TROLL_CHARGE1
+    {HERETIC_SPR_TROL, 4, 1, A_TrollCharge, HERETIC_S_TROLL_CHARGE2, 0, 0},  // HERETIC_S_TROLL_CHARGE2
+    {HERETIC_SPR_TROL, 5, 6, A_TrollRush, HERETIC_S_TROLL_MELEE2, 0, 0},  // HERETIC_S_TROLL_MELEE1
+    {HERETIC_SPR_TROL, 6, 6, A_TrollRush, HERETIC_S_TROLL_MELEE3, 0, 0},  // HERETIC_S_TROLL_MELEE2
+    {HERETIC_SPR_TROL, 7, 8, A_TrollAttack, HERETIC_S_TROLL_WALK1, 0, 0},  // HERETIC_S_TROLL_MELEE3
+    {HERETIC_SPR_TROL, 5, 2, NULL, HERETIC_S_TROLL_PAIN2, 0, 0},  // HERETIC_S_TROLL_PAIN1
+    {HERETIC_SPR_TROL, 5, 2, A_Pain, HERETIC_S_TROLL_WALK1, 0, 0},  // HERETIC_S_TROLL_PAIN2
+    {HERETIC_SPR_TROL, 8, 6, NULL, HERETIC_S_TROLL_DIE2, 0, 0},  // HERETIC_S_TROLL_DIE1
+    {HERETIC_SPR_TROL, 8, 6, A_Scream, HERETIC_S_TROLL_DIE3, 0, 0},  // HERETIC_S_TROLL_DIE2
+    {HERETIC_SPR_TROL, 9, 8, NULL, HERETIC_S_TROLL_DIE4, 0, 0},  // HERETIC_S_TROLL_DIE3
+    {HERETIC_SPR_TROL, 10, 8, NULL, HERETIC_S_TROLL_DIE5, 0, 0},  // HERETIC_S_TROLL_DIE4
+    {HERETIC_SPR_TROL, 11, 8, A_NoBlocking, HERETIC_S_TROLL_DIE6, 0, 0},  // HERETIC_S_TROLL_DIE5
+    {HERETIC_SPR_TROL, 12, -1, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_TROLL_DIE6
+    {HERETIC_SPR_DEMN, 0, 10, A_Look, HERETIC_S_SUPERDEMON_LOOK2, 0, 0},  // HERETIC_S_SUPERDEMON_LOOK1
+    {HERETIC_SPR_DEMN, 0, 10, A_Look, HERETIC_S_SUPERDEMON_LOOK1, 0, 0},  // HERETIC_S_SUPERDEMON_LOOK2
+    {HERETIC_SPR_DEMN, 0, 4, A_Chase, HERETIC_S_SUPERDEMON_WALK2, 0, 0},  // HERETIC_S_SUPERDEMON_WALK1
+    {HERETIC_SPR_DEMN, 1, 4, A_Chase, HERETIC_S_SUPERDEMON_WALK3, 0, 0},  // HERETIC_S_SUPERDEMON_WALK2
+    {HERETIC_SPR_DEMN, 2, 4, A_Chase, HERETIC_S_SUPERDEMON_WALK4, 0, 0},  // HERETIC_S_SUPERDEMON_WALK3
+    {HERETIC_SPR_DEMN, 3, 4, A_Chase, HERETIC_S_SUPERDEMON_WALK1, 0, 0},  // HERETIC_S_SUPERDEMON_WALK4
+    {HERETIC_SPR_DEMN, 6, 6, A_FaceTarget, HERETIC_S_SUPERDEMON_MELEE2, 0, 0},  // HERETIC_S_SUPERDEMON_MELEE1
+    {HERETIC_SPR_DEMN, 5, 8, A_SuperDemonBite, HERETIC_S_SUPERDEMON_MELEE3, 0, 0},  // HERETIC_S_SUPERDEMON_MELEE2
+    {HERETIC_SPR_DEMN, 4, 6, A_FaceTarget, HERETIC_S_SUPERDEMON_WALK1, 0, 0},  // HERETIC_S_SUPERDEMON_MELEE3
+    {HERETIC_SPR_DEMN, 4, 5, A_SuperDemonChoose, HERETIC_S_SUPERDEMON_MISA1, 0, 0},  // HERETIC_S_SUPERDEMON_MISSILE
+    {HERETIC_SPR_DEMN, 4, 5, A_FaceTarget, HERETIC_S_SUPERDEMON_MISA2, 0, 0},  // HERETIC_S_SUPERDEMON_MISA1
+    {HERETIC_SPR_DEMN, 5, 6, A_FaceTarget, HERETIC_S_SUPERDEMON_MISA3, 0, 0},  // HERETIC_S_SUPERDEMON_MISA2
+    {HERETIC_SPR_DEMN, 6, 5, A_SuperDemonAttack1, HERETIC_S_SUPERDEMON_WALK1, 0, 0},  // HERETIC_S_SUPERDEMON_MISA3
+    {HERETIC_SPR_DEMN, 4, 5, A_FaceTarget, HERETIC_S_SUPERDEMON_MISB2, 0, 0},  // HERETIC_S_SUPERDEMON_MISB1
+    {HERETIC_SPR_DEMN, 5, 6, A_FaceTarget, HERETIC_S_SUPERDEMON_MISB3, 0, 0},  // HERETIC_S_SUPERDEMON_MISB2
+    {HERETIC_SPR_DEMN, 6, 8, A_SuperDemonAttack2, HERETIC_S_SUPERDEMON_MISB4, 0, 0},  // HERETIC_S_SUPERDEMON_MISB3
+    {HERETIC_SPR_DEMN, 4, 5, A_FaceTarget, HERETIC_S_SUPERDEMON_MISB5, 0, 0},  // HERETIC_S_SUPERDEMON_MISB4
+    {HERETIC_SPR_DEMN, 5, 8, A_FaceTarget, HERETIC_S_SUPERDEMON_MISB6, 0, 0},  // HERETIC_S_SUPERDEMON_MISB5
+    {HERETIC_SPR_DEMN, 6, 8, A_SuperDemonAttack2, HERETIC_S_SUPERDEMON_MISB7, 0, 0},  // HERETIC_S_SUPERDEMON_MISB6
+    {HERETIC_SPR_DEMN, 4, 5, A_FaceTarget, HERETIC_S_SUPERDEMON_MISB8, 0, 0},  // HERETIC_S_SUPERDEMON_MISB7
+    {HERETIC_SPR_DEMN, 5, 8, A_FaceTarget, HERETIC_S_SUPERDEMON_MISB9, 0, 0},  // HERETIC_S_SUPERDEMON_MISB8
+    {HERETIC_SPR_DEMN, 6, 5, A_SuperDemonAttack2, HERETIC_S_SUPERDEMON_WALK1, 0, 0},  // HERETIC_S_SUPERDEMON_MISB9
+    {HERETIC_SPR_DEMN, 4, 4, NULL, HERETIC_S_SUPERDEMON_PAIN2, 0, 0},  // HERETIC_S_SUPERDEMON_PAIN1
+    {HERETIC_SPR_DEMN, 4, 4, A_Pain, HERETIC_S_SUPERDEMON_WALK1, 0, 0},  // HERETIC_S_SUPERDEMON_PAIN2
+    {HERETIC_SPR_DEMN, 7, 6, NULL, HERETIC_S_SUPERDEMON_DIE2, 0, 0},  // HERETIC_S_SUPERDEMON_DIE1
+    {HERETIC_SPR_DEMN, 8, 6, NULL, HERETIC_S_SUPERDEMON_DIE3, 0, 0},  // HERETIC_S_SUPERDEMON_DIE2
+    {HERETIC_SPR_DEMN, 9, 6, A_Scream, HERETIC_S_SUPERDEMON_DIE4, 0, 0},  // HERETIC_S_SUPERDEMON_DIE3
+    {HERETIC_SPR_DEMN, 10, 6, A_NoBlocking, HERETIC_S_SUPERDEMON_DIE5, 0, 0},  // HERETIC_S_SUPERDEMON_DIE4
+    {HERETIC_SPR_DEMN, 11, 6, NULL, HERETIC_S_SUPERDEMON_DIE6, 0, 0},  // HERETIC_S_SUPERDEMON_DIE5
+    {HERETIC_SPR_DEMN, 12, 6, NULL, HERETIC_S_SUPERDEMON_DIE7, 0, 0},  // HERETIC_S_SUPERDEMON_DIE6
+    {HERETIC_SPR_DEMN, 13, 6, NULL, HERETIC_S_SUPERDEMON_DIE8, 0, 0},  // HERETIC_S_SUPERDEMON_DIE7
+    {HERETIC_SPR_DEMN, 14, 6, NULL, HERETIC_S_SUPERDEMON_DIE9, 0, 0},  // HERETIC_S_SUPERDEMON_DIE8
+    {HERETIC_SPR_DEMN, 15, -1, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_SUPERDEMON_DIE9
+    {HERETIC_SPR_WMCE, 0, 1, A_SpawnFiremace, HERETIC_S_NULL, 0, 0},  // HERETIC_S_FIREMACESPAWNER
 };
 
 
@@ -5598,5 +5685,162 @@ raven_mobjinfo_t heretic_mobjinfo[HERETIC_NUMMOBJTYPES] = {
      sfx_None,                  // activesound
      MF_NOBLOCKMAP | MF_NOSECTOR,       // flags
      0                          // flags2
+     },
+
+    {                           // MT_DRAUGR (Faith Renewed)
+     3101,                        // doomednum
+     HERETIC_S_DRAUGR_LOOK1,                // spawnstate
+     60,                        // spawnhealth
+     HERETIC_S_DRAUGR_WALK1,                // seestate
+     heretic_sfx_mum2sit,                // seesound
+     12,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_DRAUGR_PAIN1,                // painstate
+     192,                        // painchance
+     heretic_sfx_mum2pai,                // painsound
+     HERETIC_S_NULL,                // meleestate
+     HERETIC_S_DRAUGR_ATK1,                // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_DRAUGR_DIE1,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     heretic_sfx_mum2dth,                // deathsound
+     10,                        // speed
+     16 * FRACUNIT,             // radius
+     62 * FRACUNIT,             // height
+     100,                        // mass
+     0,                        // damage
+     heretic_sfx_mum2sit,                // activesound
+     MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL,        // flags
+     MF2_FOOTCLIP | MF2_PASSMOBJ         // flags2
+     },
+    {                           // MT_DRAUGRFX1 (Faith Renewed)
+     -1,                        // doomednum
+     HERETIC_S_DRAUGRFX1_1,                // spawnstate
+     1000,                        // spawnhealth
+     HERETIC_S_NULL,                // seestate
+     heretic_sfx_mum2atk,                // seesound
+     8,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,                // painstate
+     0,                        // painchance
+     sfx_None,                // painsound
+     HERETIC_S_NULL,                // meleestate
+     HERETIC_S_NULL,                // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_DRAUGRFXI1_1,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     heretic_sfx_maghit,                // deathsound
+     14 * FRACUNIT,                        // speed
+     8 * FRACUNIT,             // radius
+     14 * FRACUNIT,             // height
+     100,                        // mass
+     2,                        // damage
+     sfx_None,                // activesound
+     MF_NOBLOCKMAP | MF_MISSILE | MF_DROPOFF | MF_NOGRAVITY,        // flags
+     MF2_NOTELEPORT         // flags2
+     },
+    {                           // MT_TROLL (Faith Renewed)
+     3102,                        // doomednum
+     HERETIC_S_TROLL_LOOK1,                // spawnstate
+     500,                        // spawnhealth
+     HERETIC_S_TROLL_WALK1,                // seestate
+     heretic_sfx_trosit,                // seesound
+     8,                        // reactiontime
+     heretic_sfx_troswg,                // attacksound
+     HERETIC_S_TROLL_PAIN1,                // painstate
+     32,                        // painchance
+     heretic_sfx_tropai,                // painsound
+     HERETIC_S_TROLL_MELEE1,                // meleestate
+     HERETIC_S_TROLL_CHARGE1,                // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_TROLL_DIE1,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     heretic_sfx_trodth,                // deathsound
+     12,                        // speed
+     24 * FRACUNIT,             // radius
+     62 * FRACUNIT,             // height
+     1000,                        // mass
+     4,                        // damage
+     heretic_sfx_trosit,                // activesound
+     MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL,        // flags
+     MF2_FOOTCLIP | MF2_PASSMOBJ         // flags2
+     },
+    {                           // MT_SUPERDEMON (Faith Renewed)
+     3103,                        // doomednum
+     HERETIC_S_SUPERDEMON_LOOK1,                // spawnstate
+     750,                        // spawnhealth
+     HERETIC_S_SUPERDEMON_WALK1,                // seestate
+     heretic_sfx_sbtact,                // seesound
+     8,                        // reactiontime
+     heretic_sfx_bitey,                // attacksound
+     HERETIC_S_SUPERDEMON_PAIN1,                // painstate
+     40,                        // painchance
+     heretic_sfx_sbtpai,                // painsound
+     HERETIC_S_SUPERDEMON_MELEE1,                // meleestate
+     HERETIC_S_SUPERDEMON_MISSILE,                // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_SUPERDEMON_DIE1,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     heretic_sfx_sbtdth,                // deathsound
+     13,                        // speed
+     32 * FRACUNIT,             // radius
+     64 * FRACUNIT,             // height
+     500,                        // mass
+     0,                        // damage
+     heretic_sfx_sbtact,                // activesound
+     MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL,        // flags
+     MF2_FOOTCLIP | MF2_PASSMOBJ         // flags2
+     },
+    {                           // MT_SUPERDEMONFX1 (Faith Renewed)
+     -1,                        // doomednum
+     HERETIC_S_SRCRFX1_1,                // spawnstate
+     1000,                        // spawnhealth
+     HERETIC_S_NULL,                // seestate
+     sfx_None,                // seesound
+     8,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,                // painstate
+     0,                        // painchance
+     sfx_None,                // painsound
+     HERETIC_S_NULL,                // meleestate
+     HERETIC_S_NULL,                // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_SRCRFXI1_1,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     heretic_sfx_phohit,                // deathsound
+     15 * FRACUNIT,                        // speed
+     10 * FRACUNIT,             // radius
+     10 * FRACUNIT,             // height
+     100,                        // mass
+     8,                        // damage
+     sfx_None,                // activesound
+     MF_NOBLOCKMAP | MF_MISSILE | MF_DROPOFF | MF_NOGRAVITY,        // flags
+     MF2_NOTELEPORT | MF2_FIREDAMAGE         // flags2
+     },
+    {                           // MT_FIREMACESPAWNER (Faith Renewed)
+     3105,                        // doomednum
+     HERETIC_S_FIREMACESPAWNER,                // spawnstate
+     1000,                        // spawnhealth
+     HERETIC_S_NULL,                // seestate
+     sfx_None,                // seesound
+     8,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,                // painstate
+     0,                        // painchance
+     sfx_None,                // painsound
+     HERETIC_S_NULL,                // meleestate
+     HERETIC_S_NULL,                // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_NULL,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     sfx_None,                // deathsound
+     0,                        // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                        // mass
+     0,                        // damage
+     sfx_None,                // activesound
+     MF_NOBLOCKMAP | MF_NOSECTOR,        // flags
+     0         // flags2
      }
 };

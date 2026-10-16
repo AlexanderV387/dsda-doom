@@ -1003,6 +1003,8 @@ static const struct { const char *file, *name; int maps; const char *extra; } iw
   { "rekkrsa.wad",   "REKKR",                               MAPS_EXMY },
   { "heretic.wad",   "Heretic",                             MAPS_EXMY },
   { "heretic1.wad",  "Heretic (shareware)",                 MAPS_EXMY },
+  // The remaster's episode (2025), a PWAD on its heretic.wad.
+  { "heretic.wad",   "Heretic: Faith Renewed",              MAPS_EXMY, "heretic_fr.wad" },
   { "hexen.wad",     "Hexen",                               MAPS_HEXEN },
   // The expansion is a PWAD on top of Hexen.
   { "hexen.wad",     "Hexen: Deathkings of the Dark Citadel", MAPS_HEXEN, "hexdd.wad" },
@@ -1884,7 +1886,7 @@ dboolean N3DS_PickGame(int *argc, char ***argv)
 
     if (FileExists(path)
         && (iwad_names[i].extra == NULL
-            || FileExists("hexen.wad")))
+            || FileExists(iwad_names[i].file)))
     {
       games[num_games] = iwad_names[i].name;
       game_index[num_games++] = i;

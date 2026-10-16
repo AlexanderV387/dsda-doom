@@ -471,6 +471,10 @@ static void dsda_InitHeretic(void) {
     mobjinfo[j].visibility = VF_HERETIC;
   }
 
+  // Faith Renewed: the Troll's and the Super Demon's reach.
+  mobjinfo[HERETIC_MT_TROLL].meleerange = 192 * FRACUNIT;
+  mobjinfo[HERETIC_MT_SUPERDEMON].meleerange = 96 * FRACUNIT;
+
   // heretic doesn't use "clip" concept
   for (i = 0; i < NUMAMMO; ++i) clipammo[i] = 1;
 

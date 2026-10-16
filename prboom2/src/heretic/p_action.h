@@ -103,6 +103,18 @@ void A_ChicPain();
 void A_ChicAttack();
 void A_MummyAttack();
 void A_MummyAttack2();
+
+// Faith Renewed (Heretic + Hexen, 2025)
+void A_DraugrAttack();
+void A_TrollChargeStart();
+void A_TrollCharge();
+void A_TrollRush();
+void A_TrollAttack();
+void A_SuperDemonBite();
+void A_SuperDemonChoose();
+void A_SuperDemonAttack1();
+void A_SuperDemonAttack2();
+void A_SpawnFiremace();
 void A_MummySoul();
 void A_ContMobjSound();
 void A_MummyFX1Seek();
