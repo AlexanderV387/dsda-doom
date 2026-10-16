@@ -2220,6 +2220,14 @@ static void Heretic_P_TouchSpecialThing(mobj_t * special, mobj_t * toucher)
             P_SetMessage(player, HERETIC_TXT_WPNGAUNTLETS, false);
             sound = heretic_sfx_wpnup;
             break;
+        case HERETIC_SPR_WSWN:         // Weapon_TempestWand (Faith Renewed)
+            if (!P_GiveWeapon(player, wp_tempest, false))
+            {
+                return;
+            }
+            P_SetMessage(player, HERETIC_TXT_WPNTEMPEST, false);
+            sound = heretic_sfx_wpnup;
+            break;
         default:
             I_Error("Heretic_P_TouchSpecialThing: Unknown gettable thing");
     }
@@ -2337,7 +2345,8 @@ int GetWeaponAmmo[NUMWEAPONS] = {
     2,                          // phoenix rod
     50,                         // mace
     0,                          // gauntlets
-    0                           // beak
+    0,                          // beak
+    25                          // tempest wand
 };
 
 int WeaponValue[] = {
@@ -2349,7 +2358,8 @@ int WeaponValue[] = {
     7,                          // phoenixrod
     8,                          // mace
     2,                          // gauntlets
-    0                           // beak
+    0,                          // beak
+    4                           // tempest wand
 };
 
 dboolean Heretic_P_GiveWeapon(player_t * player, weapontype_t weapon)

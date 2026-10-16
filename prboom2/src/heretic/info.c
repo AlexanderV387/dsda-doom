@@ -33,7 +33,7 @@ const char *heretic_sprnames[HERETIC_NUMSPRITES + 1] = {
     "FX16","MNTR","FX12","FX13","AKYY","BKYY","CKYY","AMG2","AMM1","AMM2",
     "AMC1","AMC2","AMS1","AMS2","AMP1","AMP2","AMB1","AMB2",
     // Faith Renewed
-    "MUM2","PSKL","TROL","DEMN",
+    "MUM2","PSKL","TROL","DEMN","SWND","WSWN","SWFX",
     NULL
 };
 
@@ -1331,6 +1331,54 @@ state_t heretic_states[HERETIC_NUMSTATES] = {
     {HERETIC_SPR_DEMN, 14, 6, NULL, HERETIC_S_SUPERDEMON_DIE9, 0, 0},  // HERETIC_S_SUPERDEMON_DIE8
     {HERETIC_SPR_DEMN, 15, -1, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_SUPERDEMON_DIE9
     {HERETIC_SPR_WMCE, 0, 1, A_SpawnFiremace, HERETIC_S_NULL, 0, 0},  // HERETIC_S_FIREMACESPAWNER
+    {HERETIC_SPR_SWND, 0, 1, A_WeaponReady, HERETIC_S_TEMPESTREADY, 0, 0},  // HERETIC_S_TEMPESTREADY
+    {HERETIC_SPR_SWND, 0, 1, A_Lower, HERETIC_S_TEMPESTDOWN, 0, 0},  // HERETIC_S_TEMPESTDOWN
+    {HERETIC_SPR_SWND, 0, 1, A_Raise, HERETIC_S_TEMPESTUP, 0, 0},  // HERETIC_S_TEMPESTUP
+    {HERETIC_SPR_SWND, 32769, 4, A_TempestFireSound, HERETIC_S_TEMPESTATK1_2, 0, 0},  // HERETIC_S_TEMPESTATK1_1
+    {HERETIC_SPR_SWND, 32771, 4, A_FireTempestPL1, HERETIC_S_TEMPESTATK1_3, 0, 0},  // HERETIC_S_TEMPESTATK1_2
+    {HERETIC_SPR_SWND, 32770, 4, NULL, HERETIC_S_TEMPESTATK1_4, 0, 0},  // HERETIC_S_TEMPESTATK1_3
+    {HERETIC_SPR_SWND, 1, 6, NULL, HERETIC_S_TEMPESTATK1_5, 0, 0},  // HERETIC_S_TEMPESTATK1_4
+    {HERETIC_SPR_SWND, 0, 6, NULL, HERETIC_S_TEMPESTATK1_6, 0, 0},  // HERETIC_S_TEMPESTATK1_5
+    {HERETIC_SPR_SWND, 0, 6, NULL, HERETIC_S_TEMPESTATK1_7, 0, 0},  // HERETIC_S_TEMPESTATK1_6
+    {HERETIC_SPR_SWND, 0, 0, A_ReFire, HERETIC_S_TEMPESTREADY, 0, 0},  // HERETIC_S_TEMPESTATK1_7
+    {HERETIC_SPR_SWND, 32768, 10, A_TempestChargeSound, HERETIC_S_TEMPESTATK2_2, 0, 0},  // HERETIC_S_TEMPESTATK2_1
+    {HERETIC_SPR_SWND, 32769, 5, NULL, HERETIC_S_TEMPESTATK2_3, 0, 0},  // HERETIC_S_TEMPESTATK2_2
+    {HERETIC_SPR_SWND, 32770, 5, NULL, HERETIC_S_TEMPESTATK2_4, 0, 0},  // HERETIC_S_TEMPESTATK2_3
+    {HERETIC_SPR_SWND, 32771, 5, NULL, HERETIC_S_TEMPESTATK2_5, 0, 0},  // HERETIC_S_TEMPESTATK2_4
+    {HERETIC_SPR_SWND, 32772, 5, NULL, HERETIC_S_TEMPESTATK2_6, 0, 0},  // HERETIC_S_TEMPESTATK2_5
+    {HERETIC_SPR_SWND, 32772, 5, NULL, HERETIC_S_TEMPESTATK2_7, 0, 0},  // HERETIC_S_TEMPESTATK2_6
+    {HERETIC_SPR_SWND, 32773, 5, A_FireTempestPL2, HERETIC_S_TEMPESTATK2_8, 0, 0},  // HERETIC_S_TEMPESTATK2_7
+    {HERETIC_SPR_SWND, 32770, 5, NULL, HERETIC_S_TEMPESTATK2_9, 0, 0},  // HERETIC_S_TEMPESTATK2_8
+    {HERETIC_SPR_SWND, 32769, 5, A_ReFire, HERETIC_S_TEMPESTREADY, 0, 0},  // HERETIC_S_TEMPESTATK2_9
+    {HERETIC_SPR_WSWN, 0, -1, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_WTEMPEST
+    {HERETIC_SPR_FX16, 32771, 4, NULL, HERETIC_S_TEMPESTTRAIL2, 0, 0},  // HERETIC_S_TEMPESTTRAIL1
+    {HERETIC_SPR_FX16, 32772, 4, NULL, HERETIC_S_TEMPESTTRAIL3, 0, 0},  // HERETIC_S_TEMPESTTRAIL2
+    {HERETIC_SPR_FX16, 32773, 4, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_TEMPESTTRAIL3
+    {HERETIC_SPR_FX16, 32774, 4, NULL, HERETIC_S_TEMPESTPUFF2, 0, 0},  // HERETIC_S_TEMPESTPUFF1
+    {HERETIC_SPR_FX16, 32775, 4, NULL, HERETIC_S_TEMPESTPUFF3, 0, 0},  // HERETIC_S_TEMPESTPUFF2
+    {HERETIC_SPR_FX16, 32776, 4, NULL, HERETIC_S_TEMPESTPUFF4, 0, 0},  // HERETIC_S_TEMPESTPUFF3
+    {HERETIC_SPR_FX16, 32777, 4, A_TempestChain, HERETIC_S_TEMPESTPUFF5, 0, 0},  // HERETIC_S_TEMPESTPUFF4
+    {HERETIC_SPR_FX16, 32778, 4, NULL, HERETIC_S_TEMPESTPUFF6, 0, 0},  // HERETIC_S_TEMPESTPUFF5
+    {HERETIC_SPR_FX16, 32779, 4, A_TempestPuffEnd, HERETIC_S_NULL, 0, 0},  // HERETIC_S_TEMPESTPUFF6
+    {HERETIC_SPR_FX18, 32782, 4, NULL, HERETIC_S_TEMPESTPUFFX2, 0, 0},  // HERETIC_S_TEMPESTPUFFX1
+    {HERETIC_SPR_FX18, 32783, 4, NULL, HERETIC_S_TEMPESTPUFFX3, 0, 0},  // HERETIC_S_TEMPESTPUFFX2
+    {HERETIC_SPR_FX18, 32784, 4, NULL, HERETIC_S_TEMPESTPUFFX4, 0, 0},  // HERETIC_S_TEMPESTPUFFX3
+    {HERETIC_SPR_FX18, 32785, 4, NULL, HERETIC_S_TEMPESTPUFFX5, 0, 0},  // HERETIC_S_TEMPESTPUFFX4
+    {HERETIC_SPR_FX18, 32786, 4, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_TEMPESTPUFFX5
+    {HERETIC_SPR_SWFX, 32774, 4, NULL, HERETIC_S_TEMPESTBOMBPUFF2, 0, 0},  // HERETIC_S_TEMPESTBOMBPUFF1
+    {HERETIC_SPR_SWFX, 32775, 4, NULL, HERETIC_S_TEMPESTBOMBPUFF3, 0, 0},  // HERETIC_S_TEMPESTBOMBPUFF2
+    {HERETIC_SPR_SWFX, 32776, 4, NULL, HERETIC_S_TEMPESTBOMBPUFF4, 0, 0},  // HERETIC_S_TEMPESTBOMBPUFF3
+    {HERETIC_SPR_SWFX, 32777, 4, NULL, HERETIC_S_TEMPESTBOMBPUFF5, 0, 0},  // HERETIC_S_TEMPESTBOMBPUFF4
+    {HERETIC_SPR_SWFX, 32778, 4, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_TEMPESTBOMBPUFF5
+    {HERETIC_SPR_FX16, 32768, 3, A_BlueSpark, HERETIC_S_TEMPESTBOMB2, 0, 0},  // HERETIC_S_TEMPESTBOMB1
+    {HERETIC_SPR_FX16, 32769, 3, A_BlueSpark, HERETIC_S_TEMPESTBOMB3, 0, 0},  // HERETIC_S_TEMPESTBOMB2
+    {HERETIC_SPR_FX16, 32770, 3, A_TempestCountdown, HERETIC_S_TEMPESTBOMB1, 0, 0},  // HERETIC_S_TEMPESTBOMB3
+    {HERETIC_SPR_SWFX, 32768, 5, NULL, HERETIC_S_TEMPESTBOMBX2, 0, 0},  // HERETIC_S_TEMPESTBOMBX1
+    {HERETIC_SPR_SWFX, 32769, 5, A_TempestSpray, HERETIC_S_TEMPESTBOMBX3, 0, 0},  // HERETIC_S_TEMPESTBOMBX2
+    {HERETIC_SPR_SWFX, 32770, 5, NULL, HERETIC_S_TEMPESTBOMBX4, 0, 0},  // HERETIC_S_TEMPESTBOMBX3
+    {HERETIC_SPR_SWFX, 32771, 5, NULL, HERETIC_S_TEMPESTBOMBX5, 0, 0},  // HERETIC_S_TEMPESTBOMBX4
+    {HERETIC_SPR_SWFX, 32772, 5, NULL, HERETIC_S_TEMPESTBOMBX6, 0, 0},  // HERETIC_S_TEMPESTBOMBX5
+    {HERETIC_SPR_SWFX, 32773, 5, NULL, HERETIC_S_NULL, 0, 0},  // HERETIC_S_TEMPESTBOMBX6
 };
 
 
@@ -5842,5 +5890,135 @@ raven_mobjinfo_t heretic_mobjinfo[HERETIC_NUMMOBJTYPES] = {
      sfx_None,                // activesound
      MF_NOBLOCKMAP | MF_NOSECTOR,        // flags
      0         // flags2
+     },
+    {                           // MT_WTEMPEST (Faith Renewed)
+     3104,                        // doomednum
+     HERETIC_S_WTEMPEST,                // spawnstate
+     1000,                      // spawnhealth
+     HERETIC_S_NULL,            // seestate
+     sfx_None,                // seesound
+     8,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,            // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HERETIC_S_NULL,            // meleestate
+     HERETIC_S_NULL,            // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_NULL,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     sfx_None,                // deathsound
+     0,                        // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                        // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL,        // flags
+     0         // flags2
+     },
+    {                           // MT_TEMPESTTRAIL (Faith Renewed)
+     -1,                        // doomednum
+     HERETIC_S_TEMPESTTRAIL1,                // spawnstate
+     1000,                      // spawnhealth
+     HERETIC_S_NULL,            // seestate
+     sfx_None,                // seesound
+     8,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,            // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HERETIC_S_NULL,            // meleestate
+     HERETIC_S_NULL,            // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_NULL,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     sfx_None,                // deathsound
+     0,                        // speed
+     8 * FRACUNIT,             // radius
+     8 * FRACUNIT,             // height
+     100,                       // mass
+     0,                        // damage
+     sfx_None,                  // activesound
+     MF_NOBLOCKMAP | MF_NOGRAVITY,        // flags
+     0         // flags2
+     },
+    {                           // MT_TEMPESTPUFF (Faith Renewed)
+     -1,                        // doomednum
+     HERETIC_S_TEMPESTPUFF1,                // spawnstate
+     1000,                      // spawnhealth
+     HERETIC_S_NULL,            // seestate
+     sfx_None,                // seesound
+     1,                        // reactiontime
+     heretic_sfx_gnthit,                // attacksound
+     HERETIC_S_NULL,            // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HERETIC_S_NULL,            // meleestate
+     HERETIC_S_NULL,            // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_NULL,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     sfx_None,                // deathsound
+     0,                        // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                        // damage
+     sfx_None,                  // activesound
+     MF_NOBLOCKMAP | MF_NOGRAVITY,        // flags
+     0         // flags2
+     },
+    {                           // MT_TEMPESTBOMBPUFF (Faith Renewed)
+     -1,                        // doomednum
+     HERETIC_S_TEMPESTBOMBPUFF1,                // spawnstate
+     1000,                      // spawnhealth
+     HERETIC_S_NULL,            // seestate
+     sfx_None,                // seesound
+     8,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,            // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HERETIC_S_NULL,            // meleestate
+     HERETIC_S_NULL,            // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_NULL,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     sfx_None,                // deathsound
+     0,                        // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                        // damage
+     sfx_None,                  // activesound
+     MF_NOBLOCKMAP | MF_NOGRAVITY,        // flags
+     0         // flags2
+     },
+    {                           // MT_TEMPESTBOMB (Faith Renewed)
+     -1,                        // doomednum
+     HERETIC_S_TEMPESTBOMB1,                // spawnstate
+     1000,                      // spawnhealth
+     HERETIC_S_NULL,            // seestate
+     heretic_sfx_swnpow,                // seesound
+     3,                        // reactiontime
+     sfx_None,                // attacksound
+     HERETIC_S_NULL,            // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HERETIC_S_NULL,            // meleestate
+     HERETIC_S_NULL,            // missilestate
+     HERETIC_S_NULL,            // crashstate
+     HERETIC_S_TEMPESTBOMBX1,                // deathstate
+     HERETIC_S_NULL,            // xdeathstate
+     heretic_sfx_gntuse,                // deathsound
+     15 * FRACUNIT,                        // speed
+     12 * FRACUNIT,             // radius
+     8 * FRACUNIT,             // height
+     100,                       // mass
+     1,                        // damage
+     sfx_None,                  // activesound
+     MF_NOBLOCKMAP | MF_MISSILE | MF_DROPOFF | MF_NOGRAVITY,        // flags
+     MF2_NOTELEPORT | MF2_RIP | MF2_WINDTHRUST         // flags2
      }
 };

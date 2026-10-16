@@ -235,7 +235,7 @@ static const int slot_weapons[2][MAX_SLOTS][2] =
 {
   { { wp_fist, wp_chainsaw }, { wp_pistol, -1 }, { wp_shotgun, wp_supershotgun },
     { wp_chaingun, -1 }, { wp_missile, -1 }, { wp_plasma, -1 }, { wp_bfg, -1 } },
-  { { wp_staff, wp_gauntlets }, { wp_goldwand, -1 }, { wp_crossbow, -1 },
+  { { wp_staff, wp_gauntlets }, { wp_goldwand, wp_tempest }, { wp_crossbow, -1 },
     { wp_blaster, -1 }, { wp_skullrod, -1 }, { wp_phoenixrod, -1 }, { wp_mace, -1 } },
 };
 

@@ -318,7 +318,19 @@ weaponinfo_t wpnlev1info[NUMWEAPONS] = {
     0,                                 // ammopershot
     0,                                 // intflags
     WPF_NOFLAG
-  }
+  },
+  {                           // Tempest Wand (Faith Renewed)
+    am_goldwand,               // ammo
+    HERETIC_S_TEMPESTUP,               // upstate
+    HERETIC_S_TEMPESTDOWN,             // downstate
+    HERETIC_S_TEMPESTREADY,            // readystate
+    HERETIC_S_TEMPESTATK1_1,             // atkstate
+    HERETIC_S_TEMPESTATK1_1,             // holdatkstate
+    HERETIC_S_NULL,                    // flashstate
+    5,                                // ammopershot
+    0,                                 // intflags
+    WPF_NOFLAG
+  },
 };
 
 weaponinfo_t wpnlev2info[NUMWEAPONS] = {
@@ -429,7 +441,19 @@ weaponinfo_t wpnlev2info[NUMWEAPONS] = {
     0,                                 // ammopershot
     0,                                 // intflags
     WPF_NOFLAG
-  }
+  },
+  {                           // Tempest Wand (Faith Renewed)
+    am_goldwand,               // ammo
+    HERETIC_S_TEMPESTUP,               // upstate
+    HERETIC_S_TEMPESTDOWN,             // downstate
+    HERETIC_S_TEMPESTREADY,            // readystate
+    HERETIC_S_TEMPESTATK2_1,             // atkstate
+    HERETIC_S_TEMPESTATK2_1,             // holdatkstate
+    HERETIC_S_NULL,                    // flashstate
+    25,                                // ammopershot
+    0,                                 // intflags
+    WPF_NOFLAG
+  },
 };
 
 // hexen

@@ -426,6 +426,7 @@ static void cheat_fa()
     for (i=0;i<NUMWEAPONS;i++)
       if (!(((i == wp_plasma || i == wp_bfg) && gamemode == shareware) ||
             (heretic && i == wp_skullrod && gamemode == shareware) ||
+            (i == wp_tempest && !(heretic && W_CheckNumForName("SWNDA0") >= 0)) ||
             (i == wp_supershotgun && gamemode != commercial)))
         plyr->weaponowned[i] = true;
 

@@ -789,6 +789,9 @@ typedef enum {
   heretic_sfx_trohit,
   heretic_sfx_bstat2,
   heretic_sfx_bitey,
+  heretic_sfx_swnfir,
+  heretic_sfx_swnchg,
+  heretic_sfx_swnpow,
 
   HERETIC_NUMSFX,
 

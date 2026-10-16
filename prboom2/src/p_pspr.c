@@ -1778,6 +1778,210 @@ void A_FireGoldWandPL2(player_t * player, pspdef_t * psp)
     S_StartMobjSound(player->mo, heretic_sfx_gldhit);
 }
 
+// ---------------------------------------------------------------------------
+// Faith Renewed (Heretic + Hexen, 2025): the Tempest Wand. Its lightning
+// jumps from the monster it hits to the nearest one, three times; powered,
+// a bomb that sprays lightning all around. After the community's patches
+// for ZDoom (heretic-hexen-zdpatches), themselves after the remaster's
+// definitions.
+
+extern mobj_t *PuffSpawned;
+void A_BlueSpark(mobj_t * actor);
+
+#define TEMPEST_CHAIN_RANGE (512 * FRACUNIT)
+
+// A line of sparks from (x1, y1, z1) to (x2, y2, z2), one every 32 units
+// (at most 24: the 3DS draws each one), scattered a little.
+static void TempestTrail(fixed_t x1, fixed_t y1, fixed_t z1,
+                         fixed_t x2, fixed_t y2, fixed_t z2)
+{
+    const fixed_t dist = P_AproxDistance(P_AproxDistance(x2 - x1, y2 - y1), z2 - z1);
+    int steps = dist / (32 * FRACUNIT);
+    int i;
+
+    if (steps > 24)
+        steps = 24;
+
+    for (i = 1; i <= steps; i++)
+    {
+        const fixed_t x = x1 + (fixed_t) ((int64_t) (x2 - x1) * i / (steps + 1));
+        const fixed_t y = y1 + (fixed_t) ((int64_t) (y2 - y1) * i / (steps + 1));
+        const fixed_t z = z1 + (fixed_t) ((int64_t) (z2 - z1) * i / (steps + 1));
+
+        P_SpawnMobj(x + (P_SubRandom() << 12), y + (P_SubRandom() << 12),
+                    z + (P_SubRandom() << 12), HERETIC_MT_TEMPESTTRAIL);
+    }
+}
+
+static fixed_t MidHeight(mobj_t *mo)
+{
+    return mo->z + mo->height / 2;
+}
+
+// A puff on target, from the one at source (of the chain, or the bomb):
+// it takes the damage; the puff remembers who was hit before it.
+static mobj_t *TempestHit(mobj_t *source, mobj_t *target, mobjtype_t type, int damage)
+{
+    mobj_t *puff = P_SpawnMobj(target->x, target->y, MidHeight(target), type);
+
+    P_SetTarget(&puff->target, source->target);
+    P_SetTarget(&puff->tracer, target);
+    TempestTrail(source->x, source->y, source->z, puff->x, puff->y, puff->z);
+    P_DamageMobj(target, puff, source->target, damage);
+    return puff;
+}
+
+void A_TempestFireSound(player_t * player, pspdef_t * psp)
+{
+    S_StartMobjSound(player->mo, heretic_sfx_swnfir);
+}
+
+void A_TempestChargeSound(player_t * player, pspdef_t * psp)
+{
+    S_StartMobjSound(player->mo, heretic_sfx_swnchg);
+}
+
+void A_FireTempestPL1(player_t * player, pspdef_t * psp)
+{
+    mobj_t *mo = player->mo;
+    mobj_t *aimed;
+    mobj_t *puff;
+    int damage;
+
+    player->ammo[am_goldwand] -= wpnlev1info[wp_tempest].ammopershot;
+    if (player->ammo[am_goldwand] < 0)
+        player->ammo[am_goldwand] = 0;
+
+    P_BulletSlope(mo);
+    aimed = linetarget;
+    damage = 50 + 3 * (1 + P_Random(pr_heretic) % 8);
+    PuffType = HERETIC_MT_TEMPESTPUFF;
+    PuffSpawned = NULL;
+    P_LineAttack(mo, mo->angle, MISSILERANGE, bulletslope, damage);
+    puff = PuffSpawned;
+
+    if (puff == NULL)
+        return;
+
+    TempestTrail(mo->x, mo->y, MidHeight(mo), puff->x, puff->y, puff->z);
+    P_SetTarget(&puff->target, mo);
+
+    // On a monster it goes on to others; on a wall, it only crackles.
+    if (aimed && P_AproxDistance(aimed->x - puff->x, aimed->y - puff->y)
+                 < aimed->radius + 24 * FRACUNIT)
+    {
+        P_SetTarget(&puff->tracer, aimed);
+        puff->reactiontime = 3;
+    }
+    else
+    {
+        P_SetMobjState(puff, HERETIC_S_TEMPESTPUFFX1);
+    }
+}
+
+void A_FireTempestPL2(player_t * player, pspdef_t * psp)
+{
+    player->ammo[am_goldwand] -= wpnlev2info[wp_tempest].ammopershot;
+    if (player->ammo[am_goldwand] < 0)
+        player->ammo[am_goldwand] = 0;
+
+    P_SpawnPlayerMissile(player->mo, HERETIC_MT_TEMPESTBOMB);
+}
+
+// Not hit yet in this chain: the puff's own monster and the ones it
+// remembers (the earlier links: three at most).
+static dboolean TempestChained(mobj_t *puff, mobj_t *mo)
+{
+    return mo == puff->tracer || mo == puff->special1.m || mo == puff->special2.m
+        || mo == puff->lastenemy;
+}
+
+void A_TempestChain(mobj_t * puff)
+{
+    thinker_t *th;
+    mobj_t *best = NULL;
+    fixed_t best_dist = TEMPEST_CHAIN_RANGE + 1;
+    mobj_t *next;
+
+    if (puff->reactiontime <= 0 || puff->tracer == NULL)
+        return;
+
+    for (th = thinkercap.next; th != &thinkercap; th = th->next)
+    {
+        mobj_t *mo;
+        fixed_t dist;
+
+        if (th->function != P_MobjThinker)
+            continue;
+
+        mo = (mobj_t *) th;
+        if (!(mo->flags & MF_SHOOTABLE) || !(mo->flags & MF_COUNTKILL) || mo->health <= 0
+            || mo->player || TempestChained(puff, mo))
+            continue;
+
+        dist = P_AproxDistance(mo->x - puff->x, mo->y - puff->y);
+        if (dist < best_dist && P_CheckSight(puff, mo))
+        {
+            best = mo;
+            best_dist = dist;
+        }
+    }
+
+    if (best == NULL)
+        return;
+
+    S_StartMobjSound(puff, heretic_sfx_gnthit);
+    next = TempestHit(puff, best, HERETIC_MT_TEMPESTPUFF,
+                      50 + P_Random(pr_heretic) % 31);
+    next->reactiontime = puff->reactiontime - 1;
+    P_SetTarget(&next->special1.m, puff->tracer);
+    P_SetTarget(&next->special2.m, puff->special1.m);
+    P_SetTarget(&next->lastenemy, puff->special2.m);
+}
+
+// The chain's memory let go (the monsters may be freed).
+void A_TempestPuffEnd(mobj_t * puff)
+{
+    P_SetTarget(&puff->tracer, NULL);
+    P_SetTarget(&puff->special1.m, NULL);
+    P_SetTarget(&puff->special2.m, NULL);
+    P_SetTarget(&puff->lastenemy, NULL);
+}
+
+// The bomb sparks; after three rounds it bursts.
+void A_TempestCountdown(mobj_t * actor)
+{
+    A_BlueSpark(actor);
+
+    if (--actor->reactiontime <= 0)
+        P_ExplodeMissile(actor);
+}
+
+// The burst: a blast, and 120 rays all around striking what they meet.
+void A_TempestSpray(mobj_t * actor)
+{
+    int i;
+
+    P_RadiusAttack(actor, actor->target, 128, 128, 0);
+
+    for (i = 0; i < 120; i++)
+    {
+        const angle_t an = actor->angle - ANG180 + (angle_t) i * (ANG90 / 30);
+        mobj_t *target;
+        mobj_t *puff;
+
+        P_AimLineAttack(actor, an, 1024 * FRACUNIT, 0);
+        target = linetarget;
+
+        if (target == NULL || target == actor->target)
+            continue;
+
+        puff = TempestHit(actor, target, HERETIC_MT_TEMPESTBOMBPUFF,
+                          60 + P_Random(pr_heretic) % 21);
+        P_SetTarget(&puff->tracer, NULL);
+    }
+}
+
 void A_FireMacePL1B(player_t * player, pspdef_t * psp)
 {
     mobj_t *pmo;

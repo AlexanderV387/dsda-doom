@@ -1023,7 +1023,8 @@ static int PSpriteSY[NUMCLASSES][NUMWEAPONS] = {
     15 * FRACUNIT,              // phoenix rod
     15 * FRACUNIT,              // mace
     15 * FRACUNIT,              // gauntlets
-    15 * FRACUNIT               // beak
+    15 * FRACUNIT,              // beak
+    5 * FRACUNIT                // tempest wand (Faith Renewed)
   },
   {0, -12 * FRACUNIT, -10 * FRACUNIT, 10 * FRACUNIT}, // Fighter
   {-8 * FRACUNIT, 10 * FRACUNIT, 10 * FRACUNIT, 0}, // Cleric

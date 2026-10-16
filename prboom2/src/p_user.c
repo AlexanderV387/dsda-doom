@@ -889,6 +889,12 @@ void P_PlayerThink (player_t* player)
       }
     }
 
+    // Faith Renewed: 2 again (or once, from the Elven Wand) for the
+    // Tempest Wand, its alternative.
+    if (heretic && newweapon == wp_goldwand && player->weaponowned[wp_tempest]
+        && player->readyweapon == wp_goldwand)
+      newweapon = wp_tempest;
+
     // killough 2/8/98, 3/22/98 -- end of weapon selection changes
 
     if (player->weaponowned[newweapon] && newweapon != player->readyweapon)

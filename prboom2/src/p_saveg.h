@@ -36,7 +36,9 @@
 
 #include "doomtype.h"
 
-#define SAVEVERSION 7
+// 8: a weapon more (Heretic's Tempest Wand, Faith Renewed): players' data
+// grew; older saved games are refused, not read wrong.
+#define SAVEVERSION 8
 
 /* Persistent storage/archiving.
  * These are the load / save game routines. */

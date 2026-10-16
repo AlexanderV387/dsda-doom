@@ -256,6 +256,7 @@ typedef enum {
   wp_mace,
   wp_gauntlets,
   wp_beak,
+  wp_tempest, // Faith Renewed (2025): with 2, the Elven Wand's alternative
 
   NUMWEAPONS,
   wp_nochange,             // No pending weapon change.
