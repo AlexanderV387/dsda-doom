@@ -863,6 +863,7 @@ static void gld_PreprocessSectors(void)
   int v2num;
   int i;
   int j;
+  int k;
 
   if (numsectors)
   {
@@ -913,12 +914,15 @@ static void gld_PreprocessSectors(void)
       I_Error("gld_PreprocessSectors: Not enough memory for array vertexcheck");
       return;
     }
-  }
-
-  for (i=0; i<numsectors; i++)
-  {
     memset(vertexcheck,0,numvertexes*sizeof(vertexcheck[0]));
     memset(vertexcheck2,0,numvertexes*sizeof(vertexcheck2[0]));
+  }
+
+  // Only the vertexes of each sector's lines are looked at, and cleared
+  // after it: not all the map's for each sector (in Vestiges of
+  // Grandeur's MAP07, 6,383 sectors by 37,719 vertexes, three times).
+  for (i=0; i<numsectors; i++)
+  {
     for (j=0; j<sectors[i].linecount; j++)
     {
       line_t *l = sectors[i].lines[j];
@@ -955,15 +959,20 @@ static void gld_PreprocessSectors(void)
     else
     {
       sectors[i].flags |= SECTOR_IS_CLOSED;
-      for (j=0; j<numvertexes; j++)
+      for (j=0; j<sectors[i].linecount; j++)
       {
-        if ((vertexcheck[j]==1) || (vertexcheck[j]==2))
+        for (k=0; k<2; k++)
         {
+          int vnum = (k ? sectors[i].lines[j]->v2 : sectors[i].lines[j]->v1) - vertexes;
+
+          if ((vertexcheck[vnum]==1) || (vertexcheck[vnum]==2))
+          {
 #ifdef PRBOOM_DEBUG
-          lprintf(LO_ERROR, "sector %i is not closed at vertex %i ! %i lines in sector\n", i, j, sectors[i].linecount);
+            lprintf(LO_ERROR, "sector %i is not closed at vertex %i ! %i lines in sector\n", i, vnum, sectors[i].linecount);
 #endif
-          if (levelinfo) fprintf(levelinfo, "sector %i is not closed at vertex %i ! %i lines in sector\n", i, j, sectors[i].linecount);
-          sectors[i].flags &= ~SECTOR_IS_CLOSED;
+            if (levelinfo) fprintf(levelinfo, "sector %i is not closed at vertex %i ! %i lines in sector\n", i, vnum, sectors[i].linecount);
+            sectors[i].flags &= ~SECTOR_IS_CLOSED;
+          }
         }
       }
     }
@@ -977,6 +986,14 @@ static void gld_PreprocessSectors(void)
       {
         sectors[i].lines[j]->r_flags |= RF_ISOLATED;
       }
+    }
+
+    for (j=0; j<sectors[i].linecount; j++)
+    {
+      v1num = sectors[i].lines[j]->v1 - vertexes;
+      v2num = sectors[i].lines[j]->v2 - vertexes;
+      vertexcheck[v1num] = vertexcheck[v2num] = 0;
+      vertexcheck2[v1num] = vertexcheck2[v2num] = 0;
     }
 
     // figgi -- adapted for glnodes
