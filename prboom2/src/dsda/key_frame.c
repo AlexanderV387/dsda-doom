@@ -547,11 +547,15 @@ void dsda_UpdateAutoKeyFrames(void) {
 
     if (!first_kf.buffer && current_key_frame->buffer) {
 #ifdef __3DS__
-      kf_in_use = true;
-#endif
+      // Only if there is room: after the auto key frames were freed for
+      // memory, the next one (3.7 MB in Vestiges of Grandeur's MAP07) was
+      // copied here at once and the game stopped.
+      first_kf = *current_key_frame;
+      first_kf.buffer = Z_TryMalloc(first_kf.buffer_length);
+      if (first_kf.buffer)
+        memcpy(first_kf.buffer, current_key_frame->buffer, first_kf.buffer_length);
+#else
       dsda_CopyKeyFrame(&first_kf, current_key_frame);
-#ifdef __3DS__
-      kf_in_use = false;
 #endif
     }
 
