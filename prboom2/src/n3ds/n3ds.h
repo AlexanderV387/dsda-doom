@@ -76,6 +76,9 @@ enum
   N3DS_PROFILE_VIEW,     // R_RenderPlayerView: the whole 3D view (map, scene...)
   N3DS_PROFILE_BOTTOM,   // the bottom screen (status bar, map)
   N3DS_PROFILE_CORE1,    // waiting for core 1 to finish showing the last frame
+  N3DS_PROFILE_SIGHT,    // P_CheckSight: whether monsters see (in the logic)
+  N3DS_PROFILE_MOVE,     // P_TryMove: moving things (in the logic)
+  N3DS_PROFILE_CHASE,    // A_Chase: the monsters chasing (in the logic)
   N3DS_PROFILE_COUNT
 };
 

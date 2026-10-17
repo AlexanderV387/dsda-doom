@@ -901,7 +901,11 @@ static dboolean P_CrossBSPNode(int bspnum)
 //
 // killough 4/20/98: cleaned up, made to use new LOS struct
 
+#ifdef __3DS__
+static dboolean CheckSightBody(mobj_t *t1, mobj_t *t2)
+#else
 dboolean P_CheckSight(mobj_t *t1, mobj_t *t2)
+#endif
 {
   const sector_t *s1, *s2;
   int pnum;
@@ -1007,3 +1011,17 @@ dboolean P_CheckFov(mobj_t *t1, mobj_t *t2, angle_t fov)
   return((minang > maxang) ? angle >= minang || angle <= maxang
                            : angle >= minang && angle <= maxang);
 }
+
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+
+// Timed for the 3DS's log (n3ds_gl.c).
+dboolean P_CheckSight(mobj_t *t1, mobj_t *t2)
+{
+  const unsigned long long start = N3DS_ProfileNow();
+  const dboolean result = CheckSightBody(t1, t2);
+
+  N3DS_ProfileAdd(N3DS_PROFILE_SIGHT, start);
+  return result;
+}
+#endif

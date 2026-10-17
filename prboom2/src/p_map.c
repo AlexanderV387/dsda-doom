@@ -1499,7 +1499,11 @@ void P_IterateZDoomSpecHit(mobj_t *thing, fixed_t oldx, fixed_t oldy)
     }
 }
 
+#ifdef __3DS__
+static dboolean TryMoveBody(mobj_t* thing,fixed_t x,fixed_t y,
+#else
 dboolean P_TryMove(mobj_t* thing,fixed_t x,fixed_t y,
+#endif
                   dboolean dropoff) // killough 3/15/98: allow dropoff as option
 {
   fixed_t oldx;
@@ -4147,3 +4151,17 @@ dboolean P_UsePuzzleItem(player_t * player, int itemType)
                    PTR_PuzzleItemTraverse);
     return PuzzleActivated;
 }
+
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+
+// Timed for the 3DS's log (n3ds_gl.c).
+dboolean P_TryMove(mobj_t* thing, fixed_t x, fixed_t y, dboolean dropoff)
+{
+  const unsigned long long start = N3DS_ProfileNow();
+  const dboolean result = TryMoveBody(thing, x, y, dropoff);
+
+  N3DS_ProfileAdd(N3DS_PROFILE_MOVE, start);
+  return result;
+}
+#endif

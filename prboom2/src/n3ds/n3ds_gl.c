@@ -25,6 +25,8 @@
 #include "lprintf.h"
 #include "v_video.h"
 #include "w_wad.h"
+#include "p_mobj.h"
+#include "p_tick.h"
 #include "gl_opengl.h"
 #include "gl_intern.h"
 
@@ -270,6 +272,28 @@ void N3DS_GLSwap(void)
                (unsigned) (info.uordblks / 1024), __ctru_heap_size / 1024,
                (unsigned) (info.arena / 1024), (unsigned) (info.fordblks / 1024),
                (unsigned) info.ordblks, (unsigned) (N3DS_LinearFree() / 1024));
+      }
+
+      {
+        // What the logic spends on, and on how many things: the monsters'
+        // sight, moves and chases; things and missiles now.
+        thinker_t *th;
+        int things = 0, missiles = 0;
+
+        for (th = thinkercap.next; th != &thinkercap; th = th->next)
+          if (th->function == P_MobjThinker)
+          {
+            ++things;
+            if (((mobj_t *) th)->flags & MF_MISSILE)
+              ++missiles;
+          }
+
+        printf("logic: per frame: sight %.1f ms (%d calls), moves %.1f ms (%d), "
+               "chases %.1f ms (%d); %d things, %d missiles\n",
+               ms[N3DS_PROFILE_SIGHT] / frames, calls[N3DS_PROFILE_SIGHT] / frames,
+               ms[N3DS_PROFILE_MOVE] / frames, calls[N3DS_PROFILE_MOVE] / frames,
+               ms[N3DS_PROFILE_CHASE] / frames, calls[N3DS_PROFILE_CHASE] / frames,
+               things, missiles);
       }
 
       printf("perf: %d frames; per frame: logic %.1f ms (%d tics), drawing %.1f ms "

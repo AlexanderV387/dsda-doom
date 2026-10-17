@@ -1233,7 +1233,11 @@ static void A_KeepChasing(mobj_t *actor)
 // so it tries to close as fast as possible
 //
 
+#ifdef __3DS__
+static void ChaseBody(mobj_t *actor)
+#else
 void A_Chase(mobj_t *actor)
+#endif
 {
   if (actor->reactiontime)
     actor->reactiontime--;
@@ -8949,3 +8953,16 @@ void A_KBoltRaise(mobj_t * actor)
         // Maybe cap it off here
     }
 }
+
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+
+// Timed for the 3DS's log (n3ds_gl.c).
+void A_Chase(mobj_t *actor)
+{
+  const unsigned long long start = N3DS_ProfileNow();
+
+  ChaseBody(actor);
+  N3DS_ProfileAdd(N3DS_PROFILE_CHASE, start);
+}
+#endif
