@@ -435,6 +435,28 @@ void *Z_TryMalloc(size_t size)
   return Z_MallocTagIf(size, ZONE_STATIC, false);
 }
 
+#ifdef __3DS__
+// The same for Z_Realloc (of a block from Z_Malloc): NULL when there is no
+// room, the block as it was.
+void *Z_TryRealloc(void *p, size_t n)
+{
+  void *q;
+
+  SET_CALLER();
+  if (!(q = Z_MallocTagIf(n, ZONE_STATIC, false)))
+    return NULL;
+
+  if (p)
+  {
+    const memblock_t *block = (const memblock_t *)((char *) p - HEADER_SIZE);
+
+    memcpy(q, p, n <= block->size ? n : block->size);
+    Z_Free(p);
+  }
+  return q;
+}
+#endif
+
 void *Z_Calloc(size_t n, size_t n2)
 {
   SET_CALLER();

@@ -855,6 +855,48 @@ static void gld_MarkSectorsForClamp(void)
   }
 }
 
+// Each sector's and subsector's loops, grown one by one, moved into one
+// block for all the sectors' and one for the subsectors': their tens of
+// thousands of little blocks (Vestiges of Grandeur's MAP07: 33,000) stayed
+// the whole level, and the last level's went only after the next was
+// loaded, the heap in pieces between.
+static GLLoopDef *sectorloops_block;
+static GLLoopDef *subsectorloops_block;
+
+static void gld_CompactLoops(void)
+{
+  GLLoopDef *p;
+  int i, total;
+
+  for (total = 0, i = 0; i < numsectors; i++)
+    total += sectorloops[i].loopcount;
+  sectorloops_block = p = Z_Malloc(MAX(total, 1) * sizeof(*p));
+  for (i = 0; i < numsectors; i++)
+  {
+    if (sectorloops[i].loops)
+    {
+      memcpy(p, sectorloops[i].loops, sectorloops[i].loopcount * sizeof(*p));
+      Z_Free(sectorloops[i].loops);
+      sectorloops[i].loops = p;
+      p += sectorloops[i].loopcount;
+    }
+  }
+
+  for (total = 0, i = 0; i < numsubsectors; i++)
+    total += subsectorloops[i].loopcount;
+  subsectorloops_block = p = Z_Malloc(MAX(total, 1) * sizeof(*p));
+  for (i = 0; i < numsubsectors; i++)
+  {
+    if (subsectorloops[i].loops)
+    {
+      memcpy(p, subsectorloops[i].loops, subsectorloops[i].loopcount * sizeof(*p));
+      Z_Free(subsectorloops[i].loops);
+      subsectorloops[i].loops = p;
+      p += subsectorloops[i].loopcount;
+    }
+  }
+}
+
 static void gld_PreprocessSectors(void)
 {
   char *vertexcheck = NULL;
@@ -1014,6 +1056,8 @@ static void gld_PreprocessSectors(void)
 
   gld_ProcessTexturedMap();
 
+  gld_CompactLoops();
+
   // What the growth left over, back to the heap.
   if (flats_vbo && gld_num_vertexes)
   {
@@ -1056,10 +1100,6 @@ void gld_PreprocessLevel(void)
   // Do not preprocess GL data twice for same level
   if (!gl_preprocessed)
   {
-    int i;
-    static int numsectors_prev = 0;
-    static int numsubsectors_prev = 0;
-
     Z_Free(gl_segs);
     Z_Free(gl_lines);
 
@@ -1070,24 +1110,17 @@ void gld_PreprocessLevel(void)
     Z_Free(linerendered[0]);
     Z_Free(linerendered[1]);
 
-    for (i = 0; i < numsectors_prev; i++)
-    {
-      Z_Free(sectorloops[i].loops);
-    }
+    Z_Free(sectorloops_block);
+    sectorloops_block = NULL;
     Z_Free(sectorloops);
-    for (i = 0; i < numsubsectors_prev; i++)
-    {
-      Z_Free(subsectorloops[i].loops);
-    }
+    Z_Free(subsectorloops_block);
+    subsectorloops_block = NULL;
     Z_Free(subsectorloops);
 
     gld_Precache();
     gld_PreprocessSectors();
     gld_PreprocessFakeSectors();
     gld_PreprocessSegs();
-
-    numsectors_prev = numsectors;
-    numsubsectors_prev = numsubsectors;
   }
   else
   {

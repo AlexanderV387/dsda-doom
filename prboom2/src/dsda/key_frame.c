@@ -314,11 +314,29 @@ void dsda_ExportKeyFrame(byte* buffer, int length) {
 
 // Stripped down version of G_DoSaveGame
 void dsda_StoreKeyFrame(dsda_key_frame_t* key_frame, byte complete, byte export) {
+#ifdef __3DS__
+  jmp_buf abort_save;
+#endif
+
   key_frame->game_tic_count = true_logictic;
 
 #ifdef __3DS__
-  if (save_buffer_made)
+  if (save_buffer_made) {
     save_buffer_made = false;
+
+    // An auto key frame: if the save buffer cannot grow (Vestiges of
+    // Grandeur's MAP07, 3.7 MB in one piece), none; the thinkers' links,
+    // used for their numbers while saving, made right again.
+    if (setjmp(abort_save)) {
+      P_SetSaveAbort(NULL);
+      P_IndexToThinker();
+      P_FreeSaveBuffer();
+      key_frame->buffer = NULL;
+      PurgeAutoKeyFrames();
+      return;
+    }
+    P_SetSaveAbort(&abort_save);
+  }
   else
 #endif
   P_InitSaveBuffer();
@@ -333,6 +351,9 @@ void dsda_StoreKeyFrame(dsda_key_frame_t* key_frame, byte complete, byte export)
   dsda_StoreDemoData(complete);
 
   dsda_ArchiveAll();
+#ifdef __3DS__
+  P_SetSaveAbort(NULL);
+#endif
 
   if (key_frame->buffer != NULL) Z_Free(key_frame->buffer);
 
@@ -524,7 +545,7 @@ void dsda_UpdateAutoKeyFrames(void) {
       }
     }
 
-    if (!first_kf.buffer) {
+    if (!first_kf.buffer && current_key_frame->buffer) {
 #ifdef __3DS__
       kf_in_use = true;
 #endif

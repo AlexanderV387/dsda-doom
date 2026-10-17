@@ -32,6 +32,9 @@
  *-----------------------------------------------------------------------------*/
 
 #include <stdint.h>
+#ifdef __3DS__
+#include <setjmp.h>
+#endif
 
 #include "doomstat.h"
 #include "r_main.h"
@@ -69,6 +72,14 @@ byte *savebuffer;
 static int savegamesize;
 #ifdef __3DS__
 static int last_savegamesize;
+static jmp_buf *save_abort;
+
+// A save that can be done without (an auto key frame): when the buffer
+// cannot grow, longjmp there instead of stopping the game.
+void P_SetSaveAbort(jmp_buf *abort)
+{
+  save_abort = abort;
+}
 #endif
 
 // Check for overrun and realloc if necessary -- Lee Killough 1/22/98
@@ -92,11 +103,20 @@ void CheckSaveGame(size_t size)
 #endif
   }
 
-  savebuffer = Z_Realloc(savebuffer, savegamesize);
-  save_p = savebuffer + offset;
 #ifdef __3DS__
   last_savegamesize = savegamesize;
+  if (save_abort)
+  {
+    byte *grown = Z_TryRealloc(savebuffer, savegamesize);
+
+    if (!grown)
+      longjmp(*save_abort, 1);
+    savebuffer = grown;
+  }
+  else
 #endif
+  savebuffer = Z_Realloc(savebuffer, savegamesize);
+  save_p = savebuffer + offset;
 }
 
 void P_InitSaveBuffer(void)
