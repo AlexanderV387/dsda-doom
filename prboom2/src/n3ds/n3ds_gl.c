@@ -54,13 +54,24 @@ static const byte *GammaTable(void)
 
 unsigned char *N3DS_GLIndexedToRGBA(const unsigned char *indexed, int width, int height)
 {
+  // Grown as needed and kept: one asked for and let go for each texture
+  // left holes the next bigger one could not use.
+  static unsigned char *rgba;
+  static size_t rgba_size;
   const byte *palette = V_GetPlaypal();
   const byte *gamma = GammaTable();
-  unsigned char *rgba = malloc(width * height * 4);
   int k;
 
-  if (!rgba)
-    return NULL;
+  if ((size_t) (width * height * 4) > rgba_size)
+  {
+    free(rgba);
+    rgba_size = width * height * 4;
+    if (!(rgba = malloc(rgba_size)))
+    {
+      rgba_size = 0;
+      return NULL;
+    }
+  }
 
   for (k = 0; k < width * height; ++k)
   {

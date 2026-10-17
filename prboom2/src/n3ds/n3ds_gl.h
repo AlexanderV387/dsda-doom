@@ -45,7 +45,8 @@ void N3DS_GLSwap(void);
 void N3DS_GLSetPalette(int palette);
 
 // An indexed texture (palette index and alpha per pixel, as DSDA-Doom's
-// shader takes them) in RGBA, with the normal palette. To free.
+// shader takes them) in RGBA, with the normal palette. In a buffer kept for
+// the next one (not to free).
 unsigned char *N3DS_GLIndexedToRGBA(const unsigned char *indexed, int width, int height);
 
 #endif

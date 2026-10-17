@@ -68,7 +68,13 @@ static void *LumpAlloc(size_t size)
 
   if (size > block_left)
   {
-    block = Z_Malloc(LUMP_BLOCK_SIZE);
+    // Without 1 MB in one piece for a new block (a heap in pieces), the
+    // lump on its own.
+    byte *new_block = Z_TryMalloc(LUMP_BLOCK_SIZE);
+
+    if (!new_block)
+      return Z_Malloc(size);
+    block = new_block;
     block_left = LUMP_BLOCK_SIZE;
   }
 

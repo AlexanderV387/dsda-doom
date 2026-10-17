@@ -940,6 +940,30 @@ void gld_SetTexClamp(GLTexture *gltexture, unsigned int flags)
   }
 }
 
+#ifdef __3DS__
+// One buffer for the texture being made, grown as needed and kept: one
+// asked for and let go for each texture (and pgl's copies made between)
+// left holes the next bigger one could not use; with a mod's many sprites
+// (Smooth Doom) and the textures made again after pgl let them go, the
+// heap was taken to its end and had no 1 MB in one piece.
+static unsigned char *texture_buffer;
+
+static unsigned char *gld_TextureBuffer(size_t size)
+{
+  static size_t texture_buffer_size;
+
+  if (size > texture_buffer_size)
+  {
+    Z_Free(texture_buffer);
+    texture_buffer = Z_Malloc(size);
+    texture_buffer_size = size;
+  }
+  return texture_buffer;
+}
+#else
+#define gld_TextureBuffer(size) Z_Malloc(size)
+#endif
+
 int gld_BuildTexture(GLTexture *gltexture, void *data, dboolean readonly, int width, int height)
 {
   int tex_width, tex_height, tex_format;
@@ -982,10 +1006,9 @@ int gld_BuildTexture(GLTexture *gltexture, void *data, dboolean readonly, int wi
 
 #ifdef __3DS__
   if (indexed)
-  {
-    free(data);
     data = indexed;
-  }
+  if (data == texture_buffer)
+    readonly = true;
 #endif
 
   if (!readonly)
@@ -1033,7 +1056,7 @@ void gld_BindTexture(GLTexture *gltexture, unsigned int flags, dboolean sky)
     return;
   }
 
-  buffer=(unsigned char*)Z_Malloc(gltexture->buffer_size);
+  buffer=gld_TextureBuffer(gltexture->buffer_size);
   memset(buffer,0,gltexture->buffer_size);
 
   if (gltexture->flags & GLTEXTURE_SKYHACK)
@@ -1150,7 +1173,7 @@ void gld_BindPatch(GLTexture *gltexture, int cm)
   }
 
   patch=R_PatchByNum(gltexture->index);
-  buffer=(unsigned char*)Z_Malloc(gltexture->buffer_size);
+  buffer=gld_TextureBuffer(gltexture->buffer_size);
   memset(buffer,0,gltexture->buffer_size);
   gld_AddPatchToTexture(gltexture, buffer, patch, 0, 0, cm);
 
@@ -1243,7 +1266,7 @@ void gld_BindRaw(GLTexture *gltexture, unsigned int flags)
   }
 
   raw=W_LumpByNum(gltexture->index);
-  buffer=(unsigned char*)Z_Malloc(gltexture->buffer_size);
+  buffer=gld_TextureBuffer(gltexture->buffer_size);
   memset(buffer,0,gltexture->buffer_size);
   gld_AddRawToTexture(gltexture, buffer, raw);
   if (*gltexture->texid_p == 0)
@@ -1368,7 +1391,7 @@ void gld_BindColormapTexture(GLTexture *gltexture, int palette_index, int gamma_
   }
 
   // collect the actual texture data
-  buffer = (unsigned char*) Z_Malloc(gltexture->buffer_size);
+  buffer = gld_TextureBuffer(gltexture->buffer_size);
   memset(buffer, 0, gltexture->buffer_size);
 
   gld_AddColormapToTexture(gltexture, buffer, palette_index, gamma_level, fullbright);
