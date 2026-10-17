@@ -63,6 +63,10 @@
 #include <dpmi.h>
 #endif
 
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#endif
+
 #define ZONE_SIGNATURE 0x931d4a11
 
 enum {
@@ -76,6 +80,9 @@ typedef struct memblock {
   struct memblock *next,*prev;
   size_t size;
   unsigned char tag;
+#ifdef __3DS__
+  unsigned char linear; // from the GPU's memory (LinearBlock)
+#endif
 } memblock_t;
 
 static const size_t HEADER_SIZE = sizeof(memblock_t);
@@ -116,15 +123,34 @@ static void LogHeap(size_t size, void *caller)
   }
 
   lprintf(LO_ERROR, "Z_Malloc: %lu bytes for %p: heap %u KiB taken from the system, %u KiB used, "
-          "%u KiB free in %u pieces (the largest about %u KiB)\n",
+          "%u KiB free in %u pieces (the largest about %u KiB); %u KiB free for the GPU\n",
           (unsigned long) size, caller, (unsigned) (info.arena / 1024),
           (unsigned) (info.uordblks / 1024), (unsigned) (info.fordblks / 1024),
-          (unsigned) info.ordblks, (unsigned) (low / 1024));
+          (unsigned) info.ordblks, (unsigned) (low / 1024), N3DS_LinearFree() / 1024);
 }
 
 #define CALLER __builtin_return_address(0)
 static void *alloc_caller;
 #define SET_CALLER() (alloc_caller = CALLER)
+
+// What the heap cannot give, from the GPU's memory (normal memory, as fast
+// for the CPU) while that keeps room for the textures: after a few maps of
+// a hub (Vestiges of Grandeur's MAP07) the heap had 16 MB free in pieces
+// and none of 1.5 MB, the GPU's 29 MB.
+#define LINEAR_RESERVE (8u << 20)
+
+static memblock_t *LinearBlock(size_t size)
+{
+  memblock_t *block;
+
+  if (N3DS_LinearFree() < size + LINEAR_RESERVE)
+    return NULL;
+
+  block = N3DS_LinearAlloc(size);
+  if (block)
+    block->linear = true;
+  return block;
+}
 #else
 #define SET_CALLER() ((void) 0)
 #endif
@@ -136,14 +162,25 @@ static void *Z_MallocTagIf(size_t size, int tag, dboolean must)
   if (!size)
     return NULL; // malloc(0) returns NULL
 
-  if (!(block = malloc(size + HEADER_SIZE)))
+  if ((block = malloc(size + HEADER_SIZE)))
+  {
+#ifdef __3DS__
+    block->linear = false;
+#endif
+  }
+  else
   {
     if (!must)
       return NULL;
 #ifdef __3DS__
-    LogHeap(size + HEADER_SIZE, alloc_caller);
+    if (!(block = LinearBlock(size + HEADER_SIZE)))
+    {
+      LogHeap(size + HEADER_SIZE, alloc_caller);
 #endif
     I_Error ("Z_Malloc: Failure trying to allocate %lu bytes", (unsigned long) size);
+#ifdef __3DS__
+    }
+#endif
   }
 
   if (!blockbytag[tag])
@@ -191,6 +228,13 @@ void Z_Free(void *p)
   block->prev->next = block->next;
   block->next->prev = block->prev;
 
+#ifdef __3DS__
+  if (block->linear)
+  {
+    N3DS_LinearRelease(block);
+    return;
+  }
+#endif
   free(block);
 }
 
@@ -224,16 +268,19 @@ static void *Z_ReallocTag(void *ptr, size_t n, int tag)
   // A block kept in its tag grows in place when it can, by realloc: a
   // new one each time, the old freed, left holes the next could not use
   // (a table grown little by little, on the 3DS: its heap in pieces).
-  if (block && n && block->signature == ZONE_SIGNATURE && block->tag == tag)
+  // (On the 3DS, when the heap has no room, or the block is from the GPU's
+  // memory, a new one as below: from either.)
+  if (block && n && block->signature == ZONE_SIGNATURE && block->tag == tag
+#ifdef __3DS__
+      && !block->linear && (moved = realloc(block, n + HEADER_SIZE))
+#endif
+     )
   {
+#ifndef __3DS__
     moved = realloc(block, n + HEADER_SIZE);
     if (!moved)
-    {
-#ifdef __3DS__
-      LogHeap(n + HEADER_SIZE, alloc_caller);
-#endif
       I_Error("Z_Realloc: Failure trying to allocate %lu bytes", (unsigned long) n);
-    }
+#endif
 
     if (moved != block)
     {

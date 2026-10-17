@@ -484,6 +484,16 @@ unsigned int N3DS_LinearFree(void)
   return linearSpaceFree();
 }
 
+void *N3DS_LinearAlloc(size_t size)
+{
+  return linearAlloc(size);
+}
+
+void N3DS_LinearRelease(void *p)
+{
+  linearFree(p);
+}
+
 unsigned long long N3DS_ProfileNow(void)
 {
   return svcGetSystemTick();

@@ -90,6 +90,9 @@ enum
 
 unsigned long long N3DS_ProfileNow(void);
 unsigned int N3DS_LinearFree(void);
+// The GPU's memory, for what the heap cannot give (z_zone.c).
+void *N3DS_LinearAlloc(size_t size);
+void N3DS_LinearRelease(void *p);
 void N3DS_ProfileAdd(int what, unsigned long long start);
 // Milliseconds per call so far, and clears them.
 void N3DS_ProfileTake(double *ms, int *calls);
