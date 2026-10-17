@@ -90,6 +90,10 @@ There is a dedicated launcher for this port available [dsda-launcher](https://gi
 
 This fork (branch `n3ds`) runs DSDA-Doom on the New 3DS: OpenGL on the 3DS's GPU, the status bar and map on the bottom screen, and a picker for games and mods. Part of [n3ds-ports](https://github.com/AlexanderV387/n3ds-ports).
 
+**New 3DS and New 2DS XL only.** These builds were developed and tested on a New 3DS. They were neither designed nor tested for the Old 3DS or 2DS, where they may run very slowly, run out of memory on big maps, or not start.
+
+Known limits: maps with large hordes, such as the secret maps of the remaster episodes (Faith Renewed's E1M9, Vestiges of Grandeur's MAP07), drop to around 10 FPS. Heavy gameplay mods (Smooth Doom, for example) also slow down in big fights.
+
 - 3DS port: direction, design and hardware testing by AlexanderV387; code written with Claude (AI).
 - Original engine: DSDA-Doom (Ryan Krafnick (kraflab) and contributors), based on PrBoom+.
 - Heretic icon and banner: AlexanderV387, made with AI tools.
