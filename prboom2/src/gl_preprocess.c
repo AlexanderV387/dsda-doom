@@ -73,9 +73,10 @@ static void gld_AddGlobalVertexes(int count)
 {
   if ((gld_num_vertexes+count)>=gld_max_vertexes)
   {
-    // Twice as many each time: a big map's flats (Vestiges of Grandeur's
-    // MAP07, 175,000 vertices) grew it 1,024 at a time, a hundred times.
-    gld_max_vertexes = MAX(gld_max_vertexes * 2, gld_max_vertexes + count + 1024);
+    // A quarter more each time: a big map's flats (Vestiges of Grandeur's
+    // MAP07, 175,000 vertices) grew it 1,024 at a time, a hundred times;
+    // twice as many asked the 3DS for 6 MB in one piece, more than it had.
+    gld_max_vertexes += MAX(gld_max_vertexes / 4, count + 1024);
     flats_vbo = Z_Realloc(flats_vbo, gld_max_vertexes * sizeof(flats_vbo[0]));
   }
 }
@@ -995,6 +996,13 @@ static void gld_PreprocessSectors(void)
   }
 
   gld_ProcessTexturedMap();
+
+  // What the growth left over, back to the heap.
+  if (flats_vbo && gld_num_vertexes)
+  {
+    gld_max_vertexes = gld_num_vertexes;
+    flats_vbo = Z_Realloc(flats_vbo, gld_max_vertexes * sizeof(flats_vbo[0]));
+  }
 
   if (levelinfo) fclose(levelinfo);
 
