@@ -83,7 +83,13 @@ void CheckSaveGame(size_t size)
 
   while (offset + size > savegamesize)
   {
+#ifdef __3DS__
+    // A quarter more: twice as much asked for 4 MB in one piece in
+    // Vestiges of Grandeur's MAP07 (a key frame with the hub's maps).
+    savegamesize += savegamesize / 4;
+#else
     savegamesize *= 2;
+#endif
   }
 
   savebuffer = Z_Realloc(savebuffer, savegamesize);
@@ -104,6 +110,17 @@ void P_InitSaveBuffer(void)
 #endif
   save_p = savebuffer = Z_Malloc(savegamesize);
 }
+
+#ifdef __3DS__
+// For a key frame, which can be done without: the buffer only if there is
+// room for the last one and a quarter more, false when there is not.
+dboolean P_TryInitSaveBuffer(void)
+{
+  savegamesize = MAX(SAVEGAMESIZE, last_savegamesize + last_savegamesize / 4);
+  save_p = savebuffer = Z_TryMalloc(savegamesize);
+  return savebuffer != NULL;
+}
+#endif
 
 void P_ForgetSaveBuffer(void)
 {

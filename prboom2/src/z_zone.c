@@ -129,7 +129,7 @@ static void *alloc_caller;
 #define SET_CALLER() ((void) 0)
 #endif
 
-static void *Z_MallocTag(size_t size, int tag)
+static void *Z_MallocTagIf(size_t size, int tag, dboolean must)
 {
   memblock_t *block = NULL;
 
@@ -138,6 +138,8 @@ static void *Z_MallocTag(size_t size, int tag)
 
   if (!(block = malloc(size + HEADER_SIZE)))
   {
+    if (!must)
+      return NULL;
 #ifdef __3DS__
     LogHeap(size + HEADER_SIZE, alloc_caller);
 #endif
@@ -163,6 +165,11 @@ static void *Z_MallocTag(size_t size, int tag)
   block = (memblock_t *)((char *) block + HEADER_SIZE);
 
   return block;
+}
+
+static void *Z_MallocTag(size_t size, int tag)
+{
+  return Z_MallocTagIf(size, tag, true);
 }
 
 void Z_Free(void *p)
@@ -269,6 +276,12 @@ void *Z_Malloc(size_t size)
 {
   SET_CALLER();
   return Z_MallocTag(size, ZONE_STATIC);
+}
+
+// NULL when there is no room, for what the game can do without.
+void *Z_TryMalloc(size_t size)
+{
+  return Z_MallocTagIf(size, ZONE_STATIC, false);
 }
 
 void *Z_Calloc(size_t n, size_t n2)

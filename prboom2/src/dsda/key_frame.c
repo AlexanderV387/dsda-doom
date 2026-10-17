@@ -78,9 +78,12 @@ static int autoKeyFrameTimeout(void) {
 // them took a third of the memory and cut the rest into pieces.
 #ifdef __3DS__
 #define MAX_AUTO_KEY_FRAMES 10
-// And at most 8 MB of them: a map as Vestiges of Grandeur's MAP07 makes
-// them big.
-#define AUTO_KEY_FRAMES_MEMORY (8 << 20)
+// And at most 6 MB of them: a map as Vestiges of Grandeur's MAP07 makes
+// them big (2 MB, with the hub's other maps).
+#define AUTO_KEY_FRAMES_MEMORY (6 << 20)
+
+// The save buffer, made by RoomForAutoKeyFrame for the key frame stored next.
+static dboolean save_buffer_made;
 #endif
 
 static int autoKeyFrameDepth(void) {
@@ -105,6 +108,41 @@ static int autoKeyFrameInterval(void) {
 static dboolean autoKFExists(auto_kf_t* auto_kf) {
   return auto_kf && auto_kf->auto_index && auto_kf->kf.buffer;
 }
+
+#ifdef __3DS__
+// Room for the save buffer of an auto key frame, made from the oldest
+// ones when there is none, or none at all: the game can do without them,
+// not without the room (out of memory in Vestiges of Grandeur's MAP07).
+static dboolean RoomForAutoKeyFrame(dsda_key_frame_t* key_frame) {
+  static dboolean said;
+  auto_kf_t* kf;
+  int i;
+
+  // The one it takes the place of goes anyway.
+  Z_Free(key_frame->buffer);
+  key_frame->buffer = NULL;
+
+  while (!P_TryInitSaveBuffer()) {
+    // The oldest left, after the newest.
+    kf = last_auto_kf->next;
+    for (i = 0; i < auto_kf_size && !kf->kf.buffer; ++i)
+      kf = kf->next;
+
+    if (i == auto_kf_size) {
+      if (!said)
+        lprintf(LO_WARN, "RoomForAutoKeyFrame: no room for a key frame, none made\n");
+      said = true;
+      return false;
+    }
+
+    Z_Free(kf->kf.buffer);
+    kf->kf.buffer = NULL;
+  }
+
+  save_buffer_made = true;
+  return true;
+}
+#endif
 
 void dsda_ForgetAutoKeyFrames(void) {
   if (last_auto_kf)
@@ -250,6 +288,11 @@ void dsda_ExportKeyFrame(byte* buffer, int length) {
 void dsda_StoreKeyFrame(dsda_key_frame_t* key_frame, byte complete, byte export) {
   key_frame->game_tic_count = true_logictic;
 
+#ifdef __3DS__
+  if (save_buffer_made)
+    save_buffer_made = false;
+  else
+#endif
   P_InitSaveBuffer();
 
   P_SAVE_BYTE(complete);
@@ -420,6 +463,11 @@ void dsda_UpdateAutoKeyFrames(void) {
     last_auto_kf->auto_index = last_auto_kf->prev->auto_index + 1;
 
     current_key_frame = &last_auto_kf->kf;
+
+#ifdef __3DS__
+    if (!RoomForAutoKeyFrame(current_key_frame))
+      return;
+#endif
 
     {
       unsigned long long elapsed_time;
