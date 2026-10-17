@@ -84,6 +84,7 @@ typedef struct
   u32 frame;          // the last frame it was drawn in
   u32 *shadow;        // in VRAM: its texels for the CPU (it cannot read VRAM)
   bool keep_out;      // not for VRAM: the CPU changes it (a screen copy...)
+  bool evictable;     // its owner makes it again when gone (pglTextureEvictable)
 } texture_t;
 
 struct pgl_fog_table_s
@@ -114,6 +115,7 @@ static u64 last_swap;
 static int work_us, gpu_us; // the last frame's
 static u64 stat_draw_ticks, stat_wait_ticks, stat_upload_ticks, stat_end_ticks;
 static int stat_draws, stat_binds, stat_fog, stat_texenv, stat_uploads;
+static int stat_evictions; // textures let go for room (MakeRoom)
 static void (*before_swap)(void);
 
 static vertex_t *vertices;  // in linear memory
@@ -1659,9 +1661,10 @@ void pglSwapBuffers(void)
   {
     if (report_time)
       printf("pgl: up to %d draws, %d%% of the command list, %d vertices; "
-             "%u KiB of VRAM free\n",
+             "%u KiB of VRAM free; %d textures let go for room\n",
              max_draws, (int) (max_usage * 100), vertex_count,
-             (unsigned) (vramSpaceFree() / 1024));
+             (unsigned) (vramSpaceFree() / 1024), stat_evictions);
+    stat_evictions = 0;
     report_time = osGetTime();
     max_draws = 0;
     max_usage = 0;
@@ -2671,6 +2674,69 @@ static void FreeTextureData(texture_t *t)
   t->shadow = NULL;
 }
 
+// Main memory for need bytes and a reserve (for the copies and lists the
+// GPU's work takes as it goes): when short, the textures their owner makes
+// again (pglTextureEvictable) go, the longest not drawn first; never one
+// bound, or drawn in this frame or the last (the GPU may still read it).
+// Without it a big map's textures (Vestiges of Grandeur's MAP07) took it
+// all, the next ones failed and the GPU stopped.
+#define MAIN_MEMORY_RESERVE (4u << 20)
+
+static bool Bound(GLuint name)
+{
+  int unit;
+
+  for (unit = 0; unit < TEXTURE_UNITS; ++unit)
+    if (bound_texture[unit] == name)
+      return true;
+
+  return false;
+}
+
+static void MakeRoom(u32 need)
+{
+  while (linearSpaceFree() < need + MAIN_MEMORY_RESERVE)
+  {
+    texture_t *oldest = NULL;
+    int k;
+
+    for (k = 1; k < texture_count; ++k)
+    {
+      texture_t *t = &textures[k];
+
+      if (t->has_data && t->evictable && !IsVRAM(t->tex.data) && t->frame + 2 <= frame_number
+          && !Bound(k) && (!oldest || t->frame < oldest->frame))
+        oldest = t;
+    }
+
+    if (!oldest)
+      return;
+
+    TextureChanging(oldest);
+    linearFree(oldest->tex.data);
+    oldest->tex.data = NULL;
+    oldest->has_data = false;
+    free(oldest->shadow);
+    oldest->shadow = NULL;
+    ++stat_evictions;
+  }
+}
+
+bool pglTextureResident(GLuint name)
+{
+  return name != 0 && name < (GLuint) texture_count && textures[name].has_data;
+}
+
+static texture_t *ActiveTexture(void);
+
+void pglTextureEvictable(void)
+{
+  texture_t *t = ActiveTexture();
+
+  if (t)
+    t->evictable = true;
+}
+
 void glDeleteTextures(GLsizei n, const GLuint *names)
 {
   int k, unit;
@@ -2685,6 +2751,7 @@ void glDeleteTextures(GLsizei n, const GLuint *names)
     TextureChanging(&textures[name]);
     FreeTextureData(&textures[name]);
     textures[name].used = false;
+    textures[name].evictable = false;
 
     for (unit = 0; unit < TEXTURE_UNITS; ++unit)
     {
@@ -2970,7 +3037,6 @@ static inline u32 GetTexel(const void *texels, GPU_TEXCOLOR fmt, u32 index)
 }
 
 static bool textures16;
-#define LOW_MEMORY_TEXTURES16 (12u << 20)
 
 void pglTextures16(bool on)
 {
@@ -2983,8 +3049,7 @@ static GPU_TEXCOLOR TexelFormat(GLenum format, int width, int height, const void
 {
   int pitch, x, y;
 
-  // In 16 bits too when the GPU's memory runs low: half of it each.
-  if ((!textures16 && linearSpaceFree() >= LOW_MEMORY_TEXTURES16) || !pixels)
+  if (!textures16 || !pixels)
     return GPU_RGBA8;
 
   if (format == GL_RGB || format == GL_BGR)
@@ -3134,6 +3199,7 @@ static bool MoveOutOfVRAM(texture_t *t)
   if (!t->shadow)
     return true;
 
+  MakeRoom(t->tex.size);
   data = linearAlloc(t->tex.size);
 
   if (!data)
@@ -3236,6 +3302,7 @@ void glTexImage2D(GLenum target_, GLint level, GLint internal_format, GLsizei wi
   t->keep_out = t->keep_out || !pixels; // made empty: the CPU fills it
 
   fmt = TexelFormat(format, width, height, pixels);
+  MakeRoom(tex_width * tex_height * TexelBytes(fmt));
 
   if (!(pixels && UploadToVRAM(t, tex_width, tex_height, fmt, format, pixels)))
   {
@@ -3283,7 +3350,10 @@ void glTexSubImage2D(GLenum target_, GLint level, GLint xoffset, GLint yoffset,
   if (t->frame == frame_number || (!in_frame && t->frame + 1 == frame_number))
   {
     void *old = t->tex.data;
-    void *copy = linearAlloc(t->tex.size);
+    void *copy;
+
+    MakeRoom(t->tex.size);
+    copy = linearAlloc(t->tex.size);
 
     if (!copy)
       return;

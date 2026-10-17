@@ -78,6 +78,10 @@
 #include <stdlib.h>
 #include "n3ds/n3ds_gl.h"
 
+// [3DS] pgl keeps textures as a cache: one let go for room is made again.
+#include "n3ds/pgl.h"
+#define TEXID_READY(id) ((id) != 0 && pglTextureResident(id))
+
 // [3DS] One GL texture of a GLTexture: its translation and colormaps.
 struct gl_texid_s
 {
@@ -86,6 +90,8 @@ struct gl_texid_s
   unsigned int flags;
   GLuint id;
 };
+#else
+#define TEXID_READY(id) ((id) != 0)
 #endif
 
 int imageformats[5] = {0, GL_LUMINANCE, GL_LUMINANCE_ALPHA, GL_RGB, GL_RGBA};
@@ -964,6 +970,10 @@ int gld_BuildTexture(GLTexture *gltexture, void *data, dboolean readonly, int wi
   glTexImage2D( GL_TEXTURE_2D, 0, tex_format,
     tex_width, tex_height,
     0, tex_format, GL_UNSIGNED_BYTE, data);
+#ifdef __3DS__
+  // Made again when bound if pgl lets it go for room (TEXID_READY).
+  pglTextureEvictable();
+#endif
 
   gld_SetTexFilters(gltexture);
 
@@ -1007,7 +1017,7 @@ void gld_BindTexture(GLTexture *gltexture, unsigned int flags, dboolean sky)
 
   gld_GetTextureTexID(gltexture, CR_DEFAULT);
 
-  if (last_glTexID == gltexture->texid_p)
+  if (last_glTexID == gltexture->texid_p && TEXID_READY(*gltexture->texid_p))
   {
     gld_SetTexClamp(gltexture, flags);
     return;
@@ -1015,7 +1025,7 @@ void gld_BindTexture(GLTexture *gltexture, unsigned int flags, dboolean sky)
 
   last_glTexID = gltexture->texid_p;
 
-  if (*gltexture->texid_p != 0)
+  if (TEXID_READY(*gltexture->texid_p))
   {
     glBindTexture(GL_TEXTURE_2D, *gltexture->texid_p);
     gld_SetTexClamp(gltexture, flags);
@@ -1123,7 +1133,7 @@ void gld_BindPatch(GLTexture *gltexture, int cm)
 
   gld_GetTextureTexID(gltexture, cm);
 
-  if (last_glTexID == gltexture->texid_p)
+  if (last_glTexID == gltexture->texid_p && TEXID_READY(*gltexture->texid_p))
   {
     gld_SetTexClamp(gltexture, GLTEXTURE_CLAMPXY);
     return;
@@ -1131,7 +1141,7 @@ void gld_BindPatch(GLTexture *gltexture, int cm)
 
   last_glTexID = gltexture->texid_p;
 
-  if (*gltexture->texid_p != 0)
+  if (TEXID_READY(*gltexture->texid_p))
   {
     glBindTexture(GL_TEXTURE_2D, *gltexture->texid_p);
     gld_SetTexClamp(gltexture, GLTEXTURE_CLAMPXY);
@@ -1216,7 +1226,7 @@ void gld_BindRaw(GLTexture *gltexture, unsigned int flags)
 
   gld_GetTextureTexID(gltexture, CR_DEFAULT);
 
-  if (last_glTexID == gltexture->texid_p)
+  if (last_glTexID == gltexture->texid_p && TEXID_READY(*gltexture->texid_p))
   {
     gld_SetTexClamp(gltexture, flags);
     return;
@@ -1224,7 +1234,7 @@ void gld_BindRaw(GLTexture *gltexture, unsigned int flags)
 
   last_glTexID = gltexture->texid_p;
 
-  if (*gltexture->texid_p != 0)
+  if (TEXID_READY(*gltexture->texid_p))
   {
     glBindTexture(GL_TEXTURE_2D, *gltexture->texid_p);
     gld_SetTexClamp(gltexture, flags);
@@ -1341,7 +1351,7 @@ void gld_BindColormapTexture(GLTexture *gltexture, int palette_index, int gamma_
 
   gld_GetTextureTexID(gltexture, CR_DEFAULT);
 
-  if (last_glTexID == gltexture->texid_p)
+  if (last_glTexID == gltexture->texid_p && TEXID_READY(*gltexture->texid_p))
   {
     GLEXT_glActiveTextureARB(GL_TEXTURE0_ARB);
     return;
@@ -1349,7 +1359,7 @@ void gld_BindColormapTexture(GLTexture *gltexture, int palette_index, int gamma_
   last_glTexID = gltexture->texid_p;
 
   // texure data already initialized; use it
-  if (*gltexture->texid_p != 0)
+  if (TEXID_READY(*gltexture->texid_p))
   {
     glBindTexture(GL_TEXTURE_2D, *gltexture->texid_p);
     GLEXT_glActiveTextureARB(GL_TEXTURE0_ARB);

@@ -59,6 +59,11 @@ void pglFogTable(pgl_fog_table_t *table);
 // of 32: half the memory and of the GPU's reading, a little less color.
 void pglTextures16(bool on);
 
+// A texture cache: the bound texture (just made) can go when the memory is
+// short, its owner making it again; and whether a texture is still there.
+void pglTextureEvictable(void);
+bool pglTextureResident(GLuint name);
+
 // Blends a color over the whole screen (alpha: how much), whatever the
 // OpenGL states: e.g. the red of pain, in pglSetBeforeSwap's callback.
 void pglBlendScreen(float red, float green, float blue, float alpha);
