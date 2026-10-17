@@ -4,6 +4,10 @@ DSDA-Doom for the New Nintendo 3DS, based on [DSDA-Doom](https://github.com/kraf
 
 Heretic and Hexen have their own releases (`heretic.cia`, `hexen.cia`), each with its own folder and HOME Menu icon. This `.cia` can play them too.
 
+## New in 1.0.1
+
+- **Settings are saved when a menu closes** (if anything changed), not only when quitting or at the HOME Menu, so a crash no longer loses them (the weapon buttons, for example).
+
 ## Downloads
 
 | File | Use |

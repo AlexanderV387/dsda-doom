@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 #include "input.h"
+#include "configuration.h"
 
 int dsda_input_profile;
 static dsda_input_t dsda_input[DSDA_INPUT_PROFILE_COUNT][DSDA_INPUT_IDENTIFIER_COUNT];
@@ -245,6 +246,9 @@ int dsda_InputMatchJoyB(int identifier, int value) {
 }
 
 void dsda_InputResetSpecific(int config_index, int identifier) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   dsda_input_t* p = &dsda_input[config_index][identifier];
 
   p->num_keys = 0;
@@ -261,6 +265,9 @@ void dsda_InputSet(int identifier, dsda_input_default_t input) {
 }
 
 void dsda_InputSetSpecific(int config_index, int identifier, dsda_input_default_t input) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   dsda_input_t* p = &dsda_input[config_index][identifier];
 
   if (p->num_keys == 0)
@@ -287,6 +294,9 @@ static void dsda_InputAddThing(int** list, int* count, int value) {
 }
 
 void dsda_InputAddSpecificKey(int config_index, int identifier, int value) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   dsda_input_t* p = &dsda_input[config_index][identifier];
 
   if (value < 1 || value >= NUMKEYS) return;
@@ -299,6 +309,9 @@ void dsda_InputAddKey(int identifier, int value) {
 }
 
 void dsda_InputAddSpecificMouseB(int config_index, int identifier, int value) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   if (value < -1 || value >= MAX_MOUSE_BUTTONS) return;
 
   dsda_input[config_index][identifier].mouseb = value;
@@ -309,6 +322,9 @@ void dsda_InputAddMouseB(int identifier, int value) {
 }
 
 void dsda_InputAddSpecificJoyB(int config_index, int identifier, int value) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   if (value < -1 || value >= MAX_JOY_BUTTONS) return;
 
   dsda_input[config_index][identifier].joyb = value;

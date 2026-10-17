@@ -6768,6 +6768,13 @@ void M_Drawer (void)
 
 void M_ChangeMenu(menu_t *menudef, menuactive_t mnact)
 {
+#ifdef __3DS__
+  // [3DS] The settings saved when the menu closes, if any changed: not
+  // only when quitting or at the HOME Menu, which a crash never reaches.
+  if (mnact == mnact_inactive && menuactive != mnact_inactive && dsda_config_changed)
+    M_SaveDefaults();
+#endif
+
   if (menudef && menudef != currentMenu)
   {
     M_MouseClearMainHover();

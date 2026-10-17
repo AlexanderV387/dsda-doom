@@ -761,6 +761,7 @@ void M_SaveDefaults (void)
 
 #ifdef __3DS__
   N3DS_CloseRewrite(f);
+  dsda_config_changed = false;
 #else
   fclose (f);
 #endif
@@ -914,6 +915,10 @@ void M_LoadDefaults (void)
   dsda_ApplyAdHocConfiguration();
 
   dsda_InitSettings();
+
+#ifdef __3DS__
+  dsda_config_changed = false;
+#endif
 
   //e6y: Check on existence of dsda-doom.wad
   port_wad_file = I_RequireFile(WAD_DATA, "");

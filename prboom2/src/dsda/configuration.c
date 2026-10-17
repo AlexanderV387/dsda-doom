@@ -1457,11 +1457,24 @@ dsda_config_t dsda_config[dsda_config_count] = {
   },
 };
 
+#ifdef __3DS__
+// A setting or a button changed since the file was last read or written:
+// saved when the menu closes (M_ChangeMenu), not only when quitting or at
+// the HOME Menu, so a crash no longer loses it.
+dboolean dsda_config_changed;
+#endif
+
 static void dsda_PersistIntConfig(dsda_config_t* conf) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   conf->persistent_value.v_int = conf->transient_value.v_int;
 }
 
 static void dsda_PersistStringConfig(dsda_config_t* conf) {
+#ifdef __3DS__
+  dsda_config_changed = true;
+#endif
   if (conf->persistent_value.v_string)
     Z_Free(conf->persistent_value.v_string);
 

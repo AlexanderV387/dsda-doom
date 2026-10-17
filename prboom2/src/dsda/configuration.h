@@ -351,4 +351,8 @@ char* dsda_ConfigSummary(const char* name);
 int dsda_ConfigIDByName(const char* name);
 dsda_config_type_t dsda_ConfigType(dsda_config_identifier_t id);
 
+#ifdef __3DS__
+extern dboolean dsda_config_changed;
+#endif
+
 #endif
