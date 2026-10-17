@@ -32,4 +32,4 @@ The remaster's files come from its install folder (Steam, GOG). Mods go in `/3ds
 
 - Vestiges of Grandeur's MAP07 takes a while to load and drops to around 10 FPS with its hordes; its walls and floors look grainy at a distance.
 
-Port for [n3ds-ports](https://github.com/AlexanderV387/n3ds-ports): direction, design and hardware testing by AlexanderV387; code written with Claude (AI). Original engine: DSDA-Doom (Ryan Krafnick (kraflab) and contributors), based on PrBoom+; GPL-2.0.
+Port for [n3ds-ports](https://github.com/AlexanderV387/n3ds-ports): direction, design and hardware testing by AlexanderV387; code written with Claude (AI). Original engine: DSDA-Doom (Ryan Krafnick (kraflab) and contributors), based on PrBoom+; GPL-2.0. Hexen icon and banner: AlexanderV387, made with AI tools.

@@ -96,4 +96,4 @@ Known limits: maps with large hordes, such as the secret maps of the remaster ep
 
 - 3DS port: direction, design and hardware testing by AlexanderV387; code written with Claude (AI).
 - Original engine: DSDA-Doom (Ryan Krafnick (kraflab) and contributors), based on PrBoom+.
-- Heretic icon and banner: AlexanderV387, made with AI tools.
+- Heretic and Hexen icons and banners: AlexanderV387, made with AI tools.
