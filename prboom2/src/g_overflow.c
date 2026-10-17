@@ -358,6 +358,15 @@ void RejectOverrun(unsigned int length, const byte **rejectmatrix, int totalline
 
   required = (numsectors * numsectors + 7) / 8;
 
+  // No REJECT at all, padded with zeros (and no doom.exe overrun to
+  // emulate): nothing is rejected, so no table (P_CheckSight); a big map's
+  // would be all zeros (Vestiges of Grandeur's MAP07: 6,383 sectors, 5 MB).
+  if (length == 0 && !prboom_comp[PC_REJECT_PAD_WITH_FF].state && (hexen || !demo_compatibility))
+  {
+    *rejectmatrix = NULL;
+    return;
+  }
+
   if (length < required)
   {
     // allocate a new block and copy the reject table into it; zero the rest

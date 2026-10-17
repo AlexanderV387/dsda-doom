@@ -210,10 +210,44 @@ static void Z_FreeTag(int tag)
 
 static void *Z_ReallocTag(void *ptr, size_t n, int tag)
 {
-  void *p = Z_MallocTag(n, tag);
+  memblock_t *block = ptr ? (memblock_t *)((char *) ptr - HEADER_SIZE) : NULL;
+  memblock_t *moved;
+  void *p;
+
+  // A block kept in its tag grows in place when it can, by realloc: a
+  // new one each time, the old freed, left holes the next could not use
+  // (a table grown little by little, on the 3DS: its heap in pieces).
+  if (block && n && block->signature == ZONE_SIGNATURE && block->tag == tag)
+  {
+    moved = realloc(block, n + HEADER_SIZE);
+    if (!moved)
+    {
+#ifdef __3DS__
+      LogHeap(n + HEADER_SIZE, alloc_caller);
+#endif
+      I_Error("Z_Realloc: Failure trying to allocate %lu bytes", (unsigned long) n);
+    }
+
+    if (moved != block)
+    {
+      // The list's links to it, to its new place.
+      if (moved->next == block)
+        moved->next = moved->prev = moved;
+      else
+      {
+        moved->prev->next = moved;
+        moved->next->prev = moved;
+      }
+      if (blockbytag[tag] == block)
+        blockbytag[tag] = moved;
+    }
+    moved->size = n;
+    return (char *) moved + HEADER_SIZE;
+  }
+
+  p = Z_MallocTag(n, tag);
   if (ptr)
     {
-      memblock_t *block = (memblock_t *)((char *) ptr - HEADER_SIZE);
       memcpy(p, ptr, n <= block->size ? n : block->size);
       Z_Free(ptr);
     }

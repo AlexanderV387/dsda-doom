@@ -400,7 +400,7 @@ dboolean P_CheckSight_12(mobj_t *t1, mobj_t *t2)
   bytenum = pnum>>3;
   bitnum = 1 << (pnum&7);
 
-  if (rejectmatrix[bytenum]&bitnum)
+  if (rejectmatrix && rejectmatrix[bytenum]&bitnum)
   {
     sightcounts[0]++;
     return false;    // can't possibly be connected
@@ -924,7 +924,7 @@ dboolean P_CheckSight(mobj_t *t1, mobj_t *t2)
   //
   // Check in REJECT table.
 
-  if (rejectmatrix[pnum>>3] & (1 << (pnum&7)))   // can't possibly be connected
+  if (rejectmatrix && rejectmatrix[pnum>>3] & (1 << (pnum&7)))   // can't possibly be connected
     return false;
 
   // killough 4/19/98: make fake floors and ceilings block monster view

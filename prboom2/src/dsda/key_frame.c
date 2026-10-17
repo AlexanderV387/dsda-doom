@@ -78,6 +78,9 @@ static int autoKeyFrameTimeout(void) {
 // them took a third of the memory and cut the rest into pieces.
 #ifdef __3DS__
 #define MAX_AUTO_KEY_FRAMES 10
+// And at most 8 MB of them: a map as Vestiges of Grandeur's MAP07 makes
+// them big.
+#define AUTO_KEY_FRAMES_MEMORY (8 << 20)
 #endif
 
 static int autoKeyFrameDepth(void) {
@@ -264,6 +267,10 @@ void dsda_StoreKeyFrame(dsda_key_frame_t* key_frame, byte complete, byte export)
 
   key_frame->buffer = savebuffer;
   key_frame->buffer_length = save_p - savebuffer;
+#ifdef __3DS__
+  // Only what it holds (the save buffer was made as big as the biggest).
+  key_frame->buffer = Z_Realloc(key_frame->buffer, key_frame->buffer_length);
+#endif
 
   P_ForgetSaveBuffer();
 
@@ -437,6 +444,28 @@ void dsda_UpdateAutoKeyFrames(void) {
 
     if (!first_kf.buffer)
       dsda_CopyKeyFrame(&first_kf, current_key_frame);
+
+#ifdef AUTO_KEY_FRAMES_MEMORY
+    // The oldest go when they take too much (a big map's are big).
+    {
+      auto_kf_t *kf = last_auto_kf;
+      int total = 0;
+      int i;
+
+      for (i = 0; i < auto_kf_size; ++i, kf = kf->prev)
+      {
+        if (kf->kf.buffer == NULL)
+          continue;
+
+        total += kf->kf.buffer_length;
+        if (total > AUTO_KEY_FRAMES_MEMORY && kf != last_auto_kf)
+        {
+          Z_Free(kf->kf.buffer);
+          kf->kf.buffer = NULL;
+        }
+      }
+    }
+#endif
   }
 }
 

@@ -73,7 +73,9 @@ static void gld_AddGlobalVertexes(int count)
 {
   if ((gld_num_vertexes+count)>=gld_max_vertexes)
   {
-    gld_max_vertexes+=count+1024;
+    // Twice as many each time: a big map's flats (Vestiges of Grandeur's
+    // MAP07, 175,000 vertices) grew it 1,024 at a time, a hundred times.
+    gld_max_vertexes = MAX(gld_max_vertexes * 2, gld_max_vertexes + count + 1024);
     flats_vbo = Z_Realloc(flats_vbo, gld_max_vertexes * sizeof(flats_vbo[0]));
   }
 }
