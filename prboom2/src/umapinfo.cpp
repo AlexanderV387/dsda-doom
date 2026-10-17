@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "scanner.h"
@@ -30,6 +31,7 @@ extern "C"
 #include "doomstat.h"
 #include "dsda/episode.h"
 #include "dsda/name.h"
+#include "heretic/dstrings.h"
 #include "g_game.h"
 #include "lprintf.h"
 #include "m_misc.h"
@@ -118,16 +120,28 @@ static char *ParseMultiString(Scanner &scanner, int error)
 //
 // -----------------------------------------------
 
-// A "$name" text (Nightdive's remaster: a string of its language files,
-// which are not in its WADs) can't be looked up: no text, rather than the
-// name itself.
-static char *DropStringName(char *text)
+// A "$name" text is a string of Nightdive's remaster's language files,
+// which are not in its WADs: Heretic's episode endings are the game's own;
+// any other, no text rather than the name itself.
+static char *LookUpStringName(char *text)
 {
-	if (text && text[0] == '$')
+	static const char *const heretic_endings[] =
 	{
-		lprintf(LO_WARN, "UMAPINFO: text %s not found, left blank\n", text);
-		text[0] = '\0';
+		HERETIC_E1TEXT, HERETIC_E2TEXT, HERETIC_E3TEXT, HERETIC_E4TEXT, HERETIC_E5TEXT
+	};
+	int episode;
+
+	if (text == NULL || text[0] != '$')
+		return text;
+
+	if (sscanf(text, "$intertext_heretic_e%d", &episode) == 1 && episode >= 1 && episode <= 5)
+	{
+		Z_Free(text);
+		return Z_Strdup(heretic_endings[episode - 1]);
 	}
+
+	lprintf(LO_WARN, "UMAPINFO: text %s not found, left blank\n", text);
+	text[0] = '\0';
 	return text;
 }
 
@@ -314,7 +328,7 @@ static int ParseStandardProperty(Scanner &scanner, MapEntry *mape)
 		{
 			mape->flags &= ~MapInfo_InterTextClear;
 			if (mape->intertext) Z_Free(mape->intertext);
-			mape->intertext = DropStringName(ParseMultiString(scanner, 1));
+			mape->intertext = LookUpStringName(ParseMultiString(scanner, 1));
 		}
 	}
 	else if (!stricmp(pname, "intertextsecret"))
@@ -330,7 +344,7 @@ static int ParseStandardProperty(Scanner &scanner, MapEntry *mape)
 		{
 			mape->flags &= ~MapInfo_InterTextSecretClear;
 			if (mape->intertextsecret) Z_Free(mape->intertextsecret);
-			mape->intertextsecret = DropStringName(ParseMultiString(scanner, 1));
+			mape->intertextsecret = LookUpStringName(ParseMultiString(scanner, 1));
 		}
 	}
 	else if (!stricmp(pname, "interbackdrop"))
@@ -358,9 +372,20 @@ static int ParseStandardProperty(Scanner &scanner, MapEntry *mape)
 			char *alttext = NULL;
 			char key = 0;
 
-			ParseLumpName(scanner, lumpname);
+			// The remaster's (Nightdive, 2025) gives only the name: one
+			// string with no comma is the name, with no picture.
+			scanner.MustGetToken(TK_StringConst);
+			alttext = Z_Strdup(scanner.string);
 			if (scanner.CheckToken(','))
 			{
+				if (strlen(alttext) > 8)
+				{
+					Z_Free(alttext);
+					scanner.ErrorF("String too long. Maximum size is 8 characters.");
+					return 0;
+				}
+				strncpy(lumpname, alttext, 8);
+				Z_Free(alttext);
 				scanner.MustGetToken(TK_StringConst);
 				alttext = Z_Strdup(scanner.string);
 				if (scanner.CheckToken(','))
