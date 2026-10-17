@@ -175,6 +175,23 @@ static yahpt_t YAHspot[3][9] = {
      }
 };
 
+// Faith Renewed (Heretic + Hexen, 2025) has its own episode 1 map, MAPX1,
+// with parts drawn over it as the player goes, as its EXINTER lump says.
+static const yahpt_t FaithRenewedSpot[9] = {
+    {194, 85}, {248, 128}, {138, 138}, {138, 101}, {77, 118},
+    {42, 82}, {94, 85}, {96, 49}, {171, 42}
+};
+
+static dboolean IN_FaithRenewedMap(void)
+{
+  return gameepisode == 1 && W_LumpNameExists("MAPX1") && W_LumpNameExists("EXINTER");
+}
+
+static const yahpt_t *IN_Spot(int i)
+{
+  return IN_FaithRenewedMap() ? &FaithRenewedSpot[i] : &YAHspot[gameepisode - 1][i];
+}
+
 static const char *NameForMap(int map)
 {
     const char *name;
@@ -222,6 +239,20 @@ static void IN_DrawInterpic(void)
   else if (IN_UseWorldMap())
   {
     char name[9];
+
+    if (IN_FaithRenewedMap())
+    {
+      // The path past map 6, once there; the secret map, once found.
+      const dboolean secret = players[consoleplayer].didsecret || prevmap == 9 || nextmap == 9;
+
+      V_DrawNamePatchFS(0, 0, 0, "MAPX1", CR_DEFAULT, VPT_STRETCH);
+      if (prevmap >= 6 && W_LumpNameExists("MAPX1_M6"))
+        V_DrawNamePatch(0, 0, 0, "MAPX1_M6", CR_DEFAULT, VPT_STRETCH);
+      if (secret && W_LumpNameExists("MAPX1_M9"))
+        V_DrawNamePatch(0, 0, 0, "MAPX1_M9", CR_DEFAULT, VPT_STRETCH);
+      return;
+    }
+
     snprintf(name, sizeof(name), "MAPE%d", gameepisode);
 
     V_DrawNamePatchFS(0, 0, 0, name, CR_DEFAULT, VPT_STRETCH);
@@ -234,18 +265,12 @@ static void IN_DrawInterpic(void)
 
 static void IN_DrawBeenThere(int i)
 {
-  V_DrawNamePatch(
-    YAHspot[gameepisode - 1][i].x, YAHspot[gameepisode - 1][i].y, 0,
-    "IN_X", CR_DEFAULT, VPT_STRETCH
-  );
+  V_DrawNamePatch(IN_Spot(i)->x, IN_Spot(i)->y, 0, "IN_X", CR_DEFAULT, VPT_STRETCH);
 }
 
 static void IN_DrawGoingThere(int i)
 {
-  V_DrawNamePatch(
-    YAHspot[gameepisode - 1][i].x, YAHspot[gameepisode - 1][i].y, 0,
-    "IN_YAH", CR_DEFAULT, VPT_STRETCH
-  );
+  V_DrawNamePatch(IN_Spot(i)->x, IN_Spot(i)->y, 0, "IN_YAH", CR_DEFAULT, VPT_STRETCH);
 }
 
 static void IN_InitLumps(void)

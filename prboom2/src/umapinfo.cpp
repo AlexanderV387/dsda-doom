@@ -118,6 +118,19 @@ static char *ParseMultiString(Scanner &scanner, int error)
 //
 // -----------------------------------------------
 
+// A "$name" text (Nightdive's remaster: a string of its language files,
+// which are not in its WADs) can't be looked up: no text, rather than the
+// name itself.
+static char *DropStringName(char *text)
+{
+	if (text && text[0] == '$')
+	{
+		lprintf(LO_WARN, "UMAPINFO: text %s not found, left blank\n", text);
+		text[0] = '\0';
+	}
+	return text;
+}
+
 static int ParseLumpName(Scanner &scanner, char *buffer)
 {
 	scanner.MustGetToken(TK_StringConst);
@@ -301,7 +314,7 @@ static int ParseStandardProperty(Scanner &scanner, MapEntry *mape)
 		{
 			mape->flags &= ~MapInfo_InterTextClear;
 			if (mape->intertext) Z_Free(mape->intertext);
-			mape->intertext = ParseMultiString(scanner, 1);
+			mape->intertext = DropStringName(ParseMultiString(scanner, 1));
 		}
 	}
 	else if (!stricmp(pname, "intertextsecret"))
@@ -317,7 +330,7 @@ static int ParseStandardProperty(Scanner &scanner, MapEntry *mape)
 		{
 			mape->flags &= ~MapInfo_InterTextSecretClear;
 			if (mape->intertextsecret) Z_Free(mape->intertextsecret);
-			mape->intertextsecret = ParseMultiString(scanner, 1);
+			mape->intertextsecret = DropStringName(ParseMultiString(scanner, 1));
 		}
 	}
 	else if (!stricmp(pname, "interbackdrop"))

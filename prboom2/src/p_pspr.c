@@ -1854,7 +1854,7 @@ void A_FireTempestPL1(player_t * player, pspdef_t * psp)
 
     P_BulletSlope(mo);
     aimed = linetarget;
-    damage = 50 + 3 * (1 + P_Random(pr_heretic) % 8);
+    damage = 50 + P_Random(pr_heretic) % 31;
     PuffType = HERETIC_MT_TEMPESTPUFF;
     PuffSpawned = NULL;
     P_LineAttack(mo, mo->angle, MISSILERANGE, bulletslope, damage);
