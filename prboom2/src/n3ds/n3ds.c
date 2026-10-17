@@ -1003,7 +1003,9 @@ static const struct { const char *file, *name; int maps; const char *extra; } iw
   { "rekkrsa.wad",   "REKKR",                               MAPS_EXMY },
   { "heretic.wad",   "Heretic",                             MAPS_EXMY },
   { "heretic1.wad",  "Heretic (shareware)",                 MAPS_EXMY },
-  // The remaster's episode (2025), a PWAD on its heretic.wad.
+  // The remaster's (2025) PWADs on its heretic.wad: the maps as it fixed
+  // them, and its new episode.
+  { "heretic.wad",   "Heretic (Enhanced Maps)",             MAPS_EXMY, "heretic_ex.wad" },
   { "heretic.wad",   "Heretic: Faith Renewed",              MAPS_EXMY, "heretic_fr.wad" },
   { "hexen.wad",     "Hexen",                               MAPS_HEXEN },
   // The expansion is a PWAD on top of Hexen.
