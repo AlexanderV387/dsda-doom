@@ -99,6 +99,7 @@ typedef struct splitsbysector_s
   vertexsplit_info_t **splits;
 } splitsbysector_t;
 static splitsbysector_t * gl_splitsbysector = NULL;
+static vertexsplit_info_t ** gl_splitsbysector_data = NULL;
 
 //==========================================================================
 //
@@ -242,39 +243,18 @@ void gld_RecalcVertexHeights(const vertex_t *v)
 //
 //
 //==========================================================================
-static void AddToVertex(const sector_t *sec, int **list, unsigned int *size)
+static void AddToVertex(const sector_t *sec, int *list, unsigned int *size)
 {
   unsigned int i;
   int secno = sec->iSectorID;
 
   for(i = 0; i < (*size); i++)
   {
-    if ((*list)[i] == secno)
+    if (list[i] == secno)
       return;
   }
-  (*list) = Z_Realloc((*list), sizeof(*list) * ((*size) + 1));
-  (*list)[(*size)] = secno;
+  list[(*size)] = secno;
   (*size)++;
-}
-
-//==========================================================================
-//
-//
-//
-//==========================================================================
-static void AddToSplitBySector(vertexsplit_info_t *vi, splitsbysector_t *splitsbysector)
-{
-  int i;
-  for(i = 0; i < splitsbysector->numsplits; i++)
-  {
-    if (splitsbysector->splits[i] == vi)
-      return;
-  }
-  splitsbysector->splits = Z_Realloc(
-    splitsbysector->splits,
-    sizeof(splitsbysector->splits) * (splitsbysector->numsplits + 1));
-  splitsbysector->splits[splitsbysector->numsplits] = vi;
-  splitsbysector->numsplits++;
 }
 
 //==========================================================================
@@ -286,14 +266,30 @@ void gld_InitVertexData()
 {
   int i, j, k;
   int vertexes_count, gl_vertexsplit_size, pos;
-  int ** vt_sectorlists;
+  int * vt_sectors;
+  int * vt_start;
   unsigned int * vt_sectorlists_size;
+  vertexsplit_info_t ** splits;
 
   if (gl_vertexsplit)
     return;
 
-  vt_sectorlists = Z_Calloc(sizeof(vt_sectorlists[0]), numvertexes);
+  // The sectors at each vertex in one block, from vt_start[vertex]: room
+  // for the two sides of each line at it, with their height sectors. Not
+  // a list grown one by one for each vertex, never freed: a big map's
+  // (Vestiges of Grandeur's MAP07: 34,000) cut the heap into pieces.
+  vt_start = Z_Calloc(sizeof(vt_start[0]), numvertexes + 1);
   vt_sectorlists_size = Z_Calloc(sizeof(vt_sectorlists_size[0]), numvertexes);
+
+  for(i = 0; i < numlines; i++)
+  {
+    vt_start[lines[i].v1 - vertexes + 1] += 4;
+    vt_start[lines[i].v2 - vertexes + 1] += 4;
+  }
+  for(i = 0; i < numvertexes; i++)
+    vt_start[i + 1] += vt_start[i];
+
+  vt_sectors = Z_Malloc(sizeof(vt_sectors[0]) * MAX(vt_start[numvertexes], 1));
 
   for(i = 0; i < numlines; i++)
   {
@@ -309,10 +305,10 @@ void gld_InitVertexData()
 
         if (sec)
         {
-          AddToVertex(sec, &vt_sectorlists[v-vertexes], &vt_sectorlists_size[v-vertexes]);
+          AddToVertex(sec, &vt_sectors[vt_start[v-vertexes]], &vt_sectorlists_size[v-vertexes]);
           if (sec->heightsec >= 0)
           {
-            AddToVertex(&sectors[sec->heightsec], &vt_sectorlists[v-vertexes], &vt_sectorlists_size[v-vertexes]);
+            AddToVertex(&sectors[sec->heightsec], &vt_sectors[vt_start[v-vertexes]], &vt_sectorlists_size[v-vertexes]);
           }
         }
       }
@@ -356,7 +352,7 @@ void gld_InitVertexData()
 
       for(j = 0; j < cnt; j++)
       {
-        vi->sectors[j] = &sectors[vt_sectorlists[i][j]];
+        vi->sectors[j] = &sectors[vt_sectors[vt_start[i] + j]];
       }
     }
     else
@@ -365,27 +361,47 @@ void gld_InitVertexData()
     }
   }
 
+  // Each sector's splits, in one block: counted, then filled, from each
+  // vertex's sectors (each one there once). It was each sector against
+  // each vertex: in MAP07, 240 million turns.
   gl_splitsbysector = Z_Malloc(sizeof(gl_splitsbysector[0]) * numsectors);
   memset(gl_splitsbysector, 0, sizeof(gl_splitsbysector[0]) * numsectors);
 
+  pos = 0;
+  for(j = 0; j < numvertexes; j++)
+  {
+    for(k = 0; k < gl_vertexsplit[j].numsectors; k++)
+    {
+      gl_splitsbysector[gl_vertexsplit[j].sectors[k] - sectors].numsplits++;
+      pos++;
+    }
+  }
+
+  gl_splitsbysector_data = splits = Z_Malloc(sizeof(splits[0]) * MAX(pos, 1));
   for(i = 0; i < numsectors; i++)
   {
-    for(j = 0; j < numvertexes; j++)
-    {
-      vertexsplit_info_t *vi = &gl_vertexsplit[j];
+    gl_splitsbysector[i].splits = splits;
+    splits += gl_splitsbysector[i].numsplits;
+    gl_splitsbysector[i].numsplits = 0;
+  }
 
-      for(k = 0; k < vi->numsectors; k++)
-      {
-        if (vi->sectors[k] == &sectors[i])
-          AddToSplitBySector(vi, &gl_splitsbysector[i]);
-      }
+  for(j = 0; j < numvertexes; j++)
+  {
+    vertexsplit_info_t *vi = &gl_vertexsplit[j];
+
+    for(k = 0; k < vi->numsectors; k++)
+    {
+      splitsbysector_t *splitsbysector = &gl_splitsbysector[vi->sectors[k] - sectors];
+
+      splitsbysector->splits[splitsbysector->numsplits++] = vi;
     }
   }
 
   for(i = 0; i < numvertexes; i++)
     gld_RecalcVertexHeights(&vertexes[i]);
 
-  Z_Free(vt_sectorlists);
+  Z_Free(vt_sectors);
+  Z_Free(vt_start);
   Z_Free(vt_sectorlists_size);
 }
 
@@ -423,14 +439,8 @@ void gld_CleanVertexData()
 
   if (gl_splitsbysector)
   {
-    int i;
-    for(i = 0; i < numsectors; i++)
-    {
-      if (gl_splitsbysector[i].numsplits > 0)
-      {
-        Z_Free(gl_splitsbysector[i].splits);
-      }
-    }
+    Z_Free(gl_splitsbysector_data);
+    gl_splitsbysector_data = NULL;
     Z_Free(gl_splitsbysector);
     gl_splitsbysector = NULL;
   }
