@@ -77,9 +77,11 @@ jobs:
   release:
     # Each game is its own release, tagged n3ds-<game>-v<its VERSION> (GitHub
     # creates the tag), with its own notes: tools/3ds/release/<game>/.
-    # A commit on n3ds whose message contains [release] publishes the three;
-    # [release dsda-doom], [release heretic] or [release hexen], only that one.
-    if: github.ref == 'refs/heads/n3ds' && contains(github.event.head_commit.message, '[release')
+    # A commit on n3ds whose first line contains [release] publishes the
+    # three; [release dsda-doom], [release heretic] or [release hexen], only
+    # that one. Only the first line: a message explaining the word below it
+    # must not publish anything.
+    if: github.ref == 'refs/heads/n3ds' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release')
     needs: [build, cia]
     runs-on: ubuntu-latest
     permissions:
@@ -98,7 +100,7 @@ jobs:
         env:
           MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          case "$MESSAGE" in
+          case "$(printf '%s\n' "$MESSAGE" | head -n 1)" in
             *"[release]"*|*"[release ${{ matrix.game }}]"*) echo "go=true" >> "$GITHUB_OUTPUT" ;;
             *) echo "go=false" >> "$GITHUB_OUTPUT" ;;
           esac
