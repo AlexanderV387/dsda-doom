@@ -63,6 +63,7 @@ void Raven_P_MovePlayer(player_t * player);
 void ResetBlasted(mobj_t * mo);
 void P_TeleportOther(mobj_t * victim);
 dboolean P_UndoPlayerMorph(player_t * player);
+dboolean P_ChangePlayerClass(player_t * player, pclass_t newclass);
 void P_MorphPlayerThink(player_t * player);
 
 void P_PlayerEndFlight(player_t * player);

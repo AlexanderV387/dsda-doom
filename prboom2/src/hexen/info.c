@@ -51,6 +51,8 @@ const char *hexen_sprnames[] = {
     "KEY2","KEY3","KEY4","KEY5","KEY6","KEY7","KEY8","KEY9","KEYA","KEYB",
     "ETTN","ETTB","FDMN","FDMB","ICEY","ICPR","ICWS","SORC","SBMP","SBS4",
     "SBMB","SBS3","SBMG","SBS1","SBS2","SBFX","RADE","WATR","KORX","ABAT",
+    // Vestiges of Grandeur
+    "ACRD","ACRW","ACRG","AMSI","AMSS","ACH1","ACH2","ACH3","ACH4","ACH5","AID1","AID2","AID3","ABK3","ABK4","PCH1","PCH2","PCH3","PCH4","PCH5","PID1","PID2","PID3","XMS2","SHB3","SHB4","CRON","BLFN","MARK",
     NULL
 };
 
@@ -3127,7 +3129,80 @@ state_t hexen_states[HEXEN_NUMSTATES] = {
     {HEXEN_SPR_ABAT, 0, 2, A_BatMove, HEXEN_S_BAT2, 0, 0},  // HEXEN_S_BAT1
     {HEXEN_SPR_ABAT, 1, 2, A_BatMove, HEXEN_S_BAT3, 0, 0},  // HEXEN_S_BAT2
     {HEXEN_SPR_ABAT, 2, 2, A_BatMove, HEXEN_S_BAT1, 0, 0},  // HEXEN_S_BAT3
-    {HEXEN_SPR_ABAT, 0, 2, NULL, HEXEN_S_NULL, 0, 0}        // HEXEN_S_BAT_DEATH
+    {HEXEN_SPR_ABAT, 0, 2, NULL, HEXEN_S_NULL, 0, 0},       // HEXEN_S_BAT_DEATH
+
+    // Vestiges of Grandeur (Heretic + Hexen, 2025)
+    {HEXEN_SPR_ACRD, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCRESTDRAGON
+    {HEXEN_SPR_ACRW, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCRESTWOLF
+    {HEXEN_SPR_ACRG, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCRESTGRIFFIN
+    {HEXEN_SPR_AMSI, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZMASKICE
+    {HEXEN_SPR_AMSS, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZMASKSWAMP
+    {HEXEN_SPR_ACH1, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCHALICE1
+    {HEXEN_SPR_ACH2, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCHALICE2
+    {HEXEN_SPR_ACH3, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCHALICE3
+    {HEXEN_SPR_ACH4, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCHALICE4
+    {HEXEN_SPR_ACH5, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZCHALICE5
+    {HEXEN_SPR_AID1, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZIDOL1
+    {HEXEN_SPR_AID2, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZIDOL2
+    {HEXEN_SPR_AID3, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZIDOL3
+    {HEXEN_SPR_ABK3, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZBOOK3
+    {HEXEN_SPR_ABK4, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_ARTIPUZZBOOK4
+    {HEXEN_SPR_PCH1, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE1
+    {HEXEN_SPR_PCH1, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE1_ON
+    {HEXEN_SPR_PCH2, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE2
+    {HEXEN_SPR_PCH2, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE2_ON
+    {HEXEN_SPR_PCH3, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE3
+    {HEXEN_SPR_PCH3, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE3_ON
+    {HEXEN_SPR_PCH4, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE4
+    {HEXEN_SPR_PCH4, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE4_ON
+    {HEXEN_SPR_PCH5, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE5
+    {HEXEN_SPR_PCH5, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALCHALICE5_ON
+    {HEXEN_SPR_PID1, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALIDOL1
+    {HEXEN_SPR_PID1, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALIDOL1_ON
+    {HEXEN_SPR_PID2, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALIDOL2
+    {HEXEN_SPR_PID2, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALIDOL2_ON
+    {HEXEN_SPR_PID3, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALIDOL3
+    {HEXEN_SPR_PID3, 1, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_PEDESTALIDOL3_ON
+    {HEXEN_SPR_XMS2, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_LUSHXMAS
+    {HEXEN_SPR_XMS2, 0, 4, A_TreeDeath, HEXEN_S_LUSHXMAS, 0, 0},  // HEXEN_S_LUSHXMAS_DIE
+    {HEXEN_SPR_XMS2, 32769, 6, NULL, HEXEN_S_LUSHXMAS_X2, 0, 0},  // HEXEN_S_LUSHXMAS_X1
+    {HEXEN_SPR_XMS2, 32770, 6, A_Scream, HEXEN_S_LUSHXMAS_X3, 0, 0},  // HEXEN_S_LUSHXMAS_X2
+    {HEXEN_SPR_XMS2, 32771, 5, NULL, HEXEN_S_LUSHXMAS_X4, 0, 0},  // HEXEN_S_LUSHXMAS_X3
+    {HEXEN_SPR_XMS2, 32772, 5, A_Explode, HEXEN_S_LUSHXMAS_X5, 0, 0},  // HEXEN_S_LUSHXMAS_X4
+    {HEXEN_SPR_XMS2, 32773, 5, NULL, HEXEN_S_LUSHXMAS_X6, 0, 0},  // HEXEN_S_LUSHXMAS_X5
+    {HEXEN_SPR_XMAS, 32774, 4, NULL, HEXEN_S_LUSHXMAS_X7, 0, 0},  // HEXEN_S_LUSHXMAS_X6
+    {HEXEN_SPR_XMAS, 7, 5, NULL, HEXEN_S_LUSHXMAS_X8, 0, 0},  // HEXEN_S_LUSHXMAS_X7
+    {HEXEN_SPR_XMAS, 8, 4, A_NoBlocking, HEXEN_S_LUSHXMAS_X9, 0, 0},  // HEXEN_S_LUSHXMAS_X8
+    {HEXEN_SPR_XMAS, 9, 4, NULL, HEXEN_S_LUSHXMAS_X10, 0, 0},  // HEXEN_S_LUSHXMAS_X9
+    {HEXEN_SPR_XMAS, 10, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_LUSHXMAS_X10
+    {HEXEN_SPR_SHB3, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_LUSHSHRUB1
+    {HEXEN_SPR_SHB3, 0, 1, A_TreeDeath, HEXEN_S_LUSHSHRUB1, 0, 0},  // HEXEN_S_LUSHSHRUB1_DIE
+    {HEXEN_SPR_SHB3, 32769, 7, NULL, HEXEN_S_LUSHSHRUB1_X2, 0, 0},  // HEXEN_S_LUSHSHRUB1_X1
+    {HEXEN_SPR_SHB1, 32770, 6, A_Scream, HEXEN_S_LUSHSHRUB1_X3, 0, 0},  // HEXEN_S_LUSHSHRUB1_X2
+    {HEXEN_SPR_SHB1, 32771, 5, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_LUSHSHRUB1_X3
+    {HEXEN_SPR_SHB4, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_LUSHSHRUB2
+    {HEXEN_SPR_SHB4, 0, 1, A_TreeDeath, HEXEN_S_LUSHSHRUB2, 0, 0},  // HEXEN_S_LUSHSHRUB2_DIE
+    {HEXEN_SPR_SHB4, 32769, 7, NULL, HEXEN_S_LUSHSHRUB2_X2, 0, 0},  // HEXEN_S_LUSHSHRUB2_X1
+    {HEXEN_SPR_SHB2, 32770, 6, A_Scream, HEXEN_S_LUSHSHRUB2_X3, 0, 0},  // HEXEN_S_LUSHSHRUB2_X2
+    {HEXEN_SPR_SHB2, 32771, 5, A_Explode, HEXEN_S_LUSHSHRUB2_X4, 0, 0},  // HEXEN_S_LUSHSHRUB2_X3
+    {HEXEN_SPR_SHB2, 32772, 5, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_LUSHSHRUB2_X4
+    {HEXEN_SPR_CRON, 0, 35, NULL, HEXEN_S_CHRONICLE2, 0, 0},  // HEXEN_S_CHRONICLE1
+    {HEXEN_SPR_CRON, 1, 5, NULL, HEXEN_S_CHRONICLE3, 0, 0},  // HEXEN_S_CHRONICLE2
+    {HEXEN_SPR_CRON, 2, 5, NULL, HEXEN_S_CHRONICLE4, 0, 0},  // HEXEN_S_CHRONICLE3
+    {HEXEN_SPR_CRON, 3, 5, NULL, HEXEN_S_CHRONICLE5, 0, 0},  // HEXEN_S_CHRONICLE4
+    {HEXEN_SPR_CRON, 4, 35, NULL, HEXEN_S_CHRONICLE6, 0, 0},  // HEXEN_S_CHRONICLE5
+    {HEXEN_SPR_CRON, 5, 5, NULL, HEXEN_S_CHRONICLE7, 0, 0},  // HEXEN_S_CHRONICLE6
+    {HEXEN_SPR_CRON, 6, 5, NULL, HEXEN_S_CHRONICLE8, 0, 0},  // HEXEN_S_CHRONICLE7
+    {HEXEN_SPR_CRON, 7, 5, NULL, HEXEN_S_CHRONICLE9, 0, 0},  // HEXEN_S_CHRONICLE8
+    {HEXEN_SPR_CRON, 8, 35, NULL, HEXEN_S_CHRONICLE10, 0, 0},  // HEXEN_S_CHRONICLE9
+    {HEXEN_SPR_CRON, 9, 5, NULL, HEXEN_S_CHRONICLE11, 0, 0},  // HEXEN_S_CHRONICLE10
+    {HEXEN_SPR_CRON, 10, 5, NULL, HEXEN_S_CHRONICLE12, 0, 0},  // HEXEN_S_CHRONICLE11
+    {HEXEN_SPR_CRON, 11, 5, NULL, HEXEN_S_CHRONICLE1, 0, 0},  // HEXEN_S_CHRONICLE12
+    {HEXEN_SPR_BLFN, 0, 5, NULL, HEXEN_S_BLOODFONT2, 0, 0},  // HEXEN_S_BLOODFONT1
+    {HEXEN_SPR_BLFN, 1, 5, NULL, HEXEN_S_BLOODFONT3, 0, 0},  // HEXEN_S_BLOODFONT2
+    {HEXEN_SPR_BLFN, 2, 5, NULL, HEXEN_S_BLOODFONT4, 0, 0},  // HEXEN_S_BLOODFONT3
+    {HEXEN_SPR_BLFN, 3, 5, NULL, HEXEN_S_BLOODFONT1, 0, 0},  // HEXEN_S_BLOODFONT4
+    {HEXEN_SPR_MARK, 0, -1, NULL, HEXEN_S_NULL, 0, 0},  // HEXEN_S_MAPMARKER
 };
 
 
@@ -13877,5 +13952,760 @@ raven_mobjinfo_t hexen_mobjinfo[HEXEN_NUMMOBJTYPES] = {
      sfx_None,                  // activesound
      MF_NOBLOCKMAP | MF_NOGRAVITY | MF_MISSILE, // flags
      MF2_PASSMOBJ | MF2_NOTELEPORT      // flags2
+     },
+
+    {                           // HEXEN_MT_ARTIPUZZCRESTDRAGON (Vestiges of Grandeur)
+     3117,                      // doomednum
+     HEXEN_S_ARTIPUZZCRESTDRAGON,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCRESTWOLF (Vestiges of Grandeur)
+     3118,                      // doomednum
+     HEXEN_S_ARTIPUZZCRESTWOLF,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCRESTGRIFFIN (Vestiges of Grandeur)
+     3119,                      // doomednum
+     HEXEN_S_ARTIPUZZCRESTGRIFFIN,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZMASKICE (Vestiges of Grandeur)
+     3120,                      // doomednum
+     HEXEN_S_ARTIPUZZMASKICE,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZMASKSWAMP (Vestiges of Grandeur)
+     3121,                      // doomednum
+     HEXEN_S_ARTIPUZZMASKSWAMP,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCHALICE1 (Vestiges of Grandeur)
+     3122,                      // doomednum
+     HEXEN_S_ARTIPUZZCHALICE1,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCHALICE2 (Vestiges of Grandeur)
+     3123,                      // doomednum
+     HEXEN_S_ARTIPUZZCHALICE2,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCHALICE3 (Vestiges of Grandeur)
+     3124,                      // doomednum
+     HEXEN_S_ARTIPUZZCHALICE3,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCHALICE4 (Vestiges of Grandeur)
+     3125,                      // doomednum
+     HEXEN_S_ARTIPUZZCHALICE4,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZCHALICE5 (Vestiges of Grandeur)
+     3126,                      // doomednum
+     HEXEN_S_ARTIPUZZCHALICE5,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZIDOL1 (Vestiges of Grandeur)
+     3127,                      // doomednum
+     HEXEN_S_ARTIPUZZIDOL1,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZIDOL2 (Vestiges of Grandeur)
+     3128,                      // doomednum
+     HEXEN_S_ARTIPUZZIDOL2,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZIDOL3 (Vestiges of Grandeur)
+     3129,                      // doomednum
+     HEXEN_S_ARTIPUZZIDOL3,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZBOOK3 (Vestiges of Grandeur)
+     3130,                      // doomednum
+     HEXEN_S_ARTIPUZZBOOK3,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_ARTIPUZZBOOK4 (Vestiges of Grandeur)
+     3131,                      // doomednum
+     HEXEN_S_ARTIPUZZBOOK4,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     16 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SPECIAL | MF_NOGRAVITY,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALCHALICE1 (Vestiges of Grandeur)
+     3222,                      // doomednum
+     HEXEN_S_PEDESTALCHALICE1,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     12 * FRACUNIT,             // radius
+     24 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     0,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALCHALICE2 (Vestiges of Grandeur)
+     3223,                      // doomednum
+     HEXEN_S_PEDESTALCHALICE2,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     12 * FRACUNIT,             // radius
+     24 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     0,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALCHALICE3 (Vestiges of Grandeur)
+     3224,                      // doomednum
+     HEXEN_S_PEDESTALCHALICE3,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     12 * FRACUNIT,             // radius
+     24 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     0,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALCHALICE4 (Vestiges of Grandeur)
+     3225,                      // doomednum
+     HEXEN_S_PEDESTALCHALICE4,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     12 * FRACUNIT,             // radius
+     24 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     0,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALCHALICE5 (Vestiges of Grandeur)
+     3226,                      // doomednum
+     HEXEN_S_PEDESTALCHALICE5,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     12 * FRACUNIT,             // radius
+     24 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     0,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALIDOL1 (Vestiges of Grandeur)
+     3227,                      // doomednum
+     HEXEN_S_PEDESTALIDOL1,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     10 * FRACUNIT,             // radius
+     40 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALIDOL2 (Vestiges of Grandeur)
+     3228,                      // doomednum
+     HEXEN_S_PEDESTALIDOL2,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     10 * FRACUNIT,             // radius
+     40 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_PEDESTALIDOL3 (Vestiges of Grandeur)
+     3229,                      // doomednum
+     HEXEN_S_PEDESTALIDOL3,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     10 * FRACUNIT,             // radius
+     40 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_LUSHXMAS (Vestiges of Grandeur)
+     3101,                      // doomednum
+     HEXEN_S_LUSHXMAS,                 // spawnstate
+     20,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_LUSHXMAS_X1,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_LUSHXMAS_DIE,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     hexen_sfx_tree_explode,                  // deathsound
+     0,                         // speed
+     11 * FRACUNIT,             // radius
+     130 * FRACUNIT,             // height
+     INT_MAX,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID | MF_SHOOTABLE | MF_NOBLOOD,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_LUSHSHRUB1 (Vestiges of Grandeur)
+     3102,                      // doomednum
+     HEXEN_S_LUSHSHRUB1,                 // spawnstate
+     20,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_LUSHSHRUB1_X1,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_LUSHSHRUB1_DIE,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     hexen_sfx_tree_explode,                  // deathsound
+     0,                         // speed
+     8 * FRACUNIT,             // radius
+     24 * FRACUNIT,             // height
+     INT_MAX,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID | MF_SHOOTABLE | MF_NOBLOOD,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_LUSHSHRUB2 (Vestiges of Grandeur)
+     3103,                      // doomednum
+     HEXEN_S_LUSHSHRUB2,                 // spawnstate
+     10,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_LUSHSHRUB2_X1,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_LUSHSHRUB2_DIE,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     hexen_sfx_tree_explode,                  // deathsound
+     0,                         // speed
+     16 * FRACUNIT,             // radius
+     40 * FRACUNIT,             // height
+     INT_MAX,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID | MF_SHOOTABLE | MF_NOBLOOD,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_CHRONICLE (Vestiges of Grandeur)
+     3104,                      // doomednum
+     HEXEN_S_CHRONICLE1,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     20 * FRACUNIT,             // radius
+     60 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_BLOODFONT (Vestiges of Grandeur)
+     3105,                      // doomednum
+     HEXEN_S_BLOODFONT1,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     40 * FRACUNIT,             // radius
+     60 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_SOLID,      // flags
+     0                          // flags2
+     },
+    {                           // HEXEN_MT_MAPMARKER (Vestiges of Grandeur)
+     3200,                      // doomednum
+     HEXEN_S_MAPMARKER,                 // spawnstate
+     1000,                      // spawnhealth
+     HEXEN_S_NULL,                    // seestate
+     sfx_None,                  // seesound
+     8,                         // reactiontime
+     sfx_None,                  // attacksound
+     HEXEN_S_NULL,                    // painstate
+     0,                         // painchance
+     sfx_None,                  // painsound
+     HEXEN_S_NULL,                    // meleestate
+     HEXEN_S_NULL,                    // missilestate
+     HEXEN_S_NULL,                    // crashstate
+     HEXEN_S_NULL,                    // deathstate
+     HEXEN_S_NULL,                    // xdeathstate
+     sfx_None,                  // deathsound
+     0,                         // speed
+     8 * FRACUNIT,             // radius
+     8 * FRACUNIT,             // height
+     100,                       // mass
+     0,                         // damage
+     sfx_None,                  // activesound
+     MF_NOBLOCKMAP | MF_NOGRAVITY,      // flags
+     MF2_DONTDRAW                          // flags2
      }
 };

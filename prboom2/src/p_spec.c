@@ -8018,6 +8018,19 @@ dboolean P_ExecuteHexenLineSpecial(int special, int * special_args, line_t * lin
         case 120:              // Quake Tremor
             buttonSuccess = A_LocalQuake(args, mo);
             break;
+        case 123:              // Vestiges of Grandeur: change class (arg 0: 0 fighter, 1 cleric, 2 mage)
+            if (mo && mo->player)
+            {
+                buttonSuccess = P_ChangePlayerClass(mo->player, args[0] + PCLASS_FIGHTER);
+            }
+            break;
+        case 124:              // Vestiges of Grandeur: choose the class (the next one)
+            if (mo && mo->player)
+            {
+                buttonSuccess = P_ChangePlayerClass(mo->player,
+                                                    mo->player->pclass % PCLASS_MAGE + PCLASS_FIGHTER);
+            }
+            break;
         case 129:              // UsePuzzleItem
             buttonSuccess = EV_LineSearchForPuzzleItem(line, args, mo);
             break;

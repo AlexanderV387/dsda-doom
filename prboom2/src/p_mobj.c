@@ -3573,12 +3573,26 @@ void P_RipperBlood(mobj_t * mo, mobj_t * bleeder)
 
 // hexen
 
-#define MAX_TID_COUNT 200
-
 extern mobj_t LavaInflictor;
 
-static int TIDList[MAX_TID_COUNT + 1];  // +1 for termination marker
-static mobj_t *TIDMobj[MAX_TID_COUNT];
+// The things with a TID. Hexen's limit was 200 (MAX_TID_COUNT, an error
+// past it); the lists grow as needed instead (the remaster's Vestiges of
+// Grandeur has more), in the same order.
+static int *TIDList;            // ends with 0 (the termination marker)
+static mobj_t **TIDMobj;
+static int TIDCapacity;
+
+// Room for count entries and the marker.
+static void TIDReserve(int count)
+{
+    if (count + 1 > TIDCapacity)
+    {
+        while (count + 1 > TIDCapacity)
+            TIDCapacity = TIDCapacity ? TIDCapacity * 2 : 256;
+        TIDList = Z_Realloc(TIDList, TIDCapacity * sizeof(*TIDList));
+        TIDMobj = Z_Realloc(TIDMobj, TIDCapacity * sizeof(*TIDMobj));
+    }
+}
 
 mobj_t *P_SpawnMissileAngleSpeed(mobj_t * source, mobjtype_t type,
                                  angle_t angle, fixed_t momz, fixed_t speed)
@@ -3669,16 +3683,13 @@ void P_CreateTIDList(void)
         mobj = (mobj_t *) t;
         if (mobj->tid != 0)
         {                       // Add to list
-            if (i == MAX_TID_COUNT)
-            {
-                I_Error("P_CreateTIDList: MAX_TID_COUNT (%d) exceeded.",
-                        MAX_TID_COUNT);
-            }
+            TIDReserve(i + 1);
             TIDList[i] = mobj->tid;
             TIDMobj[i++] = mobj;
         }
     }
     // Add termination marker
+    TIDReserve(i);
     TIDList[i] = 0;
 }
 
@@ -3688,6 +3699,7 @@ void P_InsertMobjIntoTIDList(mobj_t * mobj, short tid)
     int index;
 
     index = -1;
+    TIDReserve(0);
     for (i = 0; TIDList[i] != 0; i++)
     {
         if (TIDList[i] == -1)
@@ -3698,11 +3710,7 @@ void P_InsertMobjIntoTIDList(mobj_t * mobj, short tid)
     }
     if (index == -1)
     {                           // Append required
-        if (i == MAX_TID_COUNT)
-        {
-            I_Error("P_InsertMobjIntoTIDList: MAX_TID_COUNT (%d)"
-                    "exceeded.", MAX_TID_COUNT);
-        }
+        TIDReserve(i + 1);
         index = i;
         TIDList[index + 1] = 0;
     }
@@ -3715,7 +3723,7 @@ void P_RemoveMobjFromTIDList(mobj_t * mobj)
 {
     int i;
 
-    for (i = 0; TIDList[i] != 0; i++)
+    for (i = 0; TIDList && TIDList[i] != 0; i++)
     {
         if (TIDMobj[i] == mobj)
         {
@@ -3732,7 +3740,7 @@ mobj_t *P_FindMobjFromTID(short tid, int *searchPosition)
 {
     int i;
 
-    for (i = *searchPosition + 1; TIDList[i] != 0; i++)
+    for (i = *searchPosition + 1; TIDList && TIDList[i] != 0; i++)
     {
         if (TIDList[i] == tid)
         {

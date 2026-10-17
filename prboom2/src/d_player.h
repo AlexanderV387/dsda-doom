@@ -132,6 +132,22 @@ typedef enum
     hexen_arti_puzzgear2,
     hexen_arti_puzzgear3,
     hexen_arti_puzzgear4,
+    // Vestiges of Grandeur (Heretic + Hexen, 2025)
+    hexen_arti_puzzcrestdragon,
+    hexen_arti_puzzcrestwolf,
+    hexen_arti_puzzcrestgriffin,
+    hexen_arti_puzzmaskice,
+    hexen_arti_puzzmaskswamp,
+    hexen_arti_puzzchalice1,
+    hexen_arti_puzzchalice2,
+    hexen_arti_puzzchalice3,
+    hexen_arti_puzzchalice4,
+    hexen_arti_puzzchalice5,
+    hexen_arti_puzzidol1,
+    hexen_arti_puzzidol2,
+    hexen_arti_puzzidol3,
+    hexen_arti_puzzbook3,
+    hexen_arti_puzzbook4,
     HEXEN_NUMARTIFACTS
 } artitype_t;
 

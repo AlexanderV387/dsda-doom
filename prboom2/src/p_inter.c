@@ -3175,7 +3175,23 @@ static void TryPickupArtifact(player_t * player, artitype_t artifactType, mobj_t
         TXT_ARTIPUZZGEAR,       // All gear pickups use the same text
         TXT_ARTIPUZZGEAR,
         TXT_ARTIPUZZGEAR,
-        TXT_ARTIPUZZGEAR
+        TXT_ARTIPUZZGEAR,
+        // Vestiges of Grandeur
+        TXT_ARTIPUZZCRESTDRAGON,
+        TXT_ARTIPUZZCRESTWOLF,
+        TXT_ARTIPUZZCRESTGRIFFIN,
+        TXT_ARTIPUZZMASKICE,
+        TXT_ARTIPUZZMASKSWAMP,
+        TXT_ARTIPUZZCHALICE1,
+        TXT_ARTIPUZZCHALICE2,
+        TXT_ARTIPUZZCHALICE3,
+        TXT_ARTIPUZZCHALICE4,
+        TXT_ARTIPUZZCHALICE5,
+        TXT_ARTIPUZZIDOL1,
+        TXT_ARTIPUZZIDOL2,
+        TXT_ARTIPUZZIDOL3,
+        TXT_ARTIPUZZBOOK3,
+        TXT_ARTIPUZZBOOK4
     };
 
     if (gamemode == shareware)
@@ -3406,6 +3422,52 @@ static void Hexen_P_TouchSpecialThing(mobj_t * special, mobj_t * toucher)
             return;
         case HEXEN_SPR_AGR4:
             TryPickupArtifact(player, hexen_arti_puzzgear4, special);
+            return;
+            // Vestiges of Grandeur
+        case HEXEN_SPR_ACRD:
+            TryPickupArtifact(player, hexen_arti_puzzcrestdragon, special);
+            return;
+        case HEXEN_SPR_ACRW:
+            TryPickupArtifact(player, hexen_arti_puzzcrestwolf, special);
+            return;
+        case HEXEN_SPR_ACRG:
+            TryPickupArtifact(player, hexen_arti_puzzcrestgriffin, special);
+            return;
+        case HEXEN_SPR_AMSI:
+            TryPickupArtifact(player, hexen_arti_puzzmaskice, special);
+            return;
+        case HEXEN_SPR_AMSS:
+            TryPickupArtifact(player, hexen_arti_puzzmaskswamp, special);
+            return;
+        case HEXEN_SPR_ACH1:
+            TryPickupArtifact(player, hexen_arti_puzzchalice1, special);
+            return;
+        case HEXEN_SPR_ACH2:
+            TryPickupArtifact(player, hexen_arti_puzzchalice2, special);
+            return;
+        case HEXEN_SPR_ACH3:
+            TryPickupArtifact(player, hexen_arti_puzzchalice3, special);
+            return;
+        case HEXEN_SPR_ACH4:
+            TryPickupArtifact(player, hexen_arti_puzzchalice4, special);
+            return;
+        case HEXEN_SPR_ACH5:
+            TryPickupArtifact(player, hexen_arti_puzzchalice5, special);
+            return;
+        case HEXEN_SPR_AID1:
+            TryPickupArtifact(player, hexen_arti_puzzidol1, special);
+            return;
+        case HEXEN_SPR_AID2:
+            TryPickupArtifact(player, hexen_arti_puzzidol2, special);
+            return;
+        case HEXEN_SPR_AID3:
+            TryPickupArtifact(player, hexen_arti_puzzidol3, special);
+            return;
+        case HEXEN_SPR_ABK3:
+            TryPickupArtifact(player, hexen_arti_puzzbook3, special);
+            return;
+        case HEXEN_SPR_ABK4:
+            TryPickupArtifact(player, hexen_arti_puzzbook4, special);
             return;
 
             // Mana

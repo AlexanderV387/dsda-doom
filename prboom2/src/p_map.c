@@ -2754,6 +2754,19 @@ dboolean PTR_NoWayTraverse(intercept_t* in)
   );
 }
 
+// Vestiges of Grandeur (Heretic + Hexen, 2025): the chronicle is used as a
+// line is, its special run by who used it (the remaster's USESPECIAL).
+static dboolean PTR_UseThingTraverse(intercept_t *in)
+{
+  mobj_t *thing = in->d.thing;
+
+  if (thing->type != HEXEN_MT_CHRONICLE || !thing->special)
+    return true;
+
+  map_format.execute_line_special(thing->special, thing->special_args, NULL, 0, usething);
+  return false;
+}
+
 //
 // P_UseLines
 // Looks for special lines in front of the player to activate.
@@ -2774,6 +2787,9 @@ void P_UseLines (player_t*  player)
   y1 = player->mo->y;
   x2 = x1 + (USERANGE>>FRACBITS)*finecosine[angle];
   y2 = y1 + (USERANGE>>FRACBITS)*finesine[angle];
+
+  if (hexen && !P_PathTraverse(x1, y1, x2, y2, PT_ADDTHINGS, PTR_UseThingTraverse))
+    return;
 
   // old code:
   //

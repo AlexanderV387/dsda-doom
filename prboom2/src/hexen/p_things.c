@@ -354,6 +354,31 @@ static dboolean ActivateThing(mobj_t * mobj)
         case HEXEN_MT_ZGEMPEDESTAL:
             P_SetMobjState(mobj, HEXEN_S_ZGEMPEDESTAL2);
             break;
+        // Vestiges of Grandeur: the item on its pedestal
+        case HEXEN_MT_PEDESTALCHALICE1:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALCHALICE1_ON);
+            break;
+        case HEXEN_MT_PEDESTALCHALICE2:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALCHALICE2_ON);
+            break;
+        case HEXEN_MT_PEDESTALCHALICE3:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALCHALICE3_ON);
+            break;
+        case HEXEN_MT_PEDESTALCHALICE4:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALCHALICE4_ON);
+            break;
+        case HEXEN_MT_PEDESTALCHALICE5:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALCHALICE5_ON);
+            break;
+        case HEXEN_MT_PEDESTALIDOL1:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALIDOL1_ON);
+            break;
+        case HEXEN_MT_PEDESTALIDOL2:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALIDOL2_ON);
+            break;
+        case HEXEN_MT_PEDESTALIDOL3:
+            P_SetMobjState(mobj, HEXEN_S_PEDESTALIDOL3_ON);
+            break;
         case HEXEN_MT_ZWINGEDSTATUENOSKULL:
             P_SetMobjState(mobj, HEXEN_S_ZWINGEDSTATUENOSKULL2);
             break;

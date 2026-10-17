@@ -38,7 +38,8 @@
 
 // 8: a weapon more (Heretic's Tempest Wand, Faith Renewed): players' data
 // grew; older saved games are refused, not read wrong.
-#define SAVEVERSION 8
+// 9: Hexen's puzzle items of Vestiges of Grandeur: the inventory grew.
+#define SAVEVERSION 9
 
 /* Persistent storage/archiving.
  * These are the load / save game routines. */

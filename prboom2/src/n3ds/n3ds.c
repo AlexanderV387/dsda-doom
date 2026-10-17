@@ -1010,6 +1010,11 @@ static const struct { const char *file, *name; int maps; const char *extra; } iw
   { "hexen.wad",     "Hexen",                               MAPS_HEXEN },
   // The expansion is a PWAD on top of Hexen.
   { "hexen.wad",     "Hexen: Deathkings of the Dark Citadel", MAPS_HEXEN, "hexdd.wad" },
+  // The remaster's (2025) PWADs on its hexen.wad: the maps as it fixed them
+  // (Deathkings' with the whole expansion), and its new hub.
+  { "hexen.wad",     "Hexen (Enhanced Maps)",               MAPS_HEXEN, "hexen_ex.wad" },
+  { "hexen.wad",     "Deathkings (Enhanced Maps)",          MAPS_HEXEN, "hexdd_ex.wad" },
+  { "hexen.wad",     "Hexen: Vestiges of Grandeur",         MAPS_HEXEN, "hexen_vog.wad" },
 };
 
 // The mods of each game in a folder of their own: Doom's in "mods",

@@ -59,6 +59,7 @@
 
 // heretic needs
 #include "heretic/def.h"
+#include "heretic/sb_bar.h"
 #include "s_sound.h"
 #include "sounds.h"
 #include "p_inter.h"
@@ -1914,6 +1915,103 @@ dboolean P_UndoPlayerMorph(player_t * player)
     return (true);
 }
 
+// Vestiges of Grandeur (Heretic + Hexen, 2025): the chronicle changes the
+// player's class (special 124: to the next one, 123: to arg 0's), as the
+// pig turns back into one: a new body there, the same health, weapons,
+// pieces, mana and items; the armor as much of the new class's.
+dboolean P_ChangePlayerClass(player_t * player, pclass_t newclass)
+{
+    static const char *class_names[NUMCLASSES] = {
+        NULL, "YOU ARE A FIGHTER", "YOU ARE A CLERIC", "YOU ARE A MAGE", NULL
+    };
+    static const mobjtype_t class_types[NUMCLASSES] = {
+        0, HEXEN_MT_PLAYER_FIGHTER, HEXEN_MT_PLAYER_CLERIC, HEXEN_MT_PLAYER_MAGE, 0
+    };
+    const pclass_t oldclass = player->pclass;
+    mobj_t *pmo = player->mo;
+    mobj_t *mo;
+    mobj_t *fog;
+    int playerNum;
+    int i;
+    angle_t angle;
+
+    if (newclass < PCLASS_FIGHTER || newclass > PCLASS_MAGE || newclass == oldclass
+        || player->morphTics || pmo == NULL || player->health <= 0)
+    {
+        return false;
+    }
+
+    playerNum = P_GetPlayerNum(player);
+    angle = pmo->angle;
+    mo = P_SpawnMobj(pmo->x, pmo->y, pmo->z, class_types[newclass]);
+    pmo->flags &= ~MF_SOLID;    // (the old body is not in the way)
+    if (P_TestMobjLocation(mo) == false)
+    {                           // Didn't fit: as it was
+        pmo->flags |= MF_SOLID;
+        P_RemoveMobj(mo);
+        return false;
+    }
+    P_SetMobjState(pmo, HEXEN_S_FREETARGMOBJ);
+
+    // Color translation bits for player sprites, as P_UndoPlayerMorph
+    if (newclass == PCLASS_FIGHTER)
+    {
+        if (playerNum == 0)
+        {
+            mo->flags |= 2 << MF_TRANSSHIFT;
+        }
+        else if (playerNum != 2)
+        {
+            mo->flags |= playerNum << MF_TRANSSHIFT;
+        }
+    }
+    else if (playerNum)
+    {
+        mo->flags |= playerNum << MF_TRANSSHIFT;
+    }
+    mo->angle = angle;
+    mo->player = player;
+    mo->health = player->health;
+    if (pmo->flags2 & MF2_FLY)
+    {
+        mo->flags2 |= MF2_FLY;
+        mo->flags |= MF_NOGRAVITY;
+    }
+    if (pmo->tid)
+    {
+        const short tid = pmo->tid;
+
+        map_format.remove_mobj_thing_id(pmo);
+        map_format.add_mobj_thing_id(mo, tid);
+    }
+
+    for (i = 0; i < NUMARMOR; i++)
+    {
+        if (pclass[oldclass].armor_increment[i] > 0)
+        {
+            player->armorpoints[i] = player->armorpoints[i]
+                                   * pclass[newclass].armor_increment[i]
+                                   / pclass[oldclass].armor_increment[i];
+        }
+    }
+
+    PlayerClass[playerNum] = newclass;
+    player->pclass = newclass;
+    player->mo = mo;
+
+    angle >>= ANGLETOFINESHIFT;
+    fog = P_SpawnMobj(mo->x + 20 * finecosine[angle], mo->y + 20 * finesine[angle],
+                      mo->z + TELEFOGHEIGHT, HEXEN_MT_TFOG);
+    S_StartMobjSound(fog, hexen_sfx_teleport);
+    P_PostMorphWeapon(player, player->readyweapon);
+    P_SetMessage(player, class_names[newclass], true);
+    if (player == &players[consoleplayer])
+    {
+        SB_SetClassData();
+    }
+    return true;
+}
+
 void P_ArtiTeleportOther(player_t * player)
 {
     mobj_t *mo;
@@ -2227,6 +2325,21 @@ static dboolean Hexen_P_UseArtifact(player_t * player, artitype_t arti)
         case hexen_arti_puzzgear2:
         case hexen_arti_puzzgear3:
         case hexen_arti_puzzgear4:
+        case hexen_arti_puzzcrestdragon:
+        case hexen_arti_puzzcrestwolf:
+        case hexen_arti_puzzcrestgriffin:
+        case hexen_arti_puzzmaskice:
+        case hexen_arti_puzzmaskswamp:
+        case hexen_arti_puzzchalice1:
+        case hexen_arti_puzzchalice2:
+        case hexen_arti_puzzchalice3:
+        case hexen_arti_puzzchalice4:
+        case hexen_arti_puzzchalice5:
+        case hexen_arti_puzzidol1:
+        case hexen_arti_puzzidol2:
+        case hexen_arti_puzzidol3:
+        case hexen_arti_puzzbook3:
+        case hexen_arti_puzzbook4:
             if (P_UsePuzzleItem(player, arti - hexen_arti_firstpuzzitem))
             {
                 return true;

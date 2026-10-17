@@ -166,8 +166,24 @@ static char hexen_namearti[][10] = {
     {"ARTIGER2"},               // hexen_arti_puzzgear2
     {"ARTIGER3"},               // hexen_arti_puzzgear3
     {"ARTIGER4"},               // hexen_arti_puzzgear4
+    // Vestiges of Grandeur (Heretic + Hexen, 2025)
+    {"ARTIACRD"},               // hexen_arti_puzzcrestdragon
+    {"ARTIACRW"},               // hexen_arti_puzzcrestwolf
+    {"ARTIACRG"},               // hexen_arti_puzzcrestgriffin
+    {"ARTIAMSI"},               // hexen_arti_puzzmaskice
+    {"ARTIAMSS"},               // hexen_arti_puzzmaskswamp
+    {"ARTIACH1"},               // hexen_arti_puzzchalice1
+    {"ARTIACH2"},               // hexen_arti_puzzchalice2
+    {"ARTIACH3"},               // hexen_arti_puzzchalice3
+    {"ARTIACH4"},               // hexen_arti_puzzchalice4
+    {"ARTIACH5"},               // hexen_arti_puzzchalice5
+    {"ARTIAID1"},               // hexen_arti_puzzidol1
+    {"ARTIAID2"},               // hexen_arti_puzzidol2
+    {"ARTIAID3"},               // hexen_arti_puzzidol3
+    {"ARTIBOK3"},               // hexen_arti_puzzbook3
+    {"ARTIBOK4"},               // hexen_arti_puzzbook4
 };
-static int hexen_lumparti[33];
+static int hexen_lumparti[HEXEN_NUMARTIFACTS];
 
 static int *lumparti;
 
@@ -945,7 +961,7 @@ static void Hexen_SB_Init(void)
     R_SetPatchNum(&brdr_b, "bordb");
     R_SetPatchNum(&stbarbg, "H2BAR");
 
-    for (i = 0; i < 33; ++i)
+    for (i = 0; i < HEXEN_NUMARTIFACTS; ++i)
     {
       lumparti[i] = W_CheckNumForName2(hexen_namearti[i], ns_sprites);
     }

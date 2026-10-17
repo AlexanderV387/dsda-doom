@@ -1323,6 +1323,11 @@ static void cheat_puzzle(void)
 
   for (i = hexen_arti_firstpuzzitem; i < HEXEN_NUMARTIFACTS; i++)
   {
+    // Vestiges of Grandeur's items only with the remaster's hexen.wad,
+    // which has their icons.
+    if (i > hexen_arti_puzzgear4 && W_CheckNumForName("ARTIACRD") < 0)
+      break;
+
     P_GiveArtifact(plyr, i, NULL);
   }
   P_SetMessage(plyr, "ALL PUZZLE ITEMS", true);

@@ -2577,6 +2577,8 @@ void A_Explode(mobj_t *thingy)
         break;
       case HEXEN_MT_ZXMAS_TREE:
       case HEXEN_MT_ZSHRUB2:
+      case HEXEN_MT_LUSHXMAS:     // Vestiges of Grandeur
+      case HEXEN_MT_LUSHSHRUB2:
         damage = 30;
         distance = 64;
         break;
