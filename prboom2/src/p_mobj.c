@@ -33,6 +33,7 @@
 
 #include "doomdef.h"
 #include "doomstat.h"
+#include "n3ds/n3ds_timed.h"
 #include "m_random.h"
 #include "r_main.h"
 #include "p_maputl.h"
@@ -1305,7 +1306,7 @@ void P_MobjThinker (mobj_t* mobj)
   BlockingMobj = NULL;
   if (mobj->momx | mobj->momy || mobj->flags & MF_SKULLFLY)
   {
-    P_XYMovement(mobj);
+    N3DS_TIMED(N3DS_PROFILE_XYMOVE, P_XYMovement(mobj));
     mobj->intflags &= ~MIF_SCROLLING;
     if (mobj->thinker.function != P_MobjThinker) // cph - Must've been removed
       return;       // killough - mobj was removed
@@ -1328,7 +1329,7 @@ void P_MobjThinker (mobj_t* mobj)
 
       if (!(onmo = P_CheckOnmobj(mobj)))
       {
-        P_ZMovement(mobj);
+        N3DS_TIMED(N3DS_PROFILE_ZMOVE, P_ZMovement(mobj));
 
         // This bug is part of the original source
         if (hexen && mobj->player && mobj->flags & MF2_ONMOBJ)
@@ -1403,7 +1404,7 @@ void P_MobjThinker (mobj_t* mobj)
       }
     }
     else
-      P_ZMovement(mobj);
+      N3DS_TIMED(N3DS_PROFILE_ZMOVE, P_ZMovement(mobj));
     if (mobj->thinker.function != P_MobjThinker) // cph - Must've been removed
       return;       // killough - mobj was removed
   }
@@ -1721,7 +1722,11 @@ int P_MobjSpawnHealth(const mobj_t* mobj)
 //
 // P_SpawnMobj
 //
+#ifdef __3DS__
+static mobj_t* SpawnMobjBody(fixed_t x,fixed_t y,fixed_t z,mobjtype_t type)
+#else
 mobj_t* P_SpawnMobj(fixed_t x,fixed_t y,fixed_t z,mobjtype_t type)
+#endif
 {
   mobj_t*     mobj;
   state_t*    st;
@@ -3915,3 +3920,14 @@ mobj_t *P_SpawnKoraxMissile(fixed_t x, fixed_t y, fixed_t z,
     th->momz = (dest->z - z + (30 * FRACUNIT)) / dist;
     return (P_CheckMissileSpawn(th) ? th : NULL);
 }
+
+#ifdef __3DS__
+// Timed for the 3DS's log (n3ds_gl.c).
+mobj_t* P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type)
+{
+  mobj_t* mobj;
+
+  N3DS_TIMED(N3DS_PROFILE_SPAWN, mobj = SpawnMobjBody(x, y, z, type));
+  return mobj;
+}
+#endif

@@ -352,6 +352,9 @@ cfg_def_t cfg_defs[] =
   MIGRATED_SETTING(dsda_config_n3ds_touch_speed),
   MIGRATED_SETTING(dsda_config_n3ds_reset_buttons),
   MIGRATED_SETTING(dsda_config_n3ds_run_mode),
+  MIGRATED_SETTING(dsda_config_n3ds_textures16),
+  MIGRATED_SETTING(dsda_config_n3ds_status_top),
+  MIGRATED_SETTING(dsda_config_n3ds_weapon_bar),
 #endif
   MIGRATED_SETTING(dsda_config_playback_mouse_controls),
 

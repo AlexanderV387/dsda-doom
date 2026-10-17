@@ -320,7 +320,11 @@ void S_ResetAdjustments(void) {
   adjust_volume = 0;
 }
 
+#ifdef __3DS__
+static void StartSoundAtVolumeBody(void *origin_p, int sfx_id, int volume, dboolean important, int loop_timeout)
+#else
 void S_StartSoundAtVolume(void *origin_p, int sfx_id, int volume, dboolean important, int loop_timeout)
+#endif
 {
   int cnum;
   sfx_params_t params;
@@ -1380,3 +1384,14 @@ int S_GetSoundID(const char *name)
     }
     return 0;
 }
+
+#ifdef __3DS__
+#include "n3ds/n3ds_timed.h"
+
+// Timed for the 3DS's log (n3ds_gl.c).
+void S_StartSoundAtVolume(void *origin_p, int sfx_id, int volume, dboolean important, int loop_timeout)
+{
+  N3DS_TIMED(N3DS_PROFILE_SOUND,
+             StartSoundAtVolumeBody(origin_p, sfx_id, volume, important, loop_timeout));
+}
+#endif

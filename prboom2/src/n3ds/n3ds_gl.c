@@ -290,12 +290,17 @@ void N3DS_GLSwap(void)
                 ++missiles;
             }
 
-        printf("logic: per frame: sight %.1f ms (%d calls), moves %.1f ms (%d), "
-               "chases %.1f ms (%d); %d things, %d missiles\n",
-               ms[N3DS_PROFILE_SIGHT] / frames, calls[N3DS_PROFILE_SIGHT] / frames,
-               ms[N3DS_PROFILE_MOVE] / frames, calls[N3DS_PROFILE_MOVE] / frames,
-               ms[N3DS_PROFILE_CHASE] / frames, calls[N3DS_PROFILE_CHASE] / frames,
-               things, missiles);
+#define N3DS_MEASURE(what) ms[what] / frames, calls[what] / frames
+        printf("logic: per frame: thinkers %.1f ms (%d), across %.1f ms (%d), "
+               "up/down %.1f ms (%d), tries to move %.1f ms (%d), chases %.1f ms (%d), "
+               "sight %.1f ms (%d), new things %.1f ms (%d), sounds %.1f ms (%d), "
+               "key frames %.1f ms; %d things, %d missiles\n",
+               N3DS_MEASURE(N3DS_PROFILE_THINKERS), N3DS_MEASURE(N3DS_PROFILE_XYMOVE),
+               N3DS_MEASURE(N3DS_PROFILE_ZMOVE), N3DS_MEASURE(N3DS_PROFILE_MOVE),
+               N3DS_MEASURE(N3DS_PROFILE_CHASE), N3DS_MEASURE(N3DS_PROFILE_SIGHT),
+               N3DS_MEASURE(N3DS_PROFILE_SPAWN), N3DS_MEASURE(N3DS_PROFILE_SOUND),
+               ms[N3DS_PROFILE_KEYFRAME] / frames, things, missiles);
+#undef N3DS_MEASURE
       }
 
       printf("perf: %d frames; per frame: logic %.1f ms (%d tics), drawing %.1f ms "

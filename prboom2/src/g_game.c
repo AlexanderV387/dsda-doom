@@ -54,6 +54,7 @@
 #endif
 
 #include "doomstat.h"
+#include "n3ds/n3ds_timed.h"
 #include "d_net.h"
 #include "f_finale.h"
 #include "i_video.h"
@@ -1558,8 +1559,7 @@ void G_Ticker (void)
     int buf = gametic % BACKUPTICS;
 
     if (!timingdemo) {
-      dsda_UpdateAutoKeyFrames();
-      dsda_UpdateAutoSaves();
+      N3DS_TIMED(N3DS_PROFILE_KEYFRAME, dsda_UpdateAutoKeyFrames(); dsda_UpdateAutoSaves());
 
       if (demoplayback)
         dsda_UpdatePlaybackKeyFrames();

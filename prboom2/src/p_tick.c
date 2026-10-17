@@ -32,6 +32,7 @@
  *-----------------------------------------------------------------------------*/
 
 #include "doomstat.h"
+#include "n3ds/n3ds_timed.h"
 #include "p_user.h"
 #include "p_spec.h"
 #include "p_tick.h"
@@ -352,7 +353,7 @@ void P_Ticker (void)
         if (playeringame[i])
           P_PlayerThink(&players[i]);
 
-    P_RunThinkers();
+    N3DS_TIMED(N3DS_PROFILE_THINKERS, P_RunThinkers());
     P_UpdateSpecials();
     P_AnimateSurfaces();
     P_RespawnSpecials();

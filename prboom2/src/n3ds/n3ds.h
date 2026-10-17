@@ -79,6 +79,12 @@ enum
   N3DS_PROFILE_SIGHT,    // P_CheckSight: whether monsters see (in the logic)
   N3DS_PROFILE_MOVE,     // P_TryMove: moving things (in the logic)
   N3DS_PROFILE_CHASE,    // A_Chase: the monsters chasing (in the logic)
+  N3DS_PROFILE_THINKERS, // P_RunThinkers: all the things and sectors (in the logic)
+  N3DS_PROFILE_XYMOVE,   // P_XYMovement: things moving across (in the thinkers)
+  N3DS_PROFILE_ZMOVE,    // P_ZMovement: things moving up and down (in the thinkers)
+  N3DS_PROFILE_SPAWN,    // P_SpawnMobj: new things (missiles, puffs...)
+  N3DS_PROFILE_SOUND,    // S_StartSoundAtVolume: sounds started
+  N3DS_PROFILE_KEYFRAME, // the automatic key frames and saves (in the logic)
   N3DS_PROFILE_COUNT
 };
 
