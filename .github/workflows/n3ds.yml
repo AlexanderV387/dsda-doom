@@ -1,0 +1,133 @@
+name: n3ds
+
+on:
+  push:
+    branches: [n3ds]
+  pull_request:
+    branches: [n3ds]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # SDL2, SDL2_mixer, libzip, libsndfile and the OpenGL headers for the
+      # 3DS, built from source (devkitPro has none of them for the 3DS).
+      - name: Build the libraries
+        run: sh tools/3ds/build-deps.sh
+
+      - name: Build DSDA-Doom
+        run: sh tools/3ds/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsda-doom-3dsx
+          path: build-3ds/src/dsda-doom.3dsx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsda-doom-elf
+          path: |
+            build-3ds/dsda-doom.elf
+            build-3ds/romfs
+
+  cia:
+    # The same program in three .cia: DSDA-Doom (every game), Heretic and
+    # Hexen, each known by its unique ID (its own name, folder and games).
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dsda-doom-elf
+          path: build-3ds
+
+      - name: Install makerom and bannertool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/3ds/install-tools.sh
+
+      - name: Make the CIAs
+        run: |
+          tools/3ds/make-cia.sh build-3ds/dsda-doom.elf dsda-doom.cia \
+            "DSDA-Doom" "Doom, Heretic, Hexen and their mods" "AlexanderV387, kraflab" \
+            0xF3D58 CTR-H-DSDA tools/3ds/icon.png tools/3ds/banner.png tools/3ds/banner.wav \
+            build-3ds/romfs
+          tools/3ds/make-cia.sh build-3ds/dsda-doom.elf heretic.cia \
+            "Heretic" "Heretic and its mods, on DSDA-Doom" "AlexanderV387, kraflab" \
+            0xF3D59 CTR-H-DHRT tools/3ds/heretic/icon.png tools/3ds/heretic/banner.png \
+            tools/3ds/banner.wav build-3ds/romfs
+          tools/3ds/make-cia.sh build-3ds/dsda-doom.elf hexen.cia \
+            "Hexen" "Hexen and its mods, on DSDA-Doom" "AlexanderV387, kraflab" \
+            0xF3D5A CTR-H-DHXN tools/3ds/hexen/icon.png tools/3ds/hexen/banner.png \
+            tools/3ds/banner.wav build-3ds/romfs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsda-doom-cia
+          path: |
+            dsda-doom.cia
+            heretic.cia
+            hexen.cia
+
+  release:
+    # Each game is its own release, tagged n3ds-<game>-v<its VERSION> (GitHub
+    # creates the tag), with its own notes: tools/3ds/release/<game>/.
+    # A commit on n3ds whose message contains [release] publishes the three;
+    # [release dsda-doom], [release heretic] or [release hexen], only that one.
+    if: github.ref == 'refs/heads/n3ds' && contains(github.event.head_commit.message, '[release')
+    needs: [build, cia]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - game: dsda-doom
+            name: DSDA-Doom 3DS
+          - game: heretic
+            name: Heretic 3DS
+          - game: hexen
+            name: Hexen 3DS
+    steps:
+      - id: wanted
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          case "$MESSAGE" in
+            *"[release]"*|*"[release ${{ matrix.game }}]"*) echo "go=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "go=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - if: steps.wanted.outputs.go == 'true'
+        uses: actions/checkout@v5
+
+      - if: steps.wanted.outputs.go == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dsda-doom-*
+          path: dist
+          merge-multiple: true
+
+      - if: steps.wanted.outputs.go == 'true'
+        id: version
+        run: |
+          ls -la dist
+          echo "tag=n3ds-${{ matrix.game }}-v$(cat tools/3ds/release/${{ matrix.game }}/VERSION)" >> "$GITHUB_OUTPUT"
+          echo "version=v$(cat tools/3ds/release/${{ matrix.game }}/VERSION)" >> "$GITHUB_OUTPUT"
+
+      # The .3dsx is DSDA-Doom's (every game): only in its own release.
+      - if: steps.wanted.outputs.go == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ matrix.name }} ${{ steps.version.outputs.version }}
+          body_path: tools/3ds/release/${{ matrix.game }}/RELEASE_NOTES.md
+          files: |
+            dist/${{ matrix.game }}.cia
+            ${{ matrix.game == 'dsda-doom' && 'dist/dsda-doom.3dsx' || '' }}
