@@ -3970,6 +3970,22 @@ void P_SetupLevel(int episode, int map, int skill)
   {
     AM_Start(AM_OPEN_MINIMAP);
   }
+
+#ifdef __3DS__
+  // The level's lumps read only to set it up go: in a hub they stayed for
+  // each map, and a big one's are megabytes (Vestiges of Grandeur's MAP07:
+  // 5). REJECT and BEHAVIOR are used while playing: they stay.
+  W_ReleaseLump(level_components.things);
+  W_ReleaseLump(level_components.linedefs);
+  W_ReleaseLump(level_components.sidedefs);
+  W_ReleaseLump(level_components.vertexes);
+  W_ReleaseLump(level_components.segs);
+  W_ReleaseLump(level_components.ssectors);
+  W_ReleaseLump(level_components.nodes);
+  W_ReleaseLump(level_components.sectors);
+  W_ReleaseLump(level_components.blockmap);
+  W_ReleaseLump(level_components.znodes);
+#endif
 }
 
 //

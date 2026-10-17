@@ -1542,6 +1542,16 @@ static void CalcHitsCount(const byte *hitlist, int size, int *hit, int*hitcount)
   }
 }
 
+// [3DS] Textures made ahead of time only while the GPU's memory has room:
+// a big map's all (Vestiges of Grandeur's MAP07) filled it; those left are
+// made when seen.
+#ifdef __3DS__
+#include "n3ds/n3ds.h"
+#define PRECACHE_ROOM() (N3DS_LinearFree() >= (10u << 20))
+#else
+#define PRECACHE_ROOM() true
+#endif
+
 void gld_Precache(void)
 {
   int i;
@@ -1600,7 +1610,7 @@ void gld_Precache(void)
     {
       gld_ProgressUpdate("Loading Flats...", ++hit, hitcount);
       gltexture = gld_RegisterFlat(i, true, true);
-      if (gltexture)
+      if (gltexture && PRECACHE_ROOM())
       {
         gld_BindFlat(gltexture, 0);
       }
@@ -1664,7 +1674,7 @@ void gld_Precache(void)
     {
       gld_ProgressUpdate("Loading Textures...", ++hit, hitcount);
       gltexture = gld_RegisterTexture(i, i != skytexture, false, true, false);
-      if (gltexture)
+      if (gltexture && PRECACHE_ROOM())
       {
         gld_BindTexture(gltexture, 0, false);
       }
@@ -1703,7 +1713,7 @@ void gld_Precache(void)
             {
               gld_ProgressUpdate("Loading Sprites...", ++hit, hitcount);
               gltexture = gld_RegisterPatch(firstspritelump + sflump[k], CR_LIMIT, true, true);
-              if (gltexture)
+              if (gltexture && PRECACHE_ROOM())
               {
                 gld_BindPatch(gltexture, CR_LIMIT);
               }

@@ -164,6 +164,9 @@ char*   W_ReadLumpToString (int lump);
 // CPhipps - modified for 'new' lump locking
 const void* W_SafeLumpByNum (int lump);
 const void* W_LumpByNum (int lump);
+#ifdef __3DS__
+void W_ReleaseLump(int lump);
+#endif
 const void* W_LockLumpNum(int lump);
 void *W_GetModifiableLumpData(int lump);
 

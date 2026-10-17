@@ -2970,6 +2970,7 @@ static inline u32 GetTexel(const void *texels, GPU_TEXCOLOR fmt, u32 index)
 }
 
 static bool textures16;
+#define LOW_MEMORY_TEXTURES16 (12u << 20)
 
 void pglTextures16(bool on)
 {
@@ -2982,7 +2983,8 @@ static GPU_TEXCOLOR TexelFormat(GLenum format, int width, int height, const void
 {
   int pitch, x, y;
 
-  if (!textures16 || !pixels)
+  // In 16 bits too when the GPU's memory runs low: half of it each.
+  if ((!textures16 && linearSpaceFree() >= LOW_MEMORY_TEXTURES16) || !pixels)
     return GPU_RGBA8;
 
   if (format == GL_RGB || format == GL_BGR)

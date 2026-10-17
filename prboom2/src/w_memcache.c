@@ -119,6 +119,19 @@ const void *W_LumpByNum(int lump)
   return lump_data[lump];
 }
 
+#ifdef __3DS__
+// A lump read only while a level is set up (its lines, sides...): its
+// memory back after; read again if wanted. Lumps in a shared block stay.
+void W_ReleaseLump(int lump)
+{
+  if (lump < 0 || lump >= numlumps || !lump_data[lump] || W_LumpLength(lump) <= LUMP_IN_BLOCK_MAX)
+    return;
+
+  Z_Free(lump_data[lump]);
+  lump_data[lump] = NULL;
+}
+#endif
+
 const void *W_LockLumpNum(int lump)
 {
   return W_LumpByNum(lump);
