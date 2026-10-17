@@ -280,13 +280,15 @@ void N3DS_GLSwap(void)
         thinker_t *th;
         int things = 0, missiles = 0;
 
-        for (th = thinkercap.next; th != &thinkercap; th = th->next)
-          if (th->function == P_MobjThinker)
-          {
-            ++things;
-            if (((mobj_t *) th)->flags & MF_MISSILE)
-              ++missiles;
-          }
+        // (No list before the first level: on the title, none.)
+        if (gamestate == GS_LEVEL && thinkercap.next)
+          for (th = thinkercap.next; th != &thinkercap; th = th->next)
+            if (th->function == P_MobjThinker)
+            {
+              ++things;
+              if (((mobj_t *) th)->flags & MF_MISSILE)
+                ++missiles;
+            }
 
         printf("logic: per frame: sight %.1f ms (%d calls), moves %.1f ms (%d), "
                "chases %.1f ms (%d); %d things, %d missiles\n",
