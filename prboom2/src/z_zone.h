@@ -54,6 +54,13 @@ void Z_FreeLevel(void);
 
 void *Z_Malloc(size_t size);
 void *Z_TryMalloc(size_t size);
+#ifdef __3DS__
+// Called when the heap has no room for a block, before the GPU's memory
+// is used: what can go, goes (the auto key frames).
+void Z_SetLowMemoryHandler(void (*handler)(void));
+// Who has the zone's memory, in the log.
+void Z_LogUsage(const char *why);
+#endif
 void *Z_Calloc(size_t n, size_t n2);
 void *Z_Realloc(void *p, size_t n);
 char *Z_Strdup(const char *s);

@@ -25,6 +25,7 @@
 #include "lprintf.h"
 #include "v_video.h"
 #include "w_wad.h"
+#include "z_zone.h"
 #include "p_mobj.h"
 #include "p_tick.h"
 #include "gl_opengl.h"
@@ -272,6 +273,7 @@ void N3DS_GLSwap(void)
                (unsigned) (info.uordblks / 1024), __ctru_heap_size / 1024,
                (unsigned) (info.arena / 1024), (unsigned) (info.fordblks / 1024),
                (unsigned) info.ordblks, (unsigned) (N3DS_LinearFree() / 1024));
+        Z_LogUsage("every 10 s");
       }
 
       {

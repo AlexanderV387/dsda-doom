@@ -142,6 +142,30 @@ static dboolean RoomForAutoKeyFrame(dsda_key_frame_t* key_frame) {
   save_buffer_made = true;
   return true;
 }
+
+// A key frame being read or copied: its buffer stays when memory runs out.
+static dboolean kf_in_use;
+
+// Out of memory (z_zone.c): the auto key frames go, before the GPU's
+// memory is used or the game stops; rewinding is what can be done without.
+static void PurgeAutoKeyFrames(void) {
+  auto_kf_t* kf = last_auto_kf;
+  int i;
+
+  if (kf_in_use)
+    return;
+
+  for (i = 0; kf && i < auto_kf_size; ++i, kf = kf->next)
+    if (kf->kf.buffer) {
+      Z_Free(kf->kf.buffer);
+      kf->kf.buffer = NULL;
+    }
+
+  if (first_kf.buffer) {
+    Z_Free(first_kf.buffer);
+    first_kf.buffer = NULL;
+  }
+}
 #endif
 
 void dsda_ForgetAutoKeyFrames(void) {
@@ -232,6 +256,10 @@ void dsda_InitAutoKeyFrames(void) {
   dsda_auto_key_frame_timeout = dsda_IntConfig(dsda_config_auto_key_frame_timeout);
 
   auto_kf_size = autoKeyFrameDepth();
+
+#ifdef __3DS__
+  Z_SetLowMemoryHandler(PurgeAutoKeyFrames);
+#endif
 
   if (!auto_kf_size) {
     last_auto_kf = NULL;
@@ -344,6 +372,9 @@ void dsda_RestoreKeyFrame(dsda_key_frame_t* key_frame, dboolean skip_wipe) {
     dsda_SkipNextWipe();
 
   save_p = key_frame->buffer;
+#ifdef __3DS__
+  kf_in_use = true;
+#endif
 
   P_LOAD_BYTE(complete);
   P_LOAD_X(key_frame->game_tic_count);
@@ -355,6 +386,9 @@ void dsda_RestoreKeyFrame(dsda_key_frame_t* key_frame, dboolean skip_wipe) {
   dsda_RestoreDemoData(complete);
 
   dsda_UnArchiveAll();
+#ifdef __3DS__
+  kf_in_use = false;
+#endif
 
   dsda_RestoreCommandHistory();
 
@@ -490,8 +524,15 @@ void dsda_UpdateAutoKeyFrames(void) {
       }
     }
 
-    if (!first_kf.buffer)
+    if (!first_kf.buffer) {
+#ifdef __3DS__
+      kf_in_use = true;
+#endif
       dsda_CopyKeyFrame(&first_kf, current_key_frame);
+#ifdef __3DS__
+      kf_in_use = false;
+#endif
+    }
 
 #ifdef AUTO_KEY_FRAMES_MEMORY
     // The oldest go when they take too much (a big map's are big).

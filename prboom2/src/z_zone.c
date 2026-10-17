@@ -82,6 +82,7 @@ typedef struct memblock {
   unsigned char tag;
 #ifdef __3DS__
   unsigned char linear; // from the GPU's memory (LinearBlock)
+  void *caller;         // who asked (Z_LogUsage)
 #endif
 } memblock_t;
 
@@ -151,6 +152,105 @@ static memblock_t *LinearBlock(size_t size)
     block->linear = true;
   return block;
 }
+
+static void (*low_memory_handler)(void);
+
+void Z_SetLowMemoryHandler(void (*handler)(void))
+{
+  low_memory_handler = handler;
+}
+
+// When the heap has no room: what can go (the auto key frames) goes first,
+// then the GPU's memory.
+static memblock_t *LowMemoryBlock(size_t size)
+{
+  memblock_t *block;
+
+  if (low_memory_handler)
+  {
+    low_memory_handler();
+    if ((block = malloc(size)))
+    {
+      block->linear = false;
+      return block;
+    }
+  }
+
+  return LinearBlock(size);
+}
+
+// Who has the zone's memory, the most first, in the log: by who asked
+// (for addr2line), with how many blocks.
+#define USAGE_CALLERS 128
+#define USAGE_SHOWN 8
+
+void Z_LogUsage(const char *why)
+{
+  static struct { void *caller; size_t bytes; unsigned count; } usage[USAGE_CALLERS];
+  static char line[512];
+  size_t total = 0, linear = 0;
+  unsigned blocks = 0;
+  int used = 0, tag, i, j, len;
+
+  for (tag = 0; tag < ZONE_MAX; ++tag)
+  {
+    memblock_t *block = blockbytag[tag];
+
+    if (!block)
+      continue;
+
+    do
+    {
+      for (i = 0; i < used && usage[i].caller != block->caller; ++i)
+        ;
+      if (i == used && used < USAGE_CALLERS)
+      {
+        usage[i].caller = block->caller;
+        usage[i].bytes = 0;
+        usage[i].count = 0;
+        ++used;
+      }
+      if (i < used)
+      {
+        usage[i].bytes += block->size;
+        ++usage[i].count;
+      }
+      total += block->size;
+      if (block->linear)
+        linear += block->size;
+      ++blocks;
+      block = block->next;
+    } while (block != blockbytag[tag]);
+  }
+
+  // One line (the log times each write).
+  len = snprintf(line, sizeof(line), "zone (%s): %u KiB in %u blocks (%u KiB in the GPU's memory); the most:",
+                 why, (unsigned) (total / 1024), blocks, (unsigned) (linear / 1024));
+  for (j = 0; j < USAGE_SHOWN && j < used && len < (int) sizeof(line); ++j)
+  {
+    int most = j;
+
+    for (i = j + 1; i < used; ++i)
+      if (usage[i].bytes > usage[most].bytes)
+        most = i;
+
+    if (most != j)
+    {
+      const size_t bytes = usage[j].bytes;
+      const unsigned count = usage[j].count;
+      void *caller = usage[j].caller;
+
+      usage[j] = usage[most];
+      usage[most].bytes = bytes;
+      usage[most].count = count;
+      usage[most].caller = caller;
+    }
+
+    len += snprintf(line + len, sizeof(line) - len, " %p %u KiB/%u", usage[j].caller,
+                    (unsigned) (usage[j].bytes / 1024), usage[j].count);
+  }
+  lprintf(LO_INFO, "%s\n", line);
+}
 #else
 #define SET_CALLER() ((void) 0)
 #endif
@@ -173,9 +273,10 @@ static void *Z_MallocTagIf(size_t size, int tag, dboolean must)
     if (!must)
       return NULL;
 #ifdef __3DS__
-    if (!(block = LinearBlock(size + HEADER_SIZE)))
+    if (!(block = LowMemoryBlock(size + HEADER_SIZE)))
     {
       LogHeap(size + HEADER_SIZE, alloc_caller);
+      Z_LogUsage("out of memory");
 #endif
     I_Error ("Z_Malloc: Failure trying to allocate %lu bytes", (unsigned long) size);
 #ifdef __3DS__
@@ -198,6 +299,9 @@ static void *Z_MallocTagIf(size_t size, int tag, dboolean must)
 
   block->size = size;
   block->signature = ZONE_SIGNATURE;
+#ifdef __3DS__
+  block->caller = alloc_caller;
+#endif
   block->tag = tag;           // tag
   block = (memblock_t *)((char *) block + HEADER_SIZE);
 
