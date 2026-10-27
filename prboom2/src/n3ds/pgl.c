@@ -34,6 +34,21 @@
 #define TOP_WIDTH 400
 #define TOP_HEIGHT 240
 
+// The target's width: 800 in the top screen's wide mode (pglSetWide), with
+// OpenGL's coordinates still those of 400x240: twice the detail across,
+// for the same drawing.
+static int x_scale = 1, want_x_scale = 1;
+#define TARGET_WIDTH (TOP_WIDTH * x_scale)
+static bool MakeTarget(void);
+static inline u32 TexelOffset(int x, int y, int width);
+
+// (Diagnosis, to remove) the second pass of draws with fog (see Draw) on or
+// off, 120 frames each in turn, and how many frames of each the walls left
+// without their depth.
+static bool fog_pass = true;
+static bool frame_wrote_depth;
+static int pass_frames, pass_checked, pass_lost;
+
 #define COMMAND_BUFFER_SIZE (BIG_LINEAR ? 2 * 1024 * 1024 : 1024 * 1024)
 // The vertex buffer and the command list: twice as big with a bigger
 // linear heap (see __system_allocateHeaps in n3ds.c): big maps need more.
@@ -550,8 +565,59 @@ static void BeginFrame(void)
   // a slow one starts at once: waiting for the next refresh would make it
   // 30 a second, without waiting it is shown at the refresh after it ends
   // (between 30 and 60).
+  // The width asked for (pglSetWide): a new target, once the GPU is done
+  // with the old one.
+  if (want_x_scale != x_scale && !Closing())
+  {
+    C3D_RenderTarget *old = target;
+
+    StartFrame(false);
+    C3D_FrameEnd(0);
+    C3D_RenderTargetDelete(old);
+    x_scale = want_x_scale;
+
+    if (!MakeTarget())
+    {
+      // No room for the wide one: back to the other.
+      x_scale = want_x_scale = x_scale == 2 ? 1 : 2;
+      MakeTarget();
+    }
+
+    printf("pgl: the top screen at %dx240\n", TARGET_WIDTH);
+    viewport_dirty = true;
+  }
+
   start = svcGetSystemTick();
   StartFrame(work_us < SYNC_WORK_US && !Closing());
+
+  // (Diagnosis) the last frame, the GPU done with it: whether its walls
+  // wrote their depth (most of the screen still at the clear's 1 if not).
+  if (frame_wrote_depth && (frame_number & 3) == 0 && target->frameBuf.depthBuf)
+  {
+    const u32 *depth_buffer = (const u32 *) target->frameBuf.depthBuf;
+    int x, y, far = 0, total = 0;
+
+    GSPGPU_InvalidateDataCache(target->frameBuf.depthBuf, TOP_HEIGHT * TARGET_WIDTH * 4);
+
+    for (y = 4; y < TOP_HEIGHT; y += 8)
+      for (x = 4; x < TARGET_WIDTH; x += 8, ++total)
+        if ((depth_buffer[TexelOffset(y, x, TOP_HEIGHT)] & 0xFFFFFF) == 0xFFFFFF)
+          ++far;
+
+    ++pass_checked;
+    if (far * 2 > total)
+      ++pass_lost;
+  }
+  frame_wrote_depth = false;
+
+  if (++pass_frames >= 120)
+  {
+    if (pass_checked)
+      printf("pgl: second pass %s: walls without depth in %d of %d frames checked\n",
+             fog_pass ? "on" : "off", pass_lost, pass_checked);
+    fog_pass = !fog_pass;
+    pass_frames = pass_checked = pass_lost = 0;
+  }
   frame_vram_uploads = 0; // the GPU list starts empty
   wait_ticks += svcGetSystemTick() - start;
   stat_wait_ticks += svcGetSystemTick() - start;
@@ -619,9 +685,9 @@ static void FinishDrawing(void)
 static void RotateRect(const int *rect, int *out)
 {
   out[0] = rect[1];
-  out[1] = TOP_WIDTH - (rect[0] + rect[2]);
+  out[1] = TARGET_WIDTH - (rect[0] + rect[2]) * x_scale;
   out[2] = rect[3];
-  out[3] = rect[2];
+  out[3] = rect[2] * x_scale;
 }
 
 static void ClipRect(int *rect, int width, int height)
@@ -649,7 +715,7 @@ static bool DrawableArea(void)
   if (scissor_on)
   {
     RotateRect(scissor_box, r);
-    ClipRect(r, TOP_HEIGHT, TOP_WIDTH);
+    ClipRect(r, TOP_HEIGHT, TARGET_WIDTH);
 
     if (r[2] <= 0 || r[3] <= 0)
       return false;
@@ -667,7 +733,7 @@ static void ComputeViewport(void)
   if (scissor_on)
   {
     RotateRect(scissor_box, desired.scissor);
-    ClipRect(desired.scissor, TOP_HEIGHT, TOP_WIDTH);
+    ClipRect(desired.scissor, TOP_HEIGHT, TARGET_WIDTH);
   }
 
   if (memcmp(desired.viewport, applied.viewport, sizeof(desired.viewport))
@@ -1174,6 +1240,35 @@ static vertex_t *ReserveVertices(int count)
   return vertices + vertex_count;
 }
 
+// A draw with the applied states.
+static void Draw(GPU_Primitive_t primitive, int first, int count)
+{
+  C3D_DrawArrays(primitive, first, count);
+  ++frame_draws;
+  ++stat_draws;
+
+  if (applied.fragment.depth_on && (applied.fragment.write & GPU_WRITE_DEPTH))
+    frame_wrote_depth = true;
+
+  // With fog, the PICA200 now and then writes no depth for a draw (for
+  // most of a frame's, or none): in EDuke32's Polymost, on the same pgl,
+  // sprites showed through the walls. Without fog it always does: such
+  // draws are made again without it, for their depth alone (the same
+  // texture and alpha test: what they let through has no depth).
+  if (fog_pass && applied.fog && applied.fragment.depth_on
+      && (applied.fragment.write & GPU_WRITE_DEPTH))
+  {
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_DepthTest(true, applied.fragment.depth_func, GPU_WRITE_DEPTH);
+    C3D_DrawArrays(primitive, first, count);
+    ++frame_draws;
+
+    // The fog and the depth test as they were, at the next draw.
+    applied.fog = false;
+    pending_changes |= CHANGE_PROGRAM | CHANGE_FRAGMENT;
+  }
+}
+
 // The waiting draws, to the GPU. Before anything else that changes
 // citro3d's states or what they point to (the textures).
 static void FlushBatch(void)
@@ -1181,10 +1276,8 @@ static void FlushBatch(void)
   if (!batch_count)
     return;
 
-  C3D_DrawArrays(GPU_TRIANGLES, batch_first, batch_count);
+  Draw(GPU_TRIANGLES, batch_first, batch_count);
   batch_count = 0;
-  ++frame_draws;
-  ++stat_draws;
 }
 
 // Triangles join the waiting ones when the states are the same and they
@@ -1222,9 +1315,7 @@ static void DrawVertices(GPU_Primitive_t primitive, int first, int count)
     }
     else
     {
-      C3D_DrawArrays(primitive, first, count);
-      ++frame_draws;
-      ++stat_draws;
+      Draw(primitive, first, count);
     }
   }
 
@@ -1484,6 +1575,28 @@ static void DrawMode(GLenum mode, int first, int count)
 // ==========================================================================
 // Context
 
+// The render target, x_scale times as wide as the top screen, and the
+// screen's mode to match (wide: 800x240, no 3D).
+static bool MakeTarget(void)
+{
+  gfxSetWide(x_scale == 2);
+  target = C3D_RenderTargetCreate(TOP_HEIGHT, TARGET_WIDTH, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
+
+  if (!target)
+    return false;
+
+  C3D_RenderTargetSetOutput(target, GFX_TOP, GFX_LEFT,
+    GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(0) | GX_TRANSFER_RAW_COPY(0)
+    | GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8)
+    | GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
+  return true;
+}
+
+void pglSetWide(bool wide)
+{
+  want_x_scale = wide ? 2 : 1;
+}
+
 bool pglCreateContext(void)
 {
   int k;
@@ -1497,19 +1610,14 @@ bool pglCreateContext(void)
     return false;
   }
 
-  target = C3D_RenderTargetCreate(TOP_HEIGHT, TOP_WIDTH, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
+  x_scale = want_x_scale;
 
-  if (!target)
+  if (!MakeTarget())
   {
     printf("pgl: no render target\n");
     C3D_Fini();
     return false;
   }
-
-  C3D_RenderTargetSetOutput(target, GFX_TOP, GFX_LEFT,
-    GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(0) | GX_TRANSFER_RAW_COPY(0)
-    | GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8)
-    | GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
 
   shader_dvlb = DVLB_ParseFile((u32 *) pgl_shader_shbin, pgl_shader_shbin_size);
   shaderProgramInit(&shader);
@@ -1575,6 +1683,7 @@ void pglDeleteContext(void)
   }
 
   C3D_Fini(); // waits for the GPU
+  gfxSetWide(false); // the screen as others draw on it
   FreePending();
 
   for (k = 0; k < texture_count; ++k)
@@ -2059,7 +2168,7 @@ static void ScreenQuad(const float *color, float z, int write, bool blend, bool 
   if (scissor)
   {
     RotateRect(scissor_box, r);
-    ClipRect(r, TOP_HEIGHT, TOP_WIDTH);
+    ClipRect(r, TOP_HEIGHT, TARGET_WIDTH);
 
     if (r[2] <= 0 || r[3] <= 0)
       return;
@@ -2109,11 +2218,11 @@ static void ScreenQuad(const float *color, float z, int write, bool blend, bool 
     C3D_StencilTest(false, GPU_ALWAYS, 0, 0xFF, 0);
   }
 
-  C3D_SetViewport(0, 0, TOP_HEIGHT, TOP_WIDTH);
+  C3D_SetViewport(0, 0, TOP_HEIGHT, TARGET_WIDTH);
   if (scissor)
   {
     RotateRect(scissor_box, r);
-    ClipRect(r, TOP_HEIGHT, TOP_WIDTH);
+    ClipRect(r, TOP_HEIGHT, TARGET_WIDTH);
     C3D_SetScissor(GPU_SCISSOR_NORMAL, r[0], r[1], r[0] + r[2], r[1] + r[3]);
   }
 
@@ -3425,7 +3534,7 @@ static u32 ReadPixel(const u32 *color_buffer, int x, int y)
   // In memory the target's rows run the other way from its window
   // coordinates (seen on the hardware: the screen wipe came out mirrored).
   const int rx = y;
-  const int ry = x;
+  const int ry = x * x_scale;
 
   return color_buffer[TexelOffset(rx, ry, TOP_HEIGHT)];
 }

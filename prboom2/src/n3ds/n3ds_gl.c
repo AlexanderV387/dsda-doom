@@ -206,6 +206,8 @@ static const SDL_Color *BottomPalette(dboolean *changed)
 
 void *N3DS_GLCreateContext(void)
 {
+  pglSetWide(dsda_IntConfig(dsda_config_n3ds_wide) && N3DS_WideSupported());
+
   if (!pglCreateContext())
     return NULL;
 
@@ -220,6 +222,7 @@ void N3DS_GLSwap(void)
   dboolean changed;
   int work_us, gpu_us;
 
+  pglSetWide(dsda_IntConfig(dsda_config_n3ds_wide) && N3DS_WideSupported()); // (the option may change)
   pglSwapBuffers();
   pglFrameTimes(&work_us, &gpu_us);
 

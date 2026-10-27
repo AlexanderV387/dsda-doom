@@ -314,6 +314,7 @@ typedef enum {
   dsda_config_n3ds_weapon_bar,
   dsda_config_n3ds_show_fps,
   dsda_config_n3ds_textures16,
+  dsda_config_n3ds_wide,
   dsda_config_n3ds_map_zoom,
   dsda_config_n3ds_touch_turn,
   dsda_config_n3ds_touch_speed,

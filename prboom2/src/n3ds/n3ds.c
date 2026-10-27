@@ -340,6 +340,26 @@ dboolean N3DS_IsNew3DS(void)
   return is_new;
 }
 
+dboolean N3DS_WideSupported(void)
+{
+  static int supported = -1;
+
+  if (supported < 0)
+  {
+    u8 model = CFG_MODEL_3DS;
+
+    if (R_SUCCEEDED(cfguInit()))
+    {
+      CFGU_GetSystemModel(&model);
+      cfguExit();
+    }
+
+    supported = model != CFG_MODEL_2DS;
+  }
+
+  return supported;
+}
+
 dboolean N3DS_IsClosing(void)
 {
   return aptShouldClose();

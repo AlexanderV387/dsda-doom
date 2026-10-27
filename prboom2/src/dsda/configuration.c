@@ -1117,6 +1117,12 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "n3ds_textures16", dsda_config_n3ds_textures16,
     CONF_BOOL(0)
   },
+  // [3DS] OpenGL on the top screen's wide mode, 800x240: the same picture,
+  // twice the detail across (not on the original 2DS, which lacks it).
+  [dsda_config_n3ds_wide] = {
+    "n3ds_wide", dsda_config_n3ds_wide,
+    CONF_BOOL(1)
+  },
   // The bottom screen map's zoom, in percent of the whole level.
   [dsda_config_n3ds_map_zoom] = {
     "n3ds_map_zoom", dsda_config_n3ds_map_zoom,

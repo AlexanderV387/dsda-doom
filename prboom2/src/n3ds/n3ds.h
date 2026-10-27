@@ -43,6 +43,9 @@ void N3DS_StopPresenting(void);
 // New 3DS (804 MHz, the third core) or Old 3DS (268 MHz, two cores).
 dboolean N3DS_IsNew3DS(void);
 
+// The top screen's wide mode (800x240): all but the original 2DS.
+dboolean N3DS_WideSupported(void);
+
 // The HOME Menu is closing the game.
 dboolean N3DS_IsClosing(void);
 

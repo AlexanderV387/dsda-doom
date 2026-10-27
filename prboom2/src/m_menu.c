@@ -3468,6 +3468,7 @@ setup_menu_t n3ds_main_settings[] =
   { "Video", S_SKIP | S_TITLE, m_null, N3DS_X },
   { "Renderer (OpenGL: the GPU)", S_CHOICE | S_STR, m_conf, N3DS_X, dsda_config_videomode, 0, n3ds_renderers },
   { "16-bit Textures (Faster)", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_textures16 },
+  { "OpenGL at 800x240 (Sharper)", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_wide },
   EMPTY_LINE,
   { "Bottom Screen", S_SKIP | S_TITLE, m_null, N3DS_X },
   { "Map", S_YESNO, m_conf, N3DS_X, dsda_config_n3ds_bottom_map },

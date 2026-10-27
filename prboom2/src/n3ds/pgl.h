@@ -34,6 +34,10 @@ void *pglGetProcAddress(const char *name);
 // (e.g. a full-screen tint).
 void pglSetBeforeSwap(void (*callback)(void));
 
+// The top screen in its wide mode, 800x240 (not on the original 2DS): the
+// same drawing, twice the detail across. From the next frame.
+void pglSetWide(bool wide);
+
 // Instead of GLSL shaders. The fixed function (glTexEnv) by default.
 enum
 {
