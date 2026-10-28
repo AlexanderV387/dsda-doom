@@ -1117,12 +1117,6 @@ dsda_config_t dsda_config[dsda_config_count] = {
     "n3ds_textures16", dsda_config_n3ds_textures16,
     CONF_BOOL(0)
   },
-  // [3DS] OpenGL on the top screen's wide mode, 800x240: the same picture,
-  // twice the detail across (not on the original 2DS, which lacks it).
-  [dsda_config_n3ds_wide] = {
-    "n3ds_wide", dsda_config_n3ds_wide,
-    CONF_BOOL(1)
-  },
   // The bottom screen map's zoom, in percent of the whole level.
   [dsda_config_n3ds_map_zoom] = {
     "n3ds_map_zoom", dsda_config_n3ds_map_zoom,
@@ -1253,7 +1247,10 @@ dsda_config_t dsda_config[dsda_config_count] = {
   [dsda_config_screen_resolution] = {
     "screen_resolution", dsda_config_screen_resolution,
 #ifdef __3DS__
-    CONF_STRING("400x240"), NULL, NOT_STRICT, M_ChangeVideoMode // [3DS] the top screen
+    // [3DS] The top screen: 400x240, or 800x240 (its wide mode, for OpenGL:
+    // the game still draws at 400x240, the GPU at twice the detail across).
+    // Changed without starting the video again (see N3DS_GLSwap).
+    CONF_STRING("800x240"), NULL, NOT_STRICT, NULL
 #else
     CONF_STRING("640x480"), NULL, NOT_STRICT, M_ChangeVideoMode
 #endif

@@ -204,9 +204,18 @@ static const SDL_Color *BottomPalette(dboolean *changed)
 // ==========================================================================
 // SDL
 
+// Screen Resolution 800x240: the top screen's wide mode (not on the
+// original 2DS, which lacks it).
+static dboolean N3DS_GLWide(void)
+{
+  const char *resolution = dsda_StringConfig(dsda_config_screen_resolution);
+
+  return resolution && !strcmp(resolution, "800x240") && N3DS_WideSupported();
+}
+
 void *N3DS_GLCreateContext(void)
 {
-  pglSetWide(dsda_IntConfig(dsda_config_n3ds_wide) && N3DS_WideSupported());
+  pglSetWide(N3DS_GLWide());
 
   if (!pglCreateContext())
     return NULL;
@@ -222,7 +231,7 @@ void N3DS_GLSwap(void)
   dboolean changed;
   int work_us, gpu_us;
 
-  pglSetWide(dsda_IntConfig(dsda_config_n3ds_wide) && N3DS_WideSupported()); // (the option may change)
+  pglSetWide(N3DS_GLWide()); // (the option may change)
   pglSwapBuffers();
   pglFrameTimes(&work_us, &gpu_us);
 

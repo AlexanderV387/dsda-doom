@@ -784,6 +784,15 @@ void I_GetScreenResolution(void)
 
   screen_resolution = dsda_StringConfig(dsda_config_screen_resolution);
 
+#ifdef __3DS__
+  // [3DS] Always the top screen's 400x240 (800x240 is the GPU's only).
+  desired_screenwidth = 400;
+  desired_screenheight = 240;
+  (void) width;
+  (void) height;
+  return;
+#endif
+
   if (screen_resolution)
   {
     if (sscanf(screen_resolution, "%dx%d", &width, &height) == 2)
@@ -879,6 +888,23 @@ static void I_FillScreenResolutionsList(void)
   {
     return;
   }
+
+#ifdef __3DS__
+  // [3DS] The top screen's two: anything else broke the screen.
+  {
+    const char* dsda_HackStringConfig(dsda_config_identifier_t id, const char* value, dboolean persist);
+    const char* current = dsda_StringConfig(dsda_config_screen_resolution);
+
+    screen_resolutions_list[0] = "400x240";
+    screen_resolutions_list[1] = "800x240";
+    screen_resolutions_list[2] = NULL;
+
+    if (!current || (strcmp(current, "400x240") && strcmp(current, "800x240")))
+      dsda_HackStringConfig(dsda_config_screen_resolution, "800x240", false);
+
+    return;
+  }
+#endif
 
   if (desired_screenwidth == 0 || desired_screenheight == 0)
   {
