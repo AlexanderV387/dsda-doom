@@ -3256,7 +3256,9 @@ setup_menu_t demos_options_settings[] =  // Demos Settings screen
   { "Text File Author", S_NAME, m_conf, DM_X, dsda_config_player_name },
   EMPTY_LINE,
   { "Playback Progress Bar", S_YESNO, m_conf, DM_X, dsda_config_hudadd_demoprogressbar },
+#ifndef __3DS__ // [3DS] no mouse
   { "Playback Mouse Controls", S_YESNO, m_conf, DM_X, dsda_config_playback_mouse_controls },
+#endif
   { "Smooth Playback", S_YESNO, m_conf, DM_X, dsda_config_demo_smoothturns },
   { "Smooth Playback Factor", S_NUM, m_conf, DM_X, dsda_config_demo_smoothturnsfactor },
   { "Cycle Ghost Colors", S_YESNO, m_conf, DM_X, dsda_config_cycle_ghost_colors },
@@ -3355,7 +3357,9 @@ setup_menu_t auto_options_settings[] =
   { "Grid cell size 8..256, -1 for auto", S_NUM, m_conf, AU_X, dsda_config_map_grid_size },
   { "Pan speed (1..32)", S_NUM, m_conf, AU_X, dsda_config_map_pan_speed },
   { "Zoom speed (1..32)", S_NUM, m_conf, AU_X, dsda_config_map_scroll_speed },
+#ifndef __3DS__ // [3DS] no mouse wheel
   { "Use mouse wheel for zooming", S_YESNO, m_conf, AU_X, dsda_config_map_wheel_zoom },
+#endif
   { "Show Minimap", S_YESNO, m_conf, AU_X, dsda_config_show_minimap },
   EMPTY_LINE,
   { "Components", S_SKIP | S_TITLE, m_null, AU_X},
@@ -3594,7 +3598,11 @@ static const char *gen_pages[] =
 {
   "Video",
   "Audio",
+#ifdef __3DS__
+  "Touch",      // the mouse's settings are touch turning's
+#else
   "Mouse",
+#endif
   "Controller",
   "Misc",
   NULL
@@ -3685,7 +3693,9 @@ setup_menu_t gen_video_settings[] = {
   { "Vertical Sync", S_YESNO, m_conf, G_X, dsda_config_render_vsync },
   { "Uncapped FPS", S_YESNO, m_conf, G_X, dsda_config_uncapped_framerate },
   { "FPS Limit", S_NUM, m_conf, G_X, dsda_config_fps_limit },
+#ifndef __3DS__ // [3DS] no window to leave
   { "Background FPS Limit", S_NUM, m_conf, G_X, dsda_config_background_fps_limit },
+#endif
   { "Show FPS", S_YESNO,  m_conf, G_X, dsda_config_show_fps },
   EMPTY_LINE,
   { "Fake Contrast", S_CHOICE, m_conf, G_X, dsda_config_fake_contrast_mode, 0, fake_contrast_list },
@@ -3702,15 +3712,19 @@ setup_menu_t gen_audio_settings[] = {
   { "Enable v1.1 Pitch Effects", S_YESNO, m_conf, G_X, dsda_config_pitched_sounds },
   { "Disable Sound Cutoffs", S_YESNO, m_conf, G_X, dsda_config_full_sounds },
   { "SFX For Movement Toggles", S_YESNO, m_conf, G_X, dsda_config_movement_toggle_sfx },
+#ifndef __3DS__ // [3DS] no window to leave
   { "Mute When Out of Focus", S_YESNO, m_conf, G_X, dsda_config_mute_unfocused_window },
+#endif
   EMPTY_LINE,
   TITLE("Limits", G_X),
   { "Number of Sound Channels", S_NUM, m_conf, G_X, dsda_config_snd_channels },
   { "Parallel Same-Sound Limit", S_NUM, m_conf, G_X, dsda_config_parallel_sfx_limit },
   { "Parallel Same-Sound Window", S_NUM, m_conf, G_X, dsda_config_parallel_sfx_window },
   EMPTY_LINE,
+#ifndef __3DS__ // [3DS] only the OPL player is built; one audio device
   { "Preferred MIDI player", S_CHOICE | S_STR, m_conf, G_X, dsda_config_snd_midiplayer, 0, midiplayers },
   { "Audio Output Device", S_CHOICE | S_STR, m_conf, G_X, dsda_config_snd_device, 0, audio_devices_list },
+#endif
 
   PREV_PAGE(gen_video_settings),
   NEXT_PAGE(gen_mouse_settings),
@@ -3718,7 +3732,9 @@ setup_menu_t gen_audio_settings[] = {
 };
 
 setup_menu_t gen_mouse_settings[] = {
+#ifndef __3DS__ // [3DS] touch turning is the mouse; its own option on the Nintendo 3DS page
   { "Enable Mouse", S_YESNO, m_conf, G2_X, dsda_config_use_mouse },
+#endif
   EMPTY_LINE,
   { "Horizontal Sensitivity", S_NUM, m_conf, G2_X, dsda_config_mouse_sensitivity_horiz },
   { "Vertical Sensitivity", S_NUM, m_conf, G2_X, dsda_config_mouse_sensitivity_vert },
@@ -3729,7 +3745,9 @@ setup_menu_t gen_mouse_settings[] = {
   { "Invert Free Look", S_YESNO, m_conf, G2_X, dsda_config_movement_mouseinvert },
   EMPTY_LINE,
   { "Mouse Strafe Divisor", S_NUM, m_conf, G2_X, dsda_config_movement_mousestrafedivisor },
+#ifndef __3DS__ // [3DS] touch turning has no clicks
   { "Dbl-Click As Use", S_YESNO, m_conf, G2_X, dsda_config_mouse_doubleclick_as_use },
+#endif
   { "Vertical Mouse Movement", S_YESNO, m_conf, G2_X, dsda_config_vertmouse },
   { "Carry Fractional Tics", S_YESNO, m_conf, G2_X, dsda_config_mouse_carrytics },
   { "Mouse Stutter Correction", S_YESNO, m_conf, G2_X, dsda_config_mouse_stutter_correction },
@@ -3740,7 +3758,9 @@ setup_menu_t gen_mouse_settings[] = {
 };
 
 setup_menu_t gen_controller_settings[] = {
+#ifndef __3DS__ // [3DS] the buttons are the controller: always on
   { "Enable Controller", S_YESNO, m_conf, G2_X, dsda_config_use_game_controller },
+#endif
   EMPTY_LINE,
   { "Left Horizontal Sensitivity", S_NUM, m_conf, G2_X, dsda_config_left_analog_sensitivity_x },
   { "Left Vertical Sensitivity", S_NUM, m_conf, G2_X, dsda_config_left_analog_sensitivity_y },
@@ -3771,7 +3791,9 @@ setup_menu_t gen_misc_settings[] = {
   { "Enable Cheat Code Entry", S_YESNO, m_conf, G2_X, dsda_config_cheat_codes },
   { "Skip Quit Prompt", S_YESNO, m_conf, G2_X, dsda_config_skip_quit_prompt },
   EMPTY_LINE,
+#ifndef __3DS__ // [3DS] no text screen at the end
   { "Endoom Screen", S_CHOICE, m_conf, G2_X, dsda_config_show_endoom, 0, endoom_list },
+#endif
   EMPTY_LINE,
   TITLE("Rewind", G2_X),
   { "Rewind Interval (s)", S_NUM, m_conf, G2_X, dsda_config_auto_key_frame_interval },
