@@ -3676,8 +3676,10 @@ setup_menu_t gen_video_settings[] = {
   { "Video mode", S_CHOICE | S_STR, m_conf, G_X, dsda_config_videomode, 0, videomodes },
   { "Screen Resolution", S_CHOICE | S_STR, m_conf, G_X, dsda_config_screen_resolution, 0, screen_resolutions_list },
   { "Aspect Ratio", S_CHOICE, m_conf, G_X, dsda_config_render_aspect, 0, render_aspects_list },
+#ifndef __3DS__ // [3DS] PC window options (turning them on crashed)
   { "Fullscreen Video mode", S_YESNO, m_conf, G_X, dsda_config_use_fullscreen },
   { "Exclusive Fullscreen", S_YESNO, m_conf, G_X, dsda_config_exclusive_fullscreen },
+#endif
   EMPTY_LINE,
   TITLE("FPS", G_X),
   { "Vertical Sync", S_YESNO, m_conf, G_X, dsda_config_render_vsync },

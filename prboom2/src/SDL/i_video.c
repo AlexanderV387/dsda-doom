@@ -1103,7 +1103,12 @@ void I_InitScreenResolution(void)
 
   I_GetScreenResolution();
 
+#ifdef __3DS__
+  // [3DS] One screen size: the PC's fullscreen modes only broke it.
+  desired_fullscreen = 0;
+#else
   desired_fullscreen = dsda_IntConfig(dsda_config_use_fullscreen);
+#endif
 
   if (init)
   {
@@ -1260,8 +1265,12 @@ void I_UpdateVideoMode(void)
   const dboolean novsync = dsda_Flag(dsda_arg_timedemo) ||
                            dsda_Flag(dsda_arg_fastdemo);
 
+#ifdef __3DS__
+  exclusive_fullscreen = 0;
+#else
   exclusive_fullscreen = dsda_IntConfig(dsda_config_exclusive_fullscreen) &&
                          I_DesiredVideoMode() == VID_MODESW;
+#endif
   render_vsync = dsda_IntConfig(dsda_config_render_vsync) && !novsync;
   sdl_video_window_pos = dsda_StringConfig(dsda_config_sdl_video_window_pos);
   sdl_video_display_index = dsda_IntConfig(dsda_config_sdl_video_display_index);
