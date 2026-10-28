@@ -2,6 +2,11 @@ Hexen for the New Nintendo 3DS, on [DSDA-Doom](https://github.com/kraflab/dsda-d
 
 **New 3DS and New 2DS XL only.** Developed and tested on a New 3DS. It was neither designed nor tested for the Old 3DS or 2DS, where it may run very slowly, run out of memory on big maps, or not start.
 
+## New in 1.1.0
+
+- **800x240:** with the GPU renderer (OpenGL), the top screen in its wide mode (not on the original 2DS), on by default: twice the pixels across, sharper edges and distant detail. *Options > General > Video > Screen Resolution* chooses 400x240 or 800x240. The software renderer stays at 400x240.
+- **No PC-only options in the menus:** the fullscreen ones (turning them on crashed the game), the window, mouse wheel, MIDI player and audio device ones. The Mouse page is now called Touch: its sensitivities are touch turning's.
+
 ## New in 1.0.1
 
 - **Settings are saved when a menu closes** (if anything changed), not only when quitting or at the HOME Menu, so a crash no longer loses them (the weapon buttons, for example).
