@@ -38,16 +38,11 @@
 // OpenGL's coordinates still those of 400x240: twice the detail across,
 // for the same drawing.
 static int x_scale = 1, want_x_scale = 1;
+static bool wide_refused; // no room for it: not tried again until asked anew
 #define TARGET_WIDTH (TOP_WIDTH * x_scale)
 static bool MakeTarget(void);
+static void RoomInVRAM(u32 need);
 static inline u32 TexelOffset(int x, int y, int width);
-
-// (Diagnosis, to remove) the second pass of draws with fog (see Draw) on or
-// off, 120 frames each in turn, and how many frames of each the walls left
-// without their depth.
-static bool fog_pass = true;
-static bool frame_wrote_depth;
-static int pass_frames, pass_checked, pass_lost;
 
 #define COMMAND_BUFFER_SIZE (BIG_LINEAR ? 2 * 1024 * 1024 : 1024 * 1024)
 // The vertex buffer and the command list: twice as big with a bigger
@@ -576,9 +571,16 @@ static void BeginFrame(void)
     C3D_RenderTargetDelete(old);
     x_scale = want_x_scale;
 
+    // The wide one (its color and depth, 1.5 MiB) where textures had filled
+    // VRAM: some of them go back to main memory (they come back as there
+    // is room). Without it, it was tried and failed every frame.
+    if (x_scale == 2)
+      RoomInVRAM(2 * TOP_HEIGHT * TARGET_WIDTH * 4 + VRAM_RESERVE);
+
     if (!MakeTarget())
     {
-      // No room for the wide one: back to the other.
+      // Still no room for the wide one: back to the other, and so it stays.
+      wide_refused = x_scale == 2;
       x_scale = want_x_scale = x_scale == 2 ? 1 : 2;
       MakeTarget();
     }
@@ -590,34 +592,6 @@ static void BeginFrame(void)
   start = svcGetSystemTick();
   StartFrame(work_us < SYNC_WORK_US && !Closing());
 
-  // (Diagnosis) the last frame, the GPU done with it: whether its walls
-  // wrote their depth (most of the screen still at the clear's 1 if not).
-  if (frame_wrote_depth && (frame_number & 3) == 0 && target->frameBuf.depthBuf)
-  {
-    const u32 *depth_buffer = (const u32 *) target->frameBuf.depthBuf;
-    int x, y, far = 0, total = 0;
-
-    GSPGPU_InvalidateDataCache(target->frameBuf.depthBuf, TOP_HEIGHT * TARGET_WIDTH * 4);
-
-    for (y = 4; y < TOP_HEIGHT; y += 8)
-      for (x = 4; x < TARGET_WIDTH; x += 8, ++total)
-        if ((depth_buffer[TexelOffset(y, x, TOP_HEIGHT)] & 0xFFFFFF) == 0xFFFFFF)
-          ++far;
-
-    ++pass_checked;
-    if (far * 2 > total)
-      ++pass_lost;
-  }
-  frame_wrote_depth = false;
-
-  if (++pass_frames >= 120)
-  {
-    if (pass_checked)
-      printf("pgl: second pass %s: walls without depth in %d of %d frames checked\n",
-             fog_pass ? "on" : "off", pass_lost, pass_checked);
-    fog_pass = !fog_pass;
-    pass_frames = pass_checked = pass_lost = 0;
-  }
   frame_vram_uploads = 0; // the GPU list starts empty
   wait_ticks += svcGetSystemTick() - start;
   stat_wait_ticks += svcGetSystemTick() - start;
@@ -1246,27 +1220,6 @@ static void Draw(GPU_Primitive_t primitive, int first, int count)
   C3D_DrawArrays(primitive, first, count);
   ++frame_draws;
   ++stat_draws;
-
-  if (applied.fragment.depth_on && (applied.fragment.write & GPU_WRITE_DEPTH))
-    frame_wrote_depth = true;
-
-  // With fog, the PICA200 now and then writes no depth for a draw (for
-  // most of a frame's, or none): in EDuke32's Polymost, on the same pgl,
-  // sprites showed through the walls. Without fog it always does: such
-  // draws are made again without it, for their depth alone (the same
-  // texture and alpha test: what they let through has no depth).
-  if (fog_pass && applied.fog && applied.fragment.depth_on
-      && (applied.fragment.write & GPU_WRITE_DEPTH))
-  {
-    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
-    C3D_DepthTest(true, applied.fragment.depth_func, GPU_WRITE_DEPTH);
-    C3D_DrawArrays(primitive, first, count);
-    ++frame_draws;
-
-    // The fog and the depth test as they were, at the next draw.
-    applied.fog = false;
-    pending_changes |= CHANGE_PROGRAM | CHANGE_FRAGMENT;
-  }
 }
 
 // The waiting draws, to the GPU. Before anything else that changes
@@ -1594,6 +1547,11 @@ static bool MakeTarget(void)
 
 void pglSetWide(bool wide)
 {
+  if (!wide)
+    wide_refused = false;
+  else if (wide_refused)
+    return;
+
   want_x_scale = wide ? 2 : 1;
 }
 
@@ -3298,6 +3256,44 @@ static bool UploadToVRAM(texture_t *t, int tex_width, int tex_height, GPU_TEXCOL
 
   t->shadow = shadow;
   return true;
+}
+
+// Textures in VRAM back to main memory, those drawn longest ago first, until
+// need bytes of it are free. Only with the GPU idle (their VRAM is freed now).
+static void RoomInVRAM(u32 need)
+{
+  while (vramSpaceFree() < need)
+  {
+    texture_t *oldest = NULL;
+    u32 *data;
+    int k;
+
+    for (k = 1; k < texture_count; ++k)
+    {
+      texture_t *t = &textures[k];
+
+      if (t->has_data && t->shadow && IsVRAM(t->tex.data) && (!oldest || t->frame < oldest->frame))
+        oldest = t;
+    }
+
+    if (!oldest)
+      return;
+
+    MakeRoom(oldest->tex.size);
+    data = linearAlloc(oldest->tex.size);
+
+    if (!data)
+      return;
+
+    memcpy(data, oldest->shadow, oldest->tex.size);
+    vramFree(oldest->tex.data);
+    free(oldest->shadow);
+    oldest->shadow = NULL;
+    oldest->tex.data = data;
+
+    if (oldest == BoundTexture(0))
+      texture_dirty = true;
+  }
 }
 
 // Before the CPU changes a texture in VRAM: into main memory, from its copy.
