@@ -92,6 +92,28 @@ This fork (branch `n3ds`) runs DSDA-Doom on the New 3DS: OpenGL on the 3DS's GPU
 
 **New 3DS and New 2DS XL only.** These builds were developed and tested on a New 3DS. They were neither designed nor tested for the Old 3DS or 2DS, where they may run very slowly, run out of memory on big maps, or not start.
 
+### Installing
+
+Install the `.cia` with FBI (it appears on the HOME Menu), or copy `dsda-doom.3dsx` to `/3ds/` and open it from the Homebrew Launcher. Game data is not included: use your own copy.
+
+| Title | Game data | Mods (`.wad`, `.deh`, `.bex`, `.zip`) |
+|---|---|---|
+| `dsda-doom.cia`, `dsda-doom.3dsx` | `/3ds/dsda-doom/`: `doom.wad`, `doom1.wad` (free), `doom2.wad`, `plutonia.wad`, `tnt.wad`, `freedoom1.wad`, `freedoom2.wad` (free) | `/3ds/dsda-doom/mods/` |
+| `heretic.cia` | `/3ds/heretic/`: `heretic.wad`, `heretic1.wad` (free); the 2025 remaster's `heretic_ex.wad`, `heretic_fr.wad` | `/3ds/heretic/mods/` |
+| `hexen.cia` | `/3ds/hexen/`: `hexen.wad`, `hexdd.wad`; the 2025 remaster's `hexen_ex.wad`, `hexdd_ex.wad`, `hexen_vog.wad` | `/3ds/hexen/mods/` |
+
+Settings, saves and the log are kept in the same folder.
+
+### Tested on hardware
+
+On a New Nintendo 3DS:
+
+- DSDA-Doom: `doom1.wad`, `doom2.wad`, `freedoom1.wad`, `freedoom2.wad`; mods D4V, `SD21.wad` with `SD21-BloodPatch.wad`, Eviternity (also on `freedoom2.wad`), `nuts.wad`, `nuts3.wad`, `planisf2.wad`, `frozent.wad`, `d2spfx20.wad` with `d2dehfix.deh`.
+- Heretic: `heretic.wad`, `heretic1.wad`, `heretic_ex.wad`, `heretic_fr.wad` (the remaster's, GOG); the mod `HTIC_V12_2.zip`.
+- Hexen: `hexen.wad`, `hexdd.wad`, `hexen_ex.wad`, `hexdd_ex.wad`, `hexen_vog.wad` (the remaster's, GOG).
+
+Not tested yet: Final Doom, Chex Quest, HACX, REKKR.
+
 Known limits: maps with large hordes, such as the secret maps of the remaster episodes (Faith Renewed's E1M9, Vestiges of Grandeur's MAP07), drop to around 10 FPS. Heavy gameplay mods (Smooth Doom, for example) also slow down in big fights.
 
 - 3DS port: direction, design and hardware testing by AlexanderV387; code written with Claude (AI).
